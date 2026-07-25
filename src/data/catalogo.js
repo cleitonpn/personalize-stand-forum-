@@ -143,6 +143,9 @@ export const NAPAS = {
 export const MOBILIARIO = [
   { id: 'balcao', nome: 'Balcão c/ logo', forma: 'balcao', w: 2.0, d: 0.7, h: 1.1, preco: 0, base: true },
   { id: 'mesa-bistro', nome: 'Mesa bistrô + 3 banquetas', forma: 'bistro', w: 0.9, d: 0.9, h: 1.1, preco: 480 },
+  { id: 'banqueta', nome: 'Banqueta avulsa', forma: 'banqueta', w: 0.4, d: 0.4, h: 0.75, preco: 120 },
+  { id: 'mesa-redonda', nome: 'Mesa redonda', forma: 'mesa', w: 0.9, d: 0.9, h: 0.75, preco: 380 },
+  { id: 'cadeira', nome: 'Cadeira', forma: 'cadeira', w: 0.5, d: 0.5, h: 0.85, preco: 150 },
   { id: 'aparador', nome: 'Aparador 1,10 × 0,40', forma: 'aparador', w: 1.1, d: 0.4, h: 1.0, preco: 320 },
   { id: 'sofa', nome: 'Sofá 2 lugares', forma: 'sofa', w: 1.6, d: 0.85, h: 0.8, preco: 720 },
   { id: 'poltrona', nome: 'Poltrona', forma: 'poltrona', w: 0.8, d: 0.85, h: 0.8, preco: 340 },

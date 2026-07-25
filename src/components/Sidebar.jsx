@@ -5,6 +5,7 @@ import {
 import Swatches from './Swatches.jsx'
 import ParedeEditor from './ParedeEditor.jsx'
 import LedOptions from './LedOptions.jsx'
+import BalcaoEditor from './BalcaoEditor.jsx'
 
 function Section({ id, ico, titulo, tag, aberto, setAberto, children }) {
   const open = aberto === id
@@ -42,9 +43,22 @@ export default function Sidebar() {
       </Section>
 
       <Section id="led" ico="▮" titulo="Painel de LED" aberto={aberto} setAberto={setAberto}
-        tag={state.led !== 'nenhum' ? 'incluso' : null}>
-        <p className="hint">Escolha onde aplicar o painel de LED.</p>
+        tag={(state.led.colunas !== 'nenhum' || state.led.testeira) ? 'incluso' : null}>
+        <p className="hint">Escolha onde aplicar o painel de LED — colunas e testeira podem ser combinados.</p>
         <LedOptions />
+      </Section>
+
+      <Section id="tv" ico="🖥" titulo='TV 55"' aberto={aberto} setAberto={setAberto}
+        tag={state.tv.presente ? null : 'removida'}>
+        <div className="toggle-row">
+          <label className="switch"><input type="checkbox" checked={state.tv.presente} onChange={() => dispatch({ type: 'SET_TV', tv: { presente: !state.tv.presente } })} /><span className="slider" /></label>
+          <span>{state.tv.presente ? 'TV incluída' : 'Sem TV'}</span>
+        </div>
+        {state.tv.presente && (
+          <div className="range-row"><span>Posição</span>
+            <input type="range" min="0.8" max="9.2" step="0.1" value={state.tv.x}
+              onChange={(e) => dispatch({ type: 'SET_TV', tv: { x: +e.target.value } })} /><span className="rv">{state.tv.x.toFixed(1)}m</span></div>
+        )}
       </Section>
 
       <Section id="deposito" ico="▢" titulo="Depósito" aberto={aberto} setAberto={setAberto}>
@@ -73,6 +87,13 @@ export default function Sidebar() {
             <div className="range-row"><span>Profund.</span>
               <input type="range" min={REGRAS.salaReuniao.dMin} max={REGRAS.salaReuniao.dMax} step="0.1" value={state.salaReuniao.d}
                 onChange={(e) => dispatch({ type: 'REDIM_SALA', d: +e.target.value })} /><span className="rv">{state.salaReuniao.d.toFixed(1)}m</span></div>
+            <div className="wall-block">
+              <div className="wall-block-title">Piso da sala <span className="hint-inline">(padrão = mesmo do stand)</span></div>
+              <Swatches grupos={PISOS} grupoAtivo={state.salaReuniao.pisoGrupo || state.piso.grupo}
+                corId={state.salaReuniao.pisoCorId || state.piso.corId}
+                onGrupo={(k) => dispatch({ type: 'SET_SALA_PISO', grupo: k, corId: PISOS[k].itens[0].id })}
+                onCor={(id) => dispatch({ type: 'SET_SALA_PISO', grupo: state.salaReuniao.pisoGrupo || state.piso.grupo, corId: id })} />
+            </div>
           </>
         )}
       </Section>
@@ -80,6 +101,7 @@ export default function Sidebar() {
       <Section id="mob" ico="🪑" titulo="Mobiliário" aberto={aberto} setAberto={setAberto}
         tag={extraMob ? `+${extraMob}` : null}>
         <p className="hint">Adicione itens, arraste na planta e use ⟳ para girar.</p>
+        <BalcaoEditor />
         <div className="chip-grid">
           {MOBILIARIO.filter((m) => !m.base).map((m) => (
             <button key={m.id} className="chip" onClick={() => dispatch({ type: 'ADD_MOBILIARIO', tipo: m.id })}>

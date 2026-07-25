@@ -4,6 +4,7 @@ import { fmtBRL } from '../data/catalogo.js'
 import Swatches from './Swatches.jsx'
 import ParedeEditor from './ParedeEditor.jsx'
 import LedOptions from './LedOptions.jsx'
+import BalcaoEditor from './BalcaoEditor.jsx'
 
 const PASSOS = [
   { nome: 'Piso', ico: '▦', sub: 'A base do seu estande', dica: 'Cores escuras dão sofisticação; claras ampliam o espaço. O vinílico dá um acabamento premium.' },
@@ -38,10 +39,30 @@ export default function ClientWizard() {
             <div><b>Sala de reunião de vidro</b><small>Vidro com porta, sem teto, até 4,0 × 3,0 m</small></div>
             <span className={`wz-check ${state.salaReuniao ? 'on' : ''}`}>{state.salaReuniao ? '✓' : '+'}</span>
           </div>
+          {state.salaReuniao && (
+            <div className="wall-block">
+              <div className="wall-block-title">Piso da sala <span className="hint-inline">(padrão = mesmo do stand)</span></div>
+              <Swatches grupos={PISOS} grupoAtivo={state.salaReuniao.pisoGrupo || state.piso.grupo}
+                corId={state.salaReuniao.pisoCorId || state.piso.corId}
+                onGrupo={(k) => dispatch({ type: 'SET_SALA_PISO', grupo: k, corId: PISOS[k].itens[0].id })}
+                onCor={(id) => dispatch({ type: 'SET_SALA_PISO', grupo: state.salaReuniao.pisoGrupo || state.piso.grupo, corId: id })} />
+            </div>
+          )}
+          <div className="wz-sub">TV 55"</div>
+          <div className="wz-card" onClick={() => dispatch({ type: 'SET_TV', tv: { presente: !state.tv.presente } })}>
+            <div><b>TV 55" na parede do fundo</b><small>Inclusa no pacote — pode remover ou reposicionar</small></div>
+            <span className={`wz-check ${state.tv.presente ? 'on' : ''}`}>{state.tv.presente ? '✓' : '+'}</span>
+          </div>
+          {state.tv.presente && (
+            <div className="range-row"><span>Posição</span>
+              <input type="range" min="0.8" max="9.2" step="0.1" value={state.tv.x}
+                onChange={(e) => dispatch({ type: 'SET_TV', tv: { x: +e.target.value } })} /><span className="rv">{state.tv.x.toFixed(1)}m</span></div>
+          )}
         </>
       )
       case 3: return (
         <>
+          <BalcaoEditor />
           <div className="wz-sub">Mobiliário</div>
           <div className="chip-grid">
             {MOBILIARIO.filter((m) => !m.base).map((m) => (

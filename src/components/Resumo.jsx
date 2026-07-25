@@ -3,11 +3,12 @@ import {
   corPorId, fmtBRL, CLIENTE_DEMO, MOBILIARIO, PAISAGISMO, ELETRICA, PISOS, NAPAS,
 } from '../data/catalogo.js'
 
-const LED_TXT = {
-  nenhum: 'não',
-  coluna1: '1 coluna frontal',
-  colunas2: '2 colunas frontais',
-  testeira: 'testeira frontal + laterais',
+function ledTxt(led) {
+  const parts = []
+  if (led.colunas === 'coluna1') parts.push('1 coluna frontal')
+  if (led.colunas === 'colunas2') parts.push('2 colunas frontais')
+  if (led.testeira) parts.push('testeira frontal + laterais')
+  return parts.length ? parts.join(' + ') : 'não'
 }
 const lonaTxt = (l) => !l ? '—' : l.fonte === 'custom' ? `imagem enviada (${l.nome || 'custom'})` : `padrão (${l.id})`
 
@@ -19,11 +20,24 @@ export default function Resumo() {
 
   const briefing = () => construirBriefing(state, orcamento, { pisoCor })
 
+  const capturarImagens = () => {
+    let img3d = null, imgPlan = null
+    try { img3d = window.__psfShot?.() } catch { /* sem WebGL shot */ }
+    try {
+      const svg = document.querySelector('.plan-svg')
+      if (svg) {
+        const s = new XMLSerializer().serializeToString(svg)
+        imgPlan = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(s)))
+      }
+    } catch { /* sem planta */ }
+    return { img3d, imgPlan }
+  }
+
   const exportarPDF = () => {
     const w = window.open('', '_blank')
     if (!w) { alert('Permita pop-ups para gerar o resumo.'); return }
-    w.document.write(briefingHTML(briefing())); w.document.close(); w.focus()
-    setTimeout(() => w.print(), 350)
+    w.document.write(briefingHTML(briefing(), capturarImagens())); w.document.close(); w.focus()
+    setTimeout(() => w.print(), 450)
   }
   const baixarJSON = () => {
     const blob = new Blob([JSON.stringify(briefing(), null, 2)], { type: 'application/json' })
@@ -105,7 +119,13 @@ function construirBriefing(state, orcamento, cores) {
     gerado_em: new Date().toLocaleString('pt-BR'),
     piso: { tipo: PISOS[state.piso.grupo]?.rotulo, cor: cores.pisoCor?.nome, codigo: cores.pisoCor?.cb, hex: cores.pisoCor?.hex },
     paredes: Object.keys(PAREDES).map(parede),
-    led: LED_TXT[state.led],
+    led: ledTxt(state.led),
+    tv: state.tv.presente ? `sim, posição ${state.tv.x.toFixed(1)} m` : 'removida',
+    balcao: {
+      cor: corPorId(state.balcaoCfg.corId)?.nome,
+      logo: state.balcaoCfg.logoUrl ? 'logo do expositor (enviado)' : 'logo padrão do evento',
+    },
+    sala_piso: state.salaReuniao?.pisoCorId ? corPorId(state.salaReuniao.pisoCorId)?.nome : (state.salaReuniao ? 'mesmo do stand' : null),
     deposito: { x: +state.deposito.x.toFixed(2), z: +state.deposito.z.toFixed(2), largura: state.deposito.w, profundidade: state.deposito.d, area: +(state.deposito.w * state.deposito.d).toFixed(2) },
     sala_reuniao: state.salaReuniao ? { largura: state.salaReuniao.w, profundidade: state.salaReuniao.d, x: +state.salaReuniao.x.toFixed(2), z: +state.salaReuniao.z.toFixed(2) } : null,
     mobiliario_extra: state.mobiliario.filter((m) => !m.base).map((m) => ({ item: MOBILIARIO.find((x) => x.id === m.tipo)?.nome, x: +m.x.toFixed(2), z: +m.z.toFixed(2), rotacao_graus: Math.round((m.rot * 180) / Math.PI) })),
@@ -117,7 +137,7 @@ function construirBriefing(state, orcamento, cores) {
   }
 }
 
-function briefingHTML(b) {
+function briefingHTML(b, imgs = {}) {
   const linhas = (arr, cols) => arr.length
     ? `<table><thead><tr>${cols.map((c) => `<th>${c.h}</th>`).join('')}</tr></thead><tbody>${arr.map((r) => `<tr>${cols.map((c) => `<td>${r[c.k] ?? '—'}</td>`).join('')}</tr>`).join('')}</tbody></table>`
     : '<p class="muted">—</p>'
@@ -141,10 +161,16 @@ function briefingHTML(b) {
   <p class="muted">${b.cliente} · Opção ${b.opcao} · ${b.area} m² (${b.medidas}) · gerado em ${b.gerado_em}<br>
   Documento para o atendimento comercial dar continuidade no pós-venda com o cliente.</p>
 
+  ${imgs.img3d ? `<h2>Vista do projeto</h2><img src="${imgs.img3d}" style="width:100%;border:1px solid #ddd;border-radius:6px;background:#0d0e12">` : ''}
+  ${imgs.imgPlan ? `<h2>Planta baixa</h2><div style="background:#101218;border-radius:6px;padding:6px"><img src="${imgs.imgPlan}" style="width:100%"></div>` : ''}
+
   <h2>Acabamentos</h2>
   <div class="grid">
     <div><b>Piso:</b> <span class="sw" style="background:${b.piso.hex}"></span>${b.piso.tipo} — ${b.piso.cor} ${b.piso.codigo || ''}</div>
     <div><b>Painel de LED:</b> ${b.led}</div>
+    <div><b>TV 55":</b> ${b.tv}</div>
+    <div><b>Balcão:</b> cor ${b.balcao.cor} · ${b.balcao.logo}</div>
+    ${b.sala_piso ? `<div><b>Piso da sala de reunião:</b> ${b.sala_piso}</div>` : ''}
   </div>
 
   <h2>Paredes</h2>
