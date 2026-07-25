@@ -91,3 +91,50 @@ export function panelTexture() {
   _panel.anisotropy = 8
   return _panel
 }
+
+// ---- Lonas padrão (protótipo) — substituíveis pela arte enviada pelo cliente
+const _lonas = {}
+export const LONAS_PADRAO = [
+  { id: 'lona-marca', nome: 'Sua marca (padrão)' },
+  { id: 'lona-promo', nome: 'Campanha / promo' },
+  { id: 'lona-clean', nome: 'Clean claro' },
+]
+export function lonaPadraoTexture(id) {
+  if (_lonas[id]) return _lonas[id]
+  const { c, ctx } = makeCanvas(900, 1100)
+  if (id === 'lona-clean') {
+    ctx.fillStyle = '#f2f2ee'; ctx.fillRect(0, 0, 900, 1100)
+    ctx.fillStyle = '#1a1a1a'; ctx.textAlign = 'center'
+    ctx.font = '900 150px Arial'; ctx.fillText('SUA', 450, 480)
+    ctx.fillText('MARCA', 450, 640)
+    ctx.fillStyle = '#f4c20d'; ctx.fillRect(320, 700, 260, 26)
+  } else if (id === 'lona-promo') {
+    const g = ctx.createLinearGradient(0, 0, 900, 1100)
+    g.addColorStop(0, '#7a1030'); g.addColorStop(1, '#c026d3')
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 900, 1100)
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'
+    ctx.font = '900 190px Arial'; ctx.fillText('-30%', 450, 520)
+    ctx.font = '700 70px Arial'; ctx.fillText('novidades na feira', 450, 640)
+  } else {
+    const g = ctx.createLinearGradient(0, 0, 0, 1100)
+    g.addColorStop(0, '#101425'); g.addColorStop(1, '#241b3a')
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 900, 1100)
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'
+    ctx.font = '900 150px Arial'; ctx.fillText('SUA MARCA', 450, 470)
+    ctx.fillStyle = '#f4c20d'; ctx.fillRect(300, 540, 300, 26)
+    ctx.fillStyle = '#cfd4e0'; ctx.font = '600 52px Arial'
+    ctx.fillText('aqui no Fórum E-commerce', 450, 660)
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8
+  _lonas[id] = t
+  return t
+}
+
+// textura a partir de uma imagem enviada (data URL)
+export function textureFromURL(url) {
+  const t = new THREE.TextureLoader().load(url)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 8
+  return t
+}

@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { useStand, PISOS, NAPAS, MOBILIARIO, PAISAGISMO, ELETRICA } from '../store/StandStore.jsx'
+import { useStand, PISOS, MOBILIARIO, PAISAGISMO, ELETRICA } from '../store/StandStore.jsx'
 import { fmtBRL } from '../data/catalogo.js'
 import Swatches from './Swatches.jsx'
+import ParedeEditor from './ParedeEditor.jsx'
+import LedOptions from './LedOptions.jsx'
 
 const PASSOS = ['Piso', 'Paredes', 'Destaques', 'Mobiliário', 'Elétrica', 'Resumo']
 
@@ -22,26 +24,20 @@ export default function ClientWizard() {
       )
       case 1: return (
         <>
-          <p className="wz-lead">Defina a cor das paredes em napa. Temos cores lisas, amadeiradas e efeitos especiais (cimento, tijolo…).</p>
-          <Swatches grupos={NAPAS} grupoAtivo={state.parede.grupo} corId={state.parede.corId}
-            onGrupo={(k) => dispatch({ type: 'SET_PAREDE', grupo: k, corId: primeiraCor(NAPAS, k) })}
-            onCor={(id) => dispatch({ type: 'SET_PAREDE', grupo: state.parede.grupo, corId: id })} />
+          <p className="wz-lead">Clique na parede que quer personalizar e escolha a cor da napa ou aplique uma lona impressa (com sua imagem).</p>
+          <ParedeEditor />
         </>
       )
       case 2: return (
         <>
           <p className="wz-lead">Dê um upgrade no seu estande com destaques que chamam atenção no corredor.</p>
-          <div className="wz-card" onClick={() => dispatch({ type: 'TOGGLE_LED' })}>
-            <div>
-              <b>Painel de LED na testeira</b>
-              <small>Colunas frontais em LED, como nas Opções A/B</small>
-            </div>
-            <span className={`wz-check ${state.ledTesteira ? 'on' : ''}`}>{state.ledTesteira ? '✓' : '+'}</span>
-          </div>
+          <div className="wz-sub">Painel de LED</div>
+          <LedOptions />
+          <div className="wz-sub">Sala de reunião</div>
           <div className="wz-card" onClick={() => dispatch({ type: 'TOGGLE_SALA' })}>
             <div>
               <b>Sala de reunião de vidro</b>
-              <small>Ambiente fechado com porta, até 4,0 × 3,0 m</small>
+              <small>Vidro com porta, sem teto, até 4,0 × 3,0 m</small>
             </div>
             <span className={`wz-check ${state.salaReuniao ? 'on' : ''}`}>{state.salaReuniao ? '✓' : '+'}</span>
           </div>
@@ -73,6 +69,7 @@ export default function ClientWizard() {
               return (
                 <div key={m.uid} className="mini-item">
                   {meta?.nome}{m.base && <span className="badge-incluso">incluso</span>}
+                  <button className="ic" title="Girar" onClick={() => dispatch({ type: 'GIRAR_MOBILIARIO', uid: m.uid })}>⟳</button>
                   <button className="x" onClick={() => dispatch({ type: 'REMOVER_MOBILIARIO', uid: m.uid })}>×</button>
                 </div>
               )

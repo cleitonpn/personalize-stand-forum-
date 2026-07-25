@@ -189,6 +189,33 @@ h1,h2,h3,h4 { margin: 0; font-weight: 700; letter-spacing: -.01em; }
 .login-logo { font-weight: 800; font-size: 15px; background: var(--brand); color: var(--brand-ink);
   padding: 5px 10px; border-radius: 7px; display: inline-block; margin-bottom: 18px; }
 
+/* wall editor */
+.wall-block { margin-top: 14px; }
+.wall-block-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--txt-dim); font-weight: 700; margin-bottom: 8px; }
+.hint-inline { color: var(--txt-dim); font-weight: 500; text-transform: none; letter-spacing: 0; }
+.lona-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lona-opt { border: 1px solid var(--line); background: var(--panel-2); color: var(--txt);
+  border-radius: 9px; padding: 10px; font-size: 12px; font-weight: 600; text-align: left; }
+.lona-opt:hover { border-color: var(--brand); }
+.lona-opt.sel { border-color: var(--brand); color: var(--brand); }
+.lona-opt.upload { border-style: dashed; color: var(--txt-dim); }
+
+/* LED options */
+.led-opts { display: flex; flex-direction: column; gap: 8px; }
+.led-opt { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--txt); border-radius: 10px; padding: 11px 12px; font-size: 13px; font-weight: 600; text-align: left; }
+.led-opt:hover { border-color: var(--brand); }
+.led-opt.sel { border-color: var(--brand); }
+.led-radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); flex: 0 0 auto; }
+.led-opt.sel .led-radio { border-color: var(--brand); background: radial-gradient(circle, var(--brand) 42%, transparent 46%); }
+.led-nome { flex: 1; }
+.led-preco { font-size: 11.5px; color: var(--txt-dim); }
+.led-opt.sel .led-preco { color: var(--brand); }
+
+.mini-item .ic { background: none; border: none; color: var(--txt-dim); font-size: 15px; cursor: pointer; padding: 0 2px; }
+.mini-item .ic:hover { color: var(--brand); }
+
 /* mode switch (topbar) */
 .mode-switch { display: flex; background: var(--panel-2); border: 1px solid var(--line);
   border-radius: 999px; padding: 3px; gap: 2px; }

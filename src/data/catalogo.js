@@ -169,9 +169,12 @@ export const ELETRICA = [
 export const PRECOS = {
   vinilicoUpgrade: 1900,     // troca de carpete por piso vinílico (área cheia)
   salaReuniao: 6800,         // sala de reunião de vidro (até 4x3) com porta
-  ledTesteiraPar: 3200,      // par de painéis de LED nas colunas da testeira
-  ledPainelExtra: 1500,      // painel de LED avulso adicional
-  lonaExtra: 380,            // lona/gráfica adicional
+  led: {
+    coluna1: 1600,           // painel de LED em 1 coluna frontal
+    colunas2: 3000,          // painel de LED nas 2 colunas frontais
+    testeira: 5400,          // painel de LED na testeira frontal + laterais
+  },
+  lonaParede: 700,           // lona impressa cobrindo uma parede
   logoExtra: 260,            // logo adicional
 }
 
