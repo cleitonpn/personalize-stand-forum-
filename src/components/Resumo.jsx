@@ -1,4 +1,4 @@
-import { useStand, PAREDES } from '../store/StandStore.jsx'
+import { useStand, PAREDES, ZONAS } from '../store/StandStore.jsx'
 import {
   corPorId, fmtBRL, CLIENTE_DEMO, MOBILIARIO, PAISAGISMO, ELETRICA, PISOS, NAPAS,
 } from '../data/catalogo.js'
@@ -14,10 +14,10 @@ const lonaTxt = (l) => !l ? '—' : l.fonte === 'custom' ? `imagem enviada (${l.
 export default function Resumo() {
   const { state, orcamento } = useStand()
   const pisoCor = corPorId(state.piso.corId)
-  const fundoCor = corPorId(state.paredes.fundo.corId)
-  const direitaCor = corPorId(state.paredes.direita.corId)
+  const fundoCor = corPorId(state.paredes['fundo-esq'].corId)
+  const direitaCor = corPorId(state.paredes['fundo-dir'].corId)
 
-  const briefing = () => construirBriefing(state, orcamento, { pisoCor, fundoCor, direitaCor })
+  const briefing = () => construirBriefing(state, orcamento, { pisoCor })
 
   const exportarPDF = () => {
     const w = window.open('', '_blank')
@@ -75,6 +75,8 @@ export default function Resumo() {
         {linhaCor('Piso', pisoCor)}
         {linhaCor('Fundo · napa', fundoCor)}
         {linhaCor('Fundo · madeira', direitaCor)}
+        <div className="orc-line"><span className="lbl">Paredes com lona</span>
+          <span className="val">{Object.values(state.paredes).filter((p) => p.lona).length || '—'}</span></div>
       </div>
 
       <div className="resumo-actions">
@@ -89,17 +91,20 @@ export default function Resumo() {
 function construirBriefing(state, orcamento, cores) {
   const elet = {}
   for (const e of state.eletrica) elet[e.tipo] = (elet[e.tipo] || 0) + 1
-  const parede = (id, cor) => ({
-    parede: PAREDES[id].rotulo,
-    tipo: NAPAS[state.paredes[id].grupo]?.rotulo,
-    cor: cor?.nome, codigo: cor?.cb, hex: cor?.hex,
-    lona: state.paredes[id].lona ? lonaTxt(state.paredes[id].lona) : null,
-  })
+  const parede = (id) => {
+    const cor = corPorId(state.paredes[id].corId)
+    return {
+      parede: PAREDES[id].rotulo,
+      tipo: NAPAS[state.paredes[id].grupo]?.rotulo,
+      cor: cor?.nome, codigo: cor?.cb, hex: cor?.hex,
+      lona: state.paredes[id].lona ? lonaTxt(state.paredes[id].lona) : null,
+    }
+  }
   return {
     cliente: CLIENTE_DEMO.empresa, opcao: CLIENTE_DEMO.opcao, area: CLIENTE_DEMO.area, medidas: CLIENTE_DEMO.medidas,
     gerado_em: new Date().toLocaleString('pt-BR'),
     piso: { tipo: PISOS[state.piso.grupo]?.rotulo, cor: cores.pisoCor?.nome, codigo: cores.pisoCor?.cb, hex: cores.pisoCor?.hex },
-    paredes: [parede('fundo', cores.fundoCor), parede('direita', cores.direitaCor)],
+    paredes: Object.keys(PAREDES).map(parede),
     led: LED_TXT[state.led],
     deposito: { x: +state.deposito.x.toFixed(2), z: +state.deposito.z.toFixed(2), largura: state.deposito.w, profundidade: state.deposito.d, area: +(state.deposito.w * state.deposito.d).toFixed(2) },
     sala_reuniao: state.salaReuniao ? { largura: state.salaReuniao.w, profundidade: state.salaReuniao.d, x: +state.salaReuniao.x.toFixed(2), z: +state.salaReuniao.z.toFixed(2) } : null,

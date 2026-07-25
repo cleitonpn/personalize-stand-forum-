@@ -76,16 +76,15 @@ export default function PlantaBaixa() {
         {Array.from({ length: W - 1 }, (_, i) => <line key={'v' + i} x1={i + 1} y1="0" x2={i + 1} y2={D} stroke="#242938" strokeWidth="0.01" />)}
         {Array.from({ length: D - 1 }, (_, i) => <line key={'h' + i} x1="0" y1={i + 1} x2={W} y2={i + 1} stroke="#242938" strokeWidth="0.01" />)}
 
-        {/* PAREDE DO FUNDO — porção napa (esquerda, clicável) */}
-        <line x1="0" y1="0" x2="6.6" y2="0" stroke={hex(state.paredes.fundo.corId)} strokeWidth={selWall === 'fundo' ? 0.18 : 0.12}
-          strokeLinecap="round" style={{ cursor: 'pointer' }} onClick={() => dispatch({ type: 'SELECT_PAREDE', parede: 'fundo' })} />
-        {selWall === 'fundo' && <line x1="0" y1="-0.12" x2="6.6" y2="-0.12" stroke="#f4c20d" strokeWidth="0.04" strokeDasharray="0.2 0.15" />}
-        {/* PAREDE DO FUNDO — painel de madeira (direita, clicável) */}
-        <line x1="6.6" y1="0" x2={W} y2="0" stroke={hex(state.paredes.direita.corId)} strokeWidth={selWall === 'direita' ? 0.18 : 0.12}
-          strokeLinecap="round" style={{ cursor: 'pointer' }} onClick={() => dispatch({ type: 'SELECT_PAREDE', parede: 'direita' })} />
-        {selWall === 'direita' && <line x1="6.6" y1="-0.12" x2={W} y2="-0.12" stroke="#f4c20d" strokeWidth="0.04" strokeDasharray="0.2 0.15" />}
-        {state.paredes.fundo.lona && <text x="3.3" y={0.35} fontSize="0.2" fill="#f4c20d" textAnchor="middle" pointerEvents="none">▣ lona</text>}
-        {state.paredes.direita.lona && <text x="8.3" y={0.35} fontSize="0.2" fill="#f4c20d" textAnchor="middle" pointerEvents="none">▣ lona</text>}
+        {/* PAREDE DO FUNDO — napa (esquerda) + madeira (direita) */}
+        <line x1="0" y1="0" x2="6.6" y2="0" stroke={hex(state.paredes['fundo-esq'].corId)} strokeWidth={selWall === 'fundo-esq' ? 0.2 : 0.12}
+          strokeLinecap="round" style={{ cursor: 'pointer' }} onClick={() => dispatch({ type: 'SELECT_PAREDE', parede: 'fundo-esq' })} />
+        {selWall === 'fundo-esq' && <line x1="0" y1="-0.13" x2="6.6" y2="-0.13" stroke="#f4c20d" strokeWidth="0.05" strokeDasharray="0.2 0.15" />}
+        <line x1="6.6" y1="0" x2={W} y2="0" stroke={hex(state.paredes['fundo-dir'].corId)} strokeWidth={selWall === 'fundo-dir' ? 0.2 : 0.12}
+          strokeLinecap="round" style={{ cursor: 'pointer' }} onClick={() => dispatch({ type: 'SELECT_PAREDE', parede: 'fundo-dir' })} />
+        {selWall === 'fundo-dir' && <line x1="6.6" y1="-0.13" x2={W} y2="-0.13" stroke="#f4c20d" strokeWidth="0.05" strokeDasharray="0.2 0.15" />}
+        {state.paredes['fundo-esq'].lona && <text x="3.3" y={0.35} fontSize="0.2" fill="#f4c20d" textAnchor="middle" pointerEvents="none">▣</text>}
+        {state.paredes['fundo-dir'].lona && <text x="8.3" y={0.35} fontSize="0.2" fill="#f4c20d" textAnchor="middle" pointerEvents="none">▣</text>}
 
         {/* frente (testeira) — indicativo */}
         <line x1="0" y1={D} x2={W} y2={D} stroke="#f4c20d" strokeWidth="0.05" strokeDasharray="0.05 0.12" opacity="0.7" />
@@ -130,11 +129,28 @@ export default function PlantaBaixa() {
           )
         })}
 
-        {/* depósito */}
-        <g style={{ cursor: 'grab' }} onPointerDown={startDrag('deposito', 'dep', dep.x, dep.z)}>
-          <rect x={dep.x - dep.w / 2} y={dep.z - dep.d / 2} width={dep.w} height={dep.d} rx="0.03" fill="#3a2f22" stroke="#8E6B5E" strokeWidth="0.05" />
-          <text x={dep.x} y={dep.z + 0.06} fontSize="0.24" fill="#e9d9c5" textAnchor="middle" pointerEvents="none">DEPÓSITO</text>
-        </g>
+        {/* depósito — preenchimento arrastável + 4 arestas clicáveis (paredes) */}
+        {(() => {
+          const L = dep.x - dep.w / 2, R = dep.x + dep.w / 2, T = dep.z - dep.d / 2, B = dep.z + dep.d / 2
+          const edge = (id, x1, y1, x2, y2, ox, oy) => (
+            <g key={id} style={{ cursor: 'pointer' }} onClick={(ev) => { ev.stopPropagation(); dispatch({ type: 'SELECT_PAREDE', parede: id }) }}>
+              <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={hex(state.paredes[id].corId)} strokeWidth={selWall === id ? 0.16 : 0.1} strokeLinecap="round" />
+              {selWall === id && <line x1={x1 + ox} y1={y1 + oy} x2={x2 + ox} y2={y2 + oy} stroke="#f4c20d" strokeWidth="0.045" strokeDasharray="0.16 0.12" />}
+              {state.paredes[id].lona && <circle cx={(x1 + x2) / 2 + ox * 1.5} cy={(y1 + y2) / 2 + oy * 1.5} r="0.08" fill="#f4c20d" />}
+            </g>
+          )
+          return (
+            <g>
+              <rect x={L} y={T} width={dep.w} height={dep.d} rx="0.03" fill="#26221c" style={{ cursor: 'grab' }}
+                onPointerDown={startDrag('deposito', 'dep', dep.x, dep.z)} />
+              <text x={dep.x} y={dep.z + 0.06} fontSize="0.22" fill="#e9d9c5" textAnchor="middle" pointerEvents="none">DEPÓSITO</text>
+              {edge('dep-fundo', L, T, R, T, 0, -0.12)}
+              {edge('dep-frente', L, B, R, B, 0, 0.12)}
+              {edge('dep-esq', L, T, L, B, -0.12, 0)}
+              {edge('dep-dir', R, T, R, B, 0.12, 0)}
+            </g>
+          )
+        })()}
 
         {/* sala de reunião */}
         {sala && (

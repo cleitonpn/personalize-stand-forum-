@@ -6,21 +6,34 @@ import {
   PISOS, NAPAS, MOBILIARIO, PAISAGISMO, ELETRICA, PRECOS, REGRAS,
 } from '../data/catalogo.js'
 
-const STORAGE_KEY = 'psf.projeto.v2'
+const STORAGE_KEY = 'psf.projeto.v3'
 
-// paredes que o cliente pode personalizar (cor de napa e/ou lona)
+// paredes personalizáveis (cor de napa e/ou lona), agrupadas em zonas
 export const PAREDES = {
-  fundo: { rotulo: 'Fundo — napa' },
-  direita: { rotulo: 'Fundo — painel de madeira' },
+  'fundo-esq': { rotulo: 'Fundo · esquerda', zona: 'fundo' },
+  'fundo-dir': { rotulo: 'Fundo · direita', zona: 'fundo' },
+  'dep-esq': { rotulo: 'Depósito · esquerda', zona: 'deposito' },
+  'dep-frente': { rotulo: 'Depósito · frente', zona: 'deposito' },
+  'dep-dir': { rotulo: 'Depósito · direita', zona: 'deposito' },
+  'dep-fundo': { rotulo: 'Depósito · fundo', zona: 'deposito' },
+}
+export const ZONAS = {
+  fundo: { rotulo: 'Parede do fundo', walls: ['fundo-esq', 'fundo-dir'] },
+  deposito: { rotulo: 'Depósito (bloco)', walls: ['dep-esq', 'dep-frente', 'dep-dir', 'dep-fundo'] },
 }
 
+const napa = (corId, grupo = 'lisas') => ({ grupo, corId, lona: null })
 export const estadoInicial = {
   piso: { grupo: 'carpete_eventos', corId: 'ce-436' },
   paredes: {
-    fundo: { grupo: 'lisas', corId: 'nl-156', lona: null },
-    direita: { grupo: 'amadeiradas', corId: 'na-pinus', lona: null },
+    'fundo-esq': napa('nl-156'),
+    'fundo-dir': { grupo: 'amadeiradas', corId: 'na-pinus', lona: null },
+    'dep-esq': napa('nl-156'),
+    'dep-frente': napa('nl-156'),
+    'dep-dir': napa('nl-156'),
+    'dep-fundo': napa('nl-156'),
   },
-  paredeSel: 'fundo',
+  paredeSel: 'fundo-esq',
   deposito: { x: 6.4, z: 0.85, w: 2.3, d: 1.5 },
   led: 'nenhum', // 'nenhum' | 'colunas2' | 'coluna1' | 'testeira'
   salaReuniao: null,
@@ -55,6 +68,14 @@ function reducer(state, a) {
       return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], lona: a.lona } } }
     case 'REMOVE_LONA':
       return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], lona: null } } }
+    case 'APLICAR_BLOCO': {
+      // copia a config da parede `de` para todas as paredes da zona
+      const origem = state.paredes[a.de]
+      const walls = ZONAS[a.zona].walls
+      const novas = { ...state.paredes }
+      for (const id of walls) novas[id] = { ...origem }
+      return { ...state, paredes: novas }
+    }
 
     case 'SET_LED':
       return { ...state, led: a.modo }

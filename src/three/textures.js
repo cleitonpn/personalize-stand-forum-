@@ -131,6 +131,37 @@ export function lonaPadraoTexture(id) {
   return t
 }
 
+// TESTEIRA: logo FÓRUM (esquerda) + painel de tela perfurada / mesh (direita)
+let _testeira
+export function testeiraTexture() {
+  if (_testeira) return _testeira
+  const W = 2048, H = 512
+  const { c, ctx } = makeCanvas(W, H)
+  ctx.fillStyle = '#0e0f13'; ctx.fillRect(0, 0, W, H)
+  // painel de mesh à direita (~38%)
+  const mx = W * 0.62
+  ctx.fillStyle = '#15161b'; ctx.fillRect(mx, 0, W - mx, H)
+  ctx.fillStyle = 'rgba(220,225,235,0.45)'
+  const step = 16
+  for (let x = mx + 8; x < W - 6; x += step)
+    for (let y = 8; y < H - 6; y += step)
+      ctx.fillRect(x, y, 7, 7)
+  // logo FÓRUM centralizado na porção preta esquerda
+  const cx = mx * 0.5
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.font = `900 ${H * 0.42}px Arial, sans-serif`
+  ctx.setTransform(1, 0, -0.12, 1, 0, 0)
+  ctx.fillText('FÓRUM', cx + H * 0.06, H * 0.42)
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.fillStyle = '#f4c20d'; ctx.fillRect(cx - W * 0.06, H * 0.60, W * 0.06, H * 0.055)
+  ctx.fillStyle = '#fff'; ctx.font = `700 ${H * 0.13}px Arial`
+  ctx.fillText('e-commerce', cx, H * 0.68)
+  ctx.fillStyle = '#f4c20d'; ctx.fillText('     brasil', cx + W * 0.03, H * 0.68)
+  _testeira = new THREE.CanvasTexture(c)
+  _testeira.colorSpace = THREE.SRGBColorSpace; _testeira.anisotropy = 8
+  return _testeira
+}
+
 // textura a partir de uma imagem enviada (data URL)
 export function textureFromURL(url) {
   const t = new THREE.TextureLoader().load(url)

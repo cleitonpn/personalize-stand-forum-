@@ -190,6 +190,14 @@ h1,h2,h3,h4 { margin: 0; font-weight: 700; letter-spacing: -.01em; }
   padding: 5px 10px; border-radius: 7px; display: inline-block; margin-bottom: 18px; }
 
 /* wall editor */
+.wall-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.wall-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--txt);
+  border-radius: 8px; padding: 6px 9px; }
+.wall-chip:hover { border-color: var(--brand); }
+.wall-chip.sel { border-color: var(--brand); color: var(--brand); }
+.wc-sw { width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.wc-lona { color: var(--brand); font-size: 10px; }
 .wall-block { margin-top: 14px; }
 .wall-block-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
   color: var(--txt-dim); font-weight: 700; margin-bottom: 8px; }
@@ -231,7 +239,24 @@ h1,h2,h3,h4 { margin: 0; font-weight: 700; letter-spacing: -.01em; }
 .wizard { display: flex; flex-direction: column; height: 100%; }
 .wz-head { padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
 .wz-step-label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); font-weight: 700; }
-.wz-head h2 { font-size: 20px; margin: 4px 0 12px; }
+.wz-head h2 { font-size: 20px; margin: 4px 0 2px; }
+.wz-ico { color: var(--brand); }
+.wz-progressbar { height: 5px; background: var(--panel-2); border-radius: 999px; overflow: hidden; margin-bottom: 12px; }
+.wz-progressbar span { display: block; height: 100%; background: var(--brand); transition: width .3s; }
+.wz-substep { font-size: 12.5px; color: var(--txt-dim); margin-bottom: 12px; }
+.wz-steps { display: flex; gap: 6px; }
+.wz-steppill { width: 32px; height: 32px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--txt-dim); font-size: 14px; font-weight: 700; display: grid; place-items: center; }
+.wz-steppill.done { color: var(--ok); border-color: #2c5c48; }
+.wz-steppill.active { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.wz-dica { margin-top: 18px; font-size: 12px; color: var(--txt-dim); line-height: 1.5;
+  background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--brand);
+  border-radius: 8px; padding: 10px 12px; }
+.wz-dica b { color: var(--txt); display: block; margin-bottom: 3px; }
+.wz-foot-total { display: flex; flex-direction: column; justify-content: center; margin-right: auto; }
+.wz-foot-total span { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--txt-dim); }
+.wz-foot-total b { font-size: 16px; color: var(--brand); }
+.wz-foot-btns { display: flex; gap: 8px; }
 .wz-dots { display: flex; gap: 6px; }
 .wz-dot { width: 100%; height: 5px; border-radius: 999px; background: var(--panel-2); cursor: pointer; transition: .2s; }
 .wz-dot.done { background: #4a5c52; }
