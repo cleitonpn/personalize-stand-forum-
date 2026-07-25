@@ -65,11 +65,15 @@ h1,h2,h3,h4 { margin: 0; font-weight: 700; letter-spacing: -.01em; }
   overflow-y: auto; min-height: 0;
 }
 .col-resumo { border-right: none; border-left: 1px solid var(--line); }
-.col-canvas { position: relative; display: flex; flex-direction: column; min-width: 0; background: #0a0b0e; }
+/* grid com minmax(0,…): segura o <canvas> na proporção certa e mantém as
+   DUAS vistas sempre visíveis, independente da altura da janela */
+.col-canvas { position: relative; display: grid;
+  grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr);
+  min-width: 0; min-height: 0; background: #0a0b0e; }
 
-/* stacks the two synced views */
-.view3d { flex: 1 1 58%; min-height: 0; position: relative; }
-.viewplan { flex: 1 1 42%; min-height: 0; border-top: 1px solid var(--line);
+/* as duas vistas sincronizadas, empilhadas */
+.view3d { min-height: 0; position: relative; overflow: hidden; }
+.viewplan { min-height: 0; border-top: 1px solid var(--line);
   background: #101218; position: relative; overflow: hidden; }
 .view-label {
   position: absolute; top: 10px; left: 12px; z-index: 2;
