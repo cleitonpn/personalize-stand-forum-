@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   useStand, PISOS, NAPAS, MOBILIARIO, PAISAGISMO, ELETRICA, REGRAS,
 } from '../store/StandStore.jsx'
-import { corPorId } from '../data/catalogo.js'
+import Swatches from './Swatches.jsx'
 
 function Section({ id, ico, titulo, tag, aberto, setAberto, children }) {
   const open = aberto === id
@@ -16,30 +16,6 @@ function Section({ id, ico, titulo, tag, aberto, setAberto, children }) {
       </button>
       {open && <div className="cfg-body">{children}</div>}
     </div>
-  )
-}
-
-function Swatches({ grupos, grupoAtivo, corId, onGrupo, onCor }) {
-  const itens = grupos[grupoAtivo].itens
-  const cor = corPorId(corId)
-  return (
-    <>
-      <div className="tabs">
-        {Object.entries(grupos).map(([k, g]) => (
-          <button key={k} className={`tab ${k === grupoAtivo ? 'active' : ''}`} onClick={() => onGrupo(k)}>
-            {g.rotulo}
-          </button>
-        ))}
-      </div>
-      <div className="swatches">
-        {itens.map((c) => (
-          <div key={c.id} className={`swatch ${c.id === corId ? 'sel' : ''}`}
-            style={{ background: c.hex }} title={`${c.nome} ${c.cb}`}
-            onClick={() => onCor(c.id)} />
-        ))}
-      </div>
-      {cor && <div className="sel-label">Selecionado: <b>{cor.nome}</b> {cor.cb && `· ${cor.cb}`}</div>}
-    </>
   )
 }
 
@@ -148,12 +124,13 @@ export default function Sidebar() {
           ))}
         </div>
         <div className="mini-list">
-          {state.mobiliario.filter((m) => !['m-balcao', 'm-bistro-1', 'm-bistro-2', 'm-aparador'].includes(m.uid)).map((m) => {
+          {state.mobiliario.map((m) => {
             const meta = MOBILIARIO.find((x) => x.id === m.tipo)
             return (
               <div key={m.uid} className="mini-item">
                 {meta?.nome || m.tipo}
-                <button className="x" onClick={() => dispatch({ type: 'REMOVER_MOBILIARIO', uid: m.uid })}>×</button>
+                {m.base && <span className="badge-incluso">incluso</span>}
+                <button className="x" title="Remover" onClick={() => dispatch({ type: 'REMOVER_MOBILIARIO', uid: m.uid })}>×</button>
               </div>
             )
           })}

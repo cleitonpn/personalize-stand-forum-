@@ -107,7 +107,7 @@ function construirBriefing(state, orcamento, cores) {
     led_testeira: state.ledTesteira,
     deposito: { x: +state.deposito.x.toFixed(2), z: +state.deposito.z.toFixed(2), largura: state.deposito.w, profundidade: state.deposito.d, area: +(state.deposito.w * state.deposito.d).toFixed(2) },
     sala_reuniao: state.salaReuniao ? { largura: state.salaReuniao.w, profundidade: state.salaReuniao.d, x: +state.salaReuniao.x.toFixed(2), z: +state.salaReuniao.z.toFixed(2) } : null,
-    mobiliario_extra: state.mobiliario.filter((m) => !['m-balcao', 'm-bistro-1', 'm-bistro-2', 'm-aparador'].includes(m.uid))
+    mobiliario_extra: state.mobiliario.filter((m) => !m.base)
       .map((m) => ({ item: MOBILIARIO.find((x) => x.id === m.tipo)?.nome, x: +m.x.toFixed(2), z: +m.z.toFixed(2) })),
     paisagismo: state.paisagismo.map((p) => ({ item: PAISAGISMO.find((x) => x.id === p.tipo)?.nome, x: +p.x.toFixed(2), z: +p.z.toFixed(2) })),
     eletrica_extra: Object.entries(elet).map(([tipo, qtd]) => ({ tipo: ELETRICA.find((x) => x.id === tipo)?.nome, quantidade: qtd })),

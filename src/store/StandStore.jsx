@@ -13,15 +13,15 @@ const STORAGE_KEY = 'psf.projeto.v1'
 export const estadoInicial = {
   piso: { grupo: 'carpete_eventos', corId: 'ce-436' }, // preto (padrão da montagem)
   parede: { grupo: 'lisas', corId: 'nl-156' },          // napa preta
-  napaMadeira: { corId: 'na-studio' },                  // parede de madeira (aparador/TV)
+  napaMadeira: { corId: 'na-pinus' },                   // parede de madeira clara (aparador/TV)
   deposito: { x: 6.2, z: 0.85, w: 2.3, d: 1.5 },        // centro-fundo
   ledTesteira: false,
   salaReuniao: null, // { x, z, w, d } quando ativa
   mobiliario: [
-    { uid: 'm-balcao', tipo: 'balcao', x: 5.0, z: 2.7, rot: 0 },
-    { uid: 'm-bistro-1', tipo: 'mesa-bistro', x: 1.6, z: 2.2, rot: 0 },
-    { uid: 'm-bistro-2', tipo: 'mesa-bistro', x: 8.4, z: 2.2, rot: 0 },
-    { uid: 'm-aparador', tipo: 'aparador', x: 8.6, z: 0.35, rot: 0 },
+    { uid: 'm-balcao', tipo: 'balcao', x: 5.0, z: 2.7, rot: 0, base: true },
+    { uid: 'm-bistro-1', tipo: 'mesa-bistro', x: 1.6, z: 2.2, rot: 0, base: true },
+    { uid: 'm-bistro-2', tipo: 'mesa-bistro', x: 8.4, z: 2.2, rot: 0, base: true },
+    { uid: 'm-aparador', tipo: 'aparador', x: 8.6, z: 0.35, rot: 0, base: true },
   ],
   paisagismo: [],
   eletrica: [],   // { uid, tipo, x, z }
@@ -89,7 +89,7 @@ function reducer(state, a) {
     }
 
     case 'ADD_MOBILIARIO':
-      return { ...state, mobiliario: [...state.mobiliario, { uid: novoUid('m'), tipo: a.tipo, x: a.x ?? 5, z: a.z ?? 3.2, rot: 0 }] }
+      return { ...state, mobiliario: [...state.mobiliario, { uid: novoUid('m'), tipo: a.tipo, x: a.x ?? 5, z: a.z ?? 3.2, rot: 0, base: false }] }
     case 'MOVER_MOBILIARIO':
       return { ...state, mobiliario: state.mobiliario.map((m) => m.uid === a.uid ? { ...m, x: a.x, z: a.z } : m) }
     case 'GIRAR_MOBILIARIO':
@@ -131,10 +131,9 @@ export function calcularOrcamento(state) {
     add('Sala de reunião de vidro', PRECOS.salaReuniao, `${w.toFixed(1)} × ${d.toFixed(1)} m, com porta`)
   }
 
-  // mobiliário extra (o base não conta)
-  const baseIds = new Set(estadoInicial.mobiliario.map((m) => m.uid))
+  // mobiliário extra (o base incluso não conta)
   for (const m of state.mobiliario) {
-    if (baseIds.has(m.uid)) continue
+    if (m.base) continue
     const meta = MOBILIARIO.find((x) => x.id === m.tipo)
     if (meta?.preco) add(`Mobiliário: ${meta.nome}`, meta.preco)
   }
