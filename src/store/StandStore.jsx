@@ -39,16 +39,16 @@ export const estadoInicial = {
     'dep-frente': { ...napa('nl-156'), logo: true },
     'dep-dir': napa('nl-156'),
     'dep-fundo': napa('nl-156'),
-    'col-esq': napa('nl-156'),
-    'col-esq-verso': napa('nl-156'),
-    'col-dir': napa('nl-156'),
-    'col-dir-verso': napa('nl-156'),
+    'col-esq': { ...napa('nl-156'), logo: true },
+    'col-esq-verso': { ...napa('nl-156'), logo: true },
+    'col-dir': { ...napa('nl-156'), logo: true },
+    'col-dir-verso': { ...napa('nl-156'), logo: true },
   },
   paredeSel: 'fundo-esq',
   deposito: { x: 6.4, z: 0.85, w: 2.3, d: 1.5 },
   led: { colunas: 'nenhum', testeira: false },   // combináveis
   tv: { presente: true, x: 8.3 },
-  balcaoCfg: { corId: 'nl-156', logoUrl: null },
+  balcaoCfg: { corId: 'nl-156', logoUrl: null, logo: true },
   salaReuniao: null, // { x, z, w, d, pisoGrupo, pisoCorId }
   mobiliario: [
     { uid: 'm-balcao', tipo: 'balcao', x: 4.6, z: 2.7, rot: 0, base: true },

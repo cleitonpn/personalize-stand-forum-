@@ -133,12 +133,16 @@ function ColunaFrente({ lado }) {
         <planeGeometry args={[0.91, 2.51]} />
         {ledOn
           ? <meshStandardMaterial map={panel} emissiveMap={panel} emissive="#a21caf" emissiveIntensity={1.35} toneMapped={false} />
-          : lonaF ? <meshStandardMaterial map={lonaF} roughness={0.6} /> : <meshStandardMaterial map={logo} roughness={0.5} />}
+          : lonaF ? <meshStandardMaterial map={lonaF} roughness={0.6} />
+          : cfgF.logo !== false ? <meshStandardMaterial map={logo} roughness={0.5} />
+          : <meshStandardMaterial color={boxHex} roughness={0.6} />}
       </mesh>
       {/* costas (para dentro do stand) — arte independente */}
       <mesh position={[0, 0, -0.056]} rotation={[0, Math.PI, 0]} onPointerDown={pick(idV)}>
         <planeGeometry args={[0.91, 2.51]} />
-        {lonaV ? <meshStandardMaterial map={lonaV} roughness={0.6} /> : <meshStandardMaterial map={logo} roughness={0.5} />}
+        {lonaV ? <meshStandardMaterial map={lonaV} roughness={0.6} />
+          : cfgV.logo !== false ? <meshStandardMaterial map={logo} roughness={0.5} />
+          : <meshStandardMaterial color={corPorId(cfgV.corId)?.hex || boxHex} roughness={0.6} />}
       </mesh>
       <group position={[0, 0, 0.065]}><LineFrame w={1.0} h={2.58} color="#f4c20d" intensity={ledOn ? 2 : 0.5} /></group>
       {(sel === idF || sel === idV) && (
@@ -186,10 +190,13 @@ function Balcao() {
     () => state.balcaoCfg.logoUrl ? textureFromURL(state.balcaoCfg.logoUrl) : null,
     [state.balcaoCfg.logoUrl],
   )
+  const mostrarLogo = !!logoCustom || state.balcaoCfg.logo !== false
   return (
     <group>
       <RoundedBox args={[2.0, 1.1, 0.7]} radius={0.03} smoothness={4} position={[0, 0.55, 0]} castShadow receiveShadow><meshStandardMaterial color={hex} roughness={0.45} metalness={0.1} /></RoundedBox>
-      <mesh position={[0, 0.58, 0.361]}><planeGeometry args={[1.6, 0.5]} /><meshStandardMaterial map={logoCustom || logoDefault} emissive="#f4c20d" emissiveIntensity={logoCustom ? 0 : 0.12} roughness={0.5} /></mesh>
+      {mostrarLogo && (
+        <mesh position={[0, 0.58, 0.361]}><planeGeometry args={[1.6, 0.5]} /><meshStandardMaterial map={logoCustom || logoDefault} emissive="#f4c20d" emissiveIntensity={logoCustom ? 0 : 0.12} roughness={0.5} /></mesh>
+      )}
       <mesh position={[0, 0.04, 0.35]}><boxGeometry args={[2.0, 0.05, 0.02]} /><meshStandardMaterial color="#f4c20d" emissive="#f4c20d" emissiveIntensity={2} toneMapped={false} /></mesh>
       <RoundedBox args={[2.04, 0.04, 0.74]} radius={0.02} position={[0, 1.11, 0]}><meshStandardMaterial color="#0c0c0c" roughness={0.3} metalness={0.3} /></RoundedBox>
     </group>

@@ -35,6 +35,15 @@ export default function BalcaoEditor() {
         {cfg.logoUrl && <button className="btn btn-ghost" onClick={() => dispatch({ type: 'SET_BALCAO', cfg: { logoUrl: null } })}>×</button>}
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={enviarLogo} />
       </div>
+      {!cfg.logoUrl && (
+        <div className="toggle-row" style={{ marginTop: 10 }}>
+          <label className="switch">
+            <input type="checkbox" checked={cfg.logo !== false} onChange={() => dispatch({ type: 'SET_BALCAO', cfg: { logo: !cfg.logo } })} />
+            <span className="slider" />
+          </label>
+          <span>{cfg.logo !== false ? 'Logo Fórum exibida' : 'Logo removida — balcão liso'}</span>
+        </div>
+      )}
     </div>
   )
 }
