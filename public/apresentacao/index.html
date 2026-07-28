@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personalize seu Stand — Apresentação</title>
+<style>
+  :root{
+    --bg:#0b0c10; --ink:#0e0f13; --brand:#f4c20d; --dim:#aab0bd; --line:#2a2e3a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#000;height:100%;overflow:hidden;
+    font-family:'Segoe UI',Arial,Helvetica,sans-serif;}
+  .stage{position:relative;width:100vw;height:100vh;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;}
+
+  /* moldura 16:9 centralizada, ocupa o máximo possível da tela sem distorcer */
+  .frame{position:relative;width:100vw;height:56.25vw;max-height:100vh;max-width:177.78vh;
+    background:#000;overflow:hidden;}
+
+  video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    opacity:0;transition:opacity .6s ease;}
+  video.show{opacity:1}
+
+  /* card de título (abertura/encerramento) — mesmo estilo dos clipes */
+  .titlecard{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;background:var(--ink);
+    opacity:0;transition:opacity .6s ease;gap:14px;padding:0 6vw;}
+  .titlecard.show{opacity:1}
+  .titlecard .kicker{color:var(--brand);font-weight:800;font-size:1.6vw;letter-spacing:.1em;
+    text-transform:uppercase}
+  .titlecard h1{color:#eef0f4;font-weight:800;font-size:3.6vw;margin:0;letter-spacing:-.01em}
+  .titlecard p{color:var(--dim);font-size:1.4vw;margin:0}
+
+  /* legenda inferior — kicker + título, cross-fade sincronizado ao clipe */
+  .caption{position:absolute;left:4.4vw;bottom:9vw;max-width:70%;
+    background:rgba(14,15,19,.82);border-radius:1.1vw;padding:1.1vw 1.6vw;
+    border-left:.45vw solid var(--brand);opacity:0;transform:translateY(10px);
+    transition:opacity .5s ease, transform .5s ease;}
+  .caption.show{opacity:1;transform:translateY(0)}
+  .caption .kicker{color:var(--brand);font-weight:800;font-size:1.15vw;letter-spacing:.08em;
+    text-transform:uppercase;margin-bottom:.3vw}
+  .caption .title{color:#eef0f4;font-weight:800;font-size:1.9vw;line-height:1.2}
+
+  .progress{position:absolute;bottom:0;left:0;height:.35vw;background:var(--brand);
+    width:0%;transition:width linear;}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="frame" id="frame">
+      <div class="titlecard" id="intro">
+        <div class="kicker">FÓRUM E-COMMERCE BRASIL</div>
+        <h1>Personalize seu Stand</h1>
+        <p>Monte o seu estande do seu jeito</p>
+      </div>
+
+      <video id="vA" muted playsinline preload="auto"></video>
+      <video id="vB" muted playsinline preload="auto"></video>
+
+      <div class="titlecard" id="outro">
+        <h1 style="font-size:2.9vw">Fale com nosso time comercial</h1>
+        <p>e comece a personalizar o seu stand agora</p>
+        <div class="kicker">FÓRUM E-COMMERCE BRASIL</div>
+      </div>
+
+      <div class="caption" id="caption">
+        <div class="kicker" id="capKicker"></div>
+        <div class="title" id="capTitle"></div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+  </div>
+
+<script>
+// -----------------------------------------------------------------------
+// Playlist: clipes reais da ferramenta (modo demonstração, valores zerados)
+// intercalados com legendas dinâmicas. Loop infinito, sem interação.
+// -----------------------------------------------------------------------
+const CLIPS = [
+  { src: 'clips/01_piso.webm',       kicker: 'Piso',       title: 'Escolha a cor do carpete ou o piso vinílico' },
+  { src: 'clips/02_paredes.webm',    kicker: 'Paredes',    title: 'Cada parede com cor ou lona própria' },
+  { src: 'clips/03_destaques.webm',  kicker: 'Destaques',  title: 'LED combinável e sala de reunião em vidro' },
+  { src: 'clips/04_cameras.webm',    kicker: 'Vistas',     title: 'Câmeras prontas para cada ângulo' },
+  { src: 'clips/05_mobiliario.webm', kicker: 'Mobiliário', title: 'Adicione, gire e posicione os móveis' },
+  { src: 'clips/06_eletrica.webm',   kicker: 'Elétrica',   title: 'Pontos de energia direto na planta baixa' },
+  { src: 'clips/07_resumo.webm',     kicker: 'Resumo',     title: 'Tudo pronto para o atendimento comercial' },
+]
+const INTRO_MS = 3800
+const OUTRO_MS = 5200
+
+const vA = document.getElementById('vA')
+const vB = document.getElementById('vB')
+const intro = document.getElementById('intro')
+const outro = document.getElementById('outro')
+const caption = document.getElementById('caption')
+const capKicker = document.getElementById('capKicker')
+const capTitle = document.getElementById('capTitle')
+const progress = document.getElementById('progress')
+
+let showingA = true
+let idx = 0
+const activeVideo = () => (showingA ? vA : vB)
+const inactiveVideo = () => (showingA ? vB : vA)
+
+function setProgress(dur) {
+  progress.style.transition = 'none'
+  progress.style.width = '0%'
+  void progress.offsetWidth // força reflow antes de animar
+  progress.style.transition = `width ${dur}s linear`
+  progress.style.width = '100%'
+}
+
+function showCaption(c) {
+  capKicker.textContent = c.kicker
+  capTitle.textContent = c.title
+  caption.classList.add('show')
+}
+function hideCaption() { caption.classList.remove('show') }
+
+function playClip(i) {
+  const item = CLIPS[i]
+  const next = inactiveVideo()
+  const prev = activeVideo()
+  next.src = item.src
+  next.load()
+  next.addEventListener('loadeddata', function onReady() {
+    next.removeEventListener('loadeddata', onReady)
+    hideCaption()
+    setTimeout(() => showCaption(item), 350)
+    next.currentTime = 0
+    next.play().catch(() => {})
+    next.classList.add('show')
+    prev.classList.remove('show')
+    showingA = !showingA
+    setProgress(Number.isFinite(next.duration) ? next.duration : 12)
+    next.addEventListener('ended', function onEnded() {
+      next.removeEventListener('ended', onEnded)
+      idx += 1
+      if (idx >= CLIPS.length) { endLoop(); return }
+      playClip(idx)
+    })
+  }, { once: true })
+}
+
+function startLoop() {
+  idx = 0
+  intro.classList.remove('show')
+  outro.classList.remove('show')
+  playClip(0)
+}
+
+function endLoop() {
+  vA.classList.remove('show')
+  vB.classList.remove('show')
+  vA.pause(); vB.pause()
+  hideCaption()
+  progress.style.transition = 'none'; progress.style.width = '0%'
+  outro.classList.add('show')
+  setTimeout(() => {
+    outro.classList.remove('show')
+    setTimeout(() => {
+      intro.classList.add('show')
+      setTimeout(startLoop, INTRO_MS)
+    }, 500)
+  }, OUTRO_MS)
+}
+
+// primeira execução: mostra abertura, depois inicia o loop para sempre
+intro.classList.add('show')
+setTimeout(startLoop, INTRO_MS)
+</script>
+</body>
+</html>
