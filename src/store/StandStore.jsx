@@ -168,9 +168,14 @@ const LED_COL_LABEL = {
   colunas2: 'Painel de LED — 2 colunas frontais',
 }
 
+// Modo demonstração (?demo=1 na URL): zera os valores exibidos para telas de
+// vitrine/TV em looping, evitando confundir o expositor com preços de exemplo.
+export const DEMO_MODE = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('demo') === '1'
+
 export function calcularOrcamento(state) {
   const linhas = []
-  const add = (label, valor, detalhe) => { if (valor) linhas.push({ label, valor, detalhe }) }
+  const add = (label, valor, detalhe) => { if (valor) linhas.push({ label, valor: DEMO_MODE ? 0 : valor, detalhe }) }
 
   if (state.piso.grupo === 'vinilico') add('Upgrade para piso vinílico', PRECOS.vinilicoUpgrade, 'área cheia (40 m²)')
 

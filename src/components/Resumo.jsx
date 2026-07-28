@@ -1,4 +1,4 @@
-import { useStand, PAREDES, ZONAS } from '../store/StandStore.jsx'
+import { useStand, PAREDES, ZONAS, DEMO_MODE } from '../store/StandStore.jsx'
 import {
   corPorId, fmtBRL, CLIENTE_DEMO, MOBILIARIO, PAISAGISMO, ELETRICA, PISOS, NAPAS,
 } from '../data/catalogo.js'
@@ -82,7 +82,9 @@ export default function Resumo() {
       <div className="orc-total">
         <div className="row"><span className="cap">Total de extras</span></div>
         <div className="row"><span className="big">{fmtBRL(orcamento.total)}</span></div>
-        <div className="note">Valores ilustrativos do protótipo. O pacote base já está incluso na compra do espaço.</div>
+        <div className="note">{DEMO_MODE
+          ? 'Valores ocultados nesta exibição de demonstração.'
+          : 'Valores ilustrativos do protótipo. O pacote base já está incluso na compra do espaço.'}</div>
       </div>
 
       <div className="orc-list" style={{ paddingBottom: 8 }}>
