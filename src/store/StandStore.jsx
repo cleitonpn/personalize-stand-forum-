@@ -11,16 +11,16 @@ const STORAGE_KEY = 'psf.projeto.v4'
 // paredes personalizáveis (cor de napa e/ou lona), agrupadas em zonas
 export const PAREDES = {
   'fundo-esq': { rotulo: 'Fundo · esquerda', zona: 'fundo' },
-  'fundo-centro': { rotulo: 'Fundo · centro', zona: 'fundo' },
+  'fundo-centro': { rotulo: 'Fundo · centro', zona: 'fundo', temLogo: true },
   'fundo-dir': { rotulo: 'Fundo · direita (madeira)', zona: 'fundo' },
   'dep-esq': { rotulo: 'Depósito · esquerda', zona: 'deposito' },
-  'dep-frente': { rotulo: 'Depósito · frente', zona: 'deposito' },
+  'dep-frente': { rotulo: 'Depósito · frente', zona: 'deposito', temLogo: true },
   'dep-dir': { rotulo: 'Depósito · direita', zona: 'deposito' },
   'dep-fundo': { rotulo: 'Depósito · fundo', zona: 'deposito' },
-  'col-esq': { rotulo: 'Coluna esq · frente', zona: 'colunas' },
-  'col-esq-verso': { rotulo: 'Coluna esq · costas', zona: 'colunas' },
-  'col-dir': { rotulo: 'Coluna dir · frente', zona: 'colunas' },
-  'col-dir-verso': { rotulo: 'Coluna dir · costas', zona: 'colunas' },
+  'col-esq': { rotulo: 'Coluna esq · frente', zona: 'colunas', temLogo: true },
+  'col-esq-verso': { rotulo: 'Coluna esq · costas', zona: 'colunas', temLogo: true },
+  'col-dir': { rotulo: 'Coluna dir · frente', zona: 'colunas', temLogo: true },
+  'col-dir-verso': { rotulo: 'Coluna dir · costas', zona: 'colunas', temLogo: true },
 }
 export const ZONAS = {
   fundo: { rotulo: 'Parede do fundo', walls: ['fundo-esq', 'fundo-centro', 'fundo-dir'] },
@@ -82,7 +82,7 @@ function reducer(state, a) {
     case 'REMOVE_LONA':
       return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], lona: null } } }
     case 'TOGGLE_LOGO':
-      return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], logo: !state.paredes[a.parede].logo } } }
+      return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], logo: state.paredes[a.parede].logo === false } } }
     case 'APLICAR_BLOCO': {
       const origem = state.paredes[a.de]
       const novas = { ...state.paredes }

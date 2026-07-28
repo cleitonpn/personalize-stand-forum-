@@ -38,7 +38,7 @@ export default function BalcaoEditor() {
       {!cfg.logoUrl && (
         <div className="toggle-row" style={{ marginTop: 10 }}>
           <label className="switch">
-            <input type="checkbox" checked={cfg.logo !== false} onChange={() => dispatch({ type: 'SET_BALCAO', cfg: { logo: !cfg.logo } })} />
+            <input type="checkbox" checked={cfg.logo !== false} onChange={() => dispatch({ type: 'SET_BALCAO', cfg: { logo: cfg.logo === false } })} />
             <span className="slider" />
           </label>
           <span>{cfg.logo !== false ? 'Logo Fórum exibida' : 'Logo removida — balcão liso'}</span>

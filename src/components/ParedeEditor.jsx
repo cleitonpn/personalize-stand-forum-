@@ -51,7 +51,7 @@ export default function ParedeEditor() {
           onCor={(id) => dispatch({ type: 'SET_PAREDE_COR', parede: sel, grupo: parede.grupo, corId: id })} />
       </div>
 
-      {parede.logo !== undefined && (
+      {PAREDES[sel].temLogo && (
         <div className="wall-block">
           <div className="wall-block-title">Logo Fórum nesta parede</div>
           <div className="toggle-row">
