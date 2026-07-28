@@ -51,6 +51,19 @@ export default function ParedeEditor() {
           onCor={(id) => dispatch({ type: 'SET_PAREDE_COR', parede: sel, grupo: parede.grupo, corId: id })} />
       </div>
 
+      {parede.logo !== undefined && (
+        <div className="wall-block">
+          <div className="wall-block-title">Logo Fórum nesta parede</div>
+          <div className="toggle-row">
+            <label className="switch">
+              <input type="checkbox" checked={parede.logo !== false} onChange={() => dispatch({ type: 'TOGGLE_LOGO', parede: sel })} />
+              <span className="slider" />
+            </label>
+            <span>{parede.logo !== false ? 'Logo exibido' : 'Logo removido — parede lisa'}</span>
+          </div>
+        </div>
+      )}
+
       <div className="wall-block">
         <div className="wall-block-title">Lona impressa <span className="hint-inline">(+ orçamento)</span></div>
         <div className="lona-grid">

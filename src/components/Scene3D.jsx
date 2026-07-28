@@ -31,14 +31,14 @@ function useLonaTexture(lona) {
 
 /* ---------- painel de parede (cor/lona/seleção) ---------- */
 function WallPanel({ id, hex, lona, w, h = WALL_H, thick = 0.08, x, y = WALL_H / 2, z, rotY = 0,
-  roughness = 0.8, metalness = 0, selWall, onSel, deco, overlay }) {
+  roughness = 0.8, metalness = 0, selWall, onSel, deco, showDeco = true, overlay }) {
   const lonaTex = useLonaTexture(lona)
   return (
     <group position={[x, y, z]} rotation={[0, rotY, 0]} onPointerDown={(e) => { e.stopPropagation(); onSel(id) }}>
       <RoundedBox args={[w, h, thick]} radius={0.01} castShadow receiveShadow>
         <meshStandardMaterial color={hex} roughness={roughness} metalness={metalness} />
       </RoundedBox>
-      {!lona && deco}
+      {!lona && showDeco && deco}
       {lonaTex && <mesh position={[0, 0, thick / 2 + 0.006]}><planeGeometry args={[w - 0.04, h - 0.06]} /><meshStandardMaterial map={lonaTex} roughness={0.7} /></mesh>}
       {overlay}
       {selWall === id && (
@@ -297,6 +297,7 @@ function DepositoBloco({ dep, paredes, hex, selWall, onSel }) {
     <Piece x={dep.x} z={dep.z}>
       <WallPanel {...wp('dep-fundo', { w, x: 0, z: -d / 2, rotY: Math.PI })} />
       <WallPanel {...wp('dep-frente', { w, x: 0, z: d / 2, rotY: 0 })}
+        showDeco={paredes['dep-frente'].logo !== false}
         deco={<mesh position={[0, -0.15, 0.05]}><planeGeometry args={[Math.min(1.9, w * 0.82), 0.6]} /><meshStandardMaterial map={logo} roughness={0.55} /></mesh>} />
       <WallPanel {...wp('dep-esq', { w: d, x: -w / 2, z: 0, rotY: -Math.PI / 2 })} />
       <WallPanel {...wp('dep-dir', { w: d, x: w / 2, z: 0, rotY: Math.PI / 2 })}
@@ -376,6 +377,7 @@ function StandModel() {
       <WallPanel id="fundo-esq" hex={hex('fundo-esq')} lona={state.paredes['fundo-esq'].lona} w={WB[0]} x={XB[0]} z={-D / 2} selWall={selWall} onSel={onSel}
         deco={<mesh position={[0, 0, 0.05]}><planeGeometry args={[WB[0] - 0.5, WALL_H - 0.12]} /><meshStandardMaterial map={panel} roughness={0.7} /></mesh>} />
       <WallPanel id="fundo-centro" hex={hex('fundo-centro')} lona={state.paredes['fundo-centro'].lona} w={WB[1]} x={XB[1]} z={-D / 2} selWall={selWall} onSel={onSel}
+        showDeco={state.paredes['fundo-centro'].logo !== false}
         deco={<mesh position={[0, 0.15, 0.05]}><planeGeometry args={[1.7, 0.85]} /><meshStandardMaterial map={logo} roughness={0.6} /></mesh>} />
       <WallPanel id="fundo-dir" hex={hex('fundo-dir')} lona={state.paredes['fundo-dir'].lona} w={WB[2]} x={XB[2]} z={-D / 2} roughness={0.55} metalness={0.05} selWall={selWall} onSel={onSel} />
 

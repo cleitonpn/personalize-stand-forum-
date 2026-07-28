@@ -33,10 +33,10 @@ export const estadoInicial = {
   piso: { grupo: 'carpete_eventos', corId: 'ce-436' },
   paredes: {
     'fundo-esq': napa('nl-156'),
-    'fundo-centro': napa('nl-156'),
+    'fundo-centro': { ...napa('nl-156'), logo: true },
     'fundo-dir': { grupo: 'amadeiradas', corId: 'na-pinus', lona: null },
     'dep-esq': napa('nl-156'),
-    'dep-frente': napa('nl-156'),
+    'dep-frente': { ...napa('nl-156'), logo: true },
     'dep-dir': napa('nl-156'),
     'dep-fundo': napa('nl-156'),
     'col-esq': napa('nl-156'),
@@ -81,6 +81,8 @@ function reducer(state, a) {
       return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], lona: a.lona } } }
     case 'REMOVE_LONA':
       return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], lona: null } } }
+    case 'TOGGLE_LOGO':
+      return { ...state, paredes: { ...state.paredes, [a.parede]: { ...state.paredes[a.parede], logo: !state.paredes[a.parede].logo } } }
     case 'APLICAR_BLOCO': {
       const origem = state.paredes[a.de]
       const novas = { ...state.paredes }
