@@ -198,8 +198,13 @@ export const CLIENTE_DEMO = {
   medidas: '10,00 × 4,00 m',
 }
 
+// Valores ainda não são a tabela oficial da montadora — ocultos em todo o site
+// (inclusive para expositores manipulando a ferramenta) até essa etapa do
+// roadmap ser concluída. Fonte única: zera qualquer valor formatado com fmtBRL.
+export const DEMO_MODE = true
+
 export const fmtBRL = (v) =>
-  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  (DEMO_MODE ? 0 : v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
 // helper: acha uma cor pelo id em qualquer catálogo
 const TODOS = [

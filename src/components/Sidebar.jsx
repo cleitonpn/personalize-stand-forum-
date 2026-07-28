@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   useStand, PISOS, MOBILIARIO, PAISAGISMO, ELETRICA, REGRAS,
 } from '../store/StandStore.jsx'
+import { fmtBRL } from '../data/catalogo.js'
 import Swatches from './Swatches.jsx'
 import ParedeEditor from './ParedeEditor.jsx'
 import LedOptions from './LedOptions.jsx'
@@ -105,7 +106,7 @@ export default function Sidebar() {
         <div className="chip-grid">
           {MOBILIARIO.filter((m) => !m.base).map((m) => (
             <button key={m.id} className="chip" onClick={() => dispatch({ type: 'ADD_MOBILIARIO', tipo: m.id })}>
-              {m.nome}<small>{m.preco ? `+ R$ ${m.preco}` : 'incluso'}</small>
+              {m.nome}<small>{m.preco ? `+ ${fmtBRL(m.preco)}` : 'incluso'}</small>
             </button>
           ))}
         </div>
@@ -129,7 +130,7 @@ export default function Sidebar() {
         <p className="hint">Plantas e jardins. Arraste na planta para posicionar.</p>
         <div className="chip-grid">
           {PAISAGISMO.map((p) => (
-            <button key={p.id} className="chip" onClick={() => dispatch({ type: 'ADD_PAISAGISMO', tipo: p.id })}>{p.nome}<small>+ R$ {p.preco}</small></button>
+            <button key={p.id} className="chip" onClick={() => dispatch({ type: 'ADD_PAISAGISMO', tipo: p.id })}>{p.nome}<small>+ {fmtBRL(p.preco)}</small></button>
           ))}
         </div>
         <div className="mini-list">
@@ -149,7 +150,7 @@ export default function Sidebar() {
         <div className="chip-grid">
           {ELETRICA.map((e) => (
             <button key={e.id} className="chip" onClick={() => window.dispatchEvent(new CustomEvent('psf-eletrica-sel', { detail: e.id }))}>
-              <span style={{ color: e.cor }}>{e.simbolo}</span> {e.nome}<small>+ R$ {e.preco} / un.</small>
+              <span style={{ color: e.cor }}>{e.simbolo}</span> {e.nome}<small>+ {fmtBRL(e.preco)} / un.</small>
             </button>
           ))}
         </div>

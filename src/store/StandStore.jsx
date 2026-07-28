@@ -3,7 +3,7 @@
 // ============================================================================
 import { createContext, useContext, useReducer, useEffect, useMemo } from 'react'
 import {
-  PISOS, NAPAS, MOBILIARIO, PAISAGISMO, ELETRICA, PRECOS, REGRAS,
+  PISOS, NAPAS, MOBILIARIO, PAISAGISMO, ELETRICA, PRECOS, REGRAS, DEMO_MODE,
 } from '../data/catalogo.js'
 
 const STORAGE_KEY = 'psf.projeto.v4'
@@ -168,11 +168,6 @@ const LED_COL_LABEL = {
   colunas2: 'Painel de LED — 2 colunas frontais',
 }
 
-// Modo demonstração (?demo=1 na URL): zera os valores exibidos para telas de
-// vitrine/TV em looping, evitando confundir o expositor com preços de exemplo.
-export const DEMO_MODE = typeof window !== 'undefined'
-  && new URLSearchParams(window.location.search).get('demo') === '1'
-
 export function calcularOrcamento(state) {
   const linhas = []
   const add = (label, valor, detalhe) => { if (valor) linhas.push({ label, valor: DEMO_MODE ? 0 : valor, detalhe }) }
@@ -259,4 +254,4 @@ export function useStand() {
   return ctx
 }
 
-export { PISOS, NAPAS, MOBILIARIO, PAISAGISMO, ELETRICA, REGRAS }
+export { PISOS, NAPAS, MOBILIARIO, PAISAGISMO, ELETRICA, REGRAS, DEMO_MODE }

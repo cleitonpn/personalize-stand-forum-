@@ -83,7 +83,7 @@ export default function Resumo() {
         <div className="row"><span className="cap">Total de extras</span></div>
         <div className="row"><span className="big">{fmtBRL(orcamento.total)}</span></div>
         <div className="note">{DEMO_MODE
-          ? 'Valores ocultados nesta exibição de demonstração.'
+          ? 'Valores serão exibidos em breve, após a configuração da tabela de preços oficial.'
           : 'Valores ilustrativos do protótipo. O pacote base já está incluso na compra do espaço.'}</div>
       </div>
 
@@ -197,6 +197,7 @@ function briefingHTML(b, imgs = {}) {
   <h2>Orçamento de extras</h2>
   ${linhas(b.orcamento_extras.map((l) => ({ item: l.item, valor: fmtBRL(l.valor) })), [{ h: 'Item', k: 'item' }, { h: 'Valor', k: 'valor' }])}
   <div class="tot">Total de extras: ${fmtBRL(b.total_extras)}</div>
-  <p class="muted">Coordenadas em metros a partir do canto fundo-esquerdo (X = largura 0–10, Z = profundidade 0–4). Valores ilustrativos.</p>
+  <p class="muted">Coordenadas em metros a partir do canto fundo-esquerdo (X = largura 0–10, Z = profundidade 0–4).
+  ${DEMO_MODE ? 'Valores serão exibidos após a configuração da tabela de preços oficial.' : 'Valores ilustrativos.'}</p>
   </body></html>`
 }
