@@ -5,12 +5,60 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import * as THREE from 'three'
 import { PAPEIS } from '../lib/glb/roles.js'
 
+/**
+ * Descobre POR QUE o carregamento falhou.
+ * O GLTFLoader entrega um ProgressEvent sem mensagem quando o XHR morre, então
+ * "erro ao carregar" sozinho não ajuda ninguém. Uma segunda tentativa via fetch
+ * separa os casos que têm soluções bem diferentes.
+ */
+async function diagnosticar(url) {
+  try {
+    const r = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } })
+    if (r.ok || r.status === 206) {
+      return {
+        titulo: 'O arquivo baixa, mas não é um .glb válido',
+        detalhe: 'O download funcionou, então não é rede nem permissão. O arquivo pode estar corrompido ou não ser glTF binário.',
+      }
+    }
+    if (r.status === 403) {
+      return {
+        titulo: 'Sem permissão para ler o arquivo',
+        detalhe: 'O Storage recusou (403). Publique as regras: npx firebase deploy --only storage --project personalizacao-stand',
+      }
+    }
+    if (r.status === 404) {
+      return {
+        titulo: 'Arquivo não encontrado no Storage',
+        detalhe: 'O registro existe no banco, mas o .glb não está mais no bucket.',
+      }
+    }
+    return { titulo: `O servidor respondeu ${r.status}`, detalhe: 'Resposta inesperada ao buscar o arquivo.' }
+  } catch {
+    // fetch estourando sem status: rede caiu, extensão bloqueou, ou CORS.
+    // CORS é o menos provável aqui — o link do getDownloadURL já vem com os
+    // cabeçalhos liberados (só getBytes/getBlob é que exigiriam configuração).
+    return {
+      titulo: 'O navegador não conseguiu buscar o arquivo',
+      detalhe: 'A requisição foi bloqueada antes de chegar resposta. Costuma ser queda de conexão, VPN/firewall corporativo ou uma extensão do navegador barrando o download. Tente numa aba anônima; se persistir, me avise que investigo o bucket.',
+      rede: true,
+    }
+  }
+}
+
 /** Carrega um .glb a partir de uma URL (Storage) ou de um File local. */
 export function useGLB(fonte) {
   const [estado, setEstado] = useState({ cena: null, erro: null, progresso: 0, carregando: false })
 
   useEffect(() => {
-    if (!fonte) { setEstado({ cena: null, erro: null, progresso: 0, carregando: false }); return }
+    if (!fonte) {
+      setEstado({
+        cena: null, progresso: 0, carregando: false,
+        erro: fonte === undefined ? null : {
+          titulo: 'Modelo sem arquivo', detalhe: 'Este registro não tem um .glb associado. Envie o arquivo de novo.',
+        },
+      })
+      return
+    }
 
     let vivo = true
     let objectUrl = null
@@ -28,9 +76,20 @@ export function useGLB(fonte) {
         if (!vivo || !ev.total) return
         setEstado((s) => ({ ...s, progresso: ev.loaded / ev.total }))
       },
-      (err) => {
+      async (err) => {
         if (!vivo) return
-        setEstado({ cena: null, erro: err?.message || 'Falha ao ler o arquivo .glb', progresso: 0, carregando: false })
+        // mensagem própria do loader (ex.: glTF malformado) vence o diagnóstico
+        const doLoader = typeof err?.message === 'string' && err.message ? err.message : null
+        const diag = typeof fonte === 'string'
+          ? await diagnosticar(url)
+          : { titulo: 'Não foi possível ler o arquivo', detalhe: doLoader || 'Arquivo inválido.' }
+        if (!vivo) return
+        const base = doLoader && !diag.rede ? { ...diag, detalhe: doLoader } : diag
+        setEstado({
+          cena: null, progresso: 0, carregando: false,
+          // guarda a URL para o botão "abrir direto" — testa o arquivo fora do app
+          erro: typeof fonte === 'string' ? { ...base, url } : base,
+        })
       },
     )
 

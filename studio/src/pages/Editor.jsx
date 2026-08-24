@@ -250,13 +250,41 @@ export default function Editor() {
         )}
 
         {erroGlb && (
-          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', padding: 30 }}>
-            <div className="card card-pad" style={{ maxWidth: 380, textAlign: 'center', borderColor: 'rgba(244,63,94,.35)' }}>
-              <div style={{ color: '#fda4af', fontWeight: 600, marginBottom: 6 }}>Falha ao abrir o .glb</div>
-              <div className="muted" style={{ fontSize: 13 }}>{erroGlb}</div>
-              <div className="dim" style={{ fontSize: 12, marginTop: 10 }}>
-                Se for erro de CORS, configure o CORS do bucket do Storage.
+          // zIndex acima do Canvas: sem isso o 3D pinta por cima e o erro some
+          <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'grid', placeItems: 'center', padding: 30 }}>
+            <div className="card card-pad" style={{ maxWidth: 520, borderColor: 'rgba(244,63,94,.35)' }}>
+              <div className="row" style={{ gap: 9, marginBottom: 8 }}>
+                <span style={{ fontSize: 19 }}>⚠</span>
+                <div style={{ color: '#fda4af', fontWeight: 700, fontSize: 15 }}>{erroGlb.titulo}</div>
               </div>
+              <div className="muted" style={{ fontSize: 13.5, lineHeight: 1.6 }}>{erroGlb.detalhe}</div>
+
+              {erroGlb.rede && (
+                <>
+                  <div className="hr" />
+                  <div className="label" style={{ marginBottom: 7 }}>O que tentar, nesta ordem</div>
+                  <ol className="muted" style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.85 }}>
+                    <li>Abrir esta página numa <b>aba anônima</b> (descarta extensão do navegador).</li>
+                    <li>Testar em <b>outra rede</b> — VPN e firewall de empresa costumam barrar.</li>
+                    <li>Se continuar, me avise: o problema é no bucket e eu resolvo.</li>
+                  </ol>
+                </>
+              )}
+
+              {erroGlb.url && (
+                <>
+                  <div className="hr" />
+                  <a className="btn btn-sm" href={erroGlb.url} target="_blank" rel="noreferrer" style={{ width: '100%' }}>
+                    Abrir o arquivo direto ↗
+                  </a>
+                  <div className="dim" style={{ fontSize: 11.5, marginTop: 7, textAlign: 'center' }}>
+                    Se baixar normalmente, o arquivo está bem e o problema é no navegador.
+                  </div>
+                </>
+              )}
+
+              <button className="btn" style={{ marginTop: 16, width: '100%' }}
+                onClick={() => location.reload()}>Tentar de novo</button>
             </div>
           </div>
         )}
