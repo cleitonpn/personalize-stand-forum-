@@ -6,6 +6,19 @@ import Viewer, { useGLB } from '../components/Viewer.jsx'
 import { analisar } from '../lib/glb/analyze.js'
 import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
 
+// Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
+// nem o do Google Cloud expõem isso na interface. Roda no Cloud Shell, que é um
+// terminal dentro do navegador (nada instalado na máquina do usuário).
+const CMD_CORS = `cat > cors.json <<'FIM'
+[{"origin":["*"],
+  "method":["GET","HEAD"],
+  "responseHeader":["Content-Type","Content-Length","Range"],
+  "maxAgeSeconds":3600}]
+FIM
+gcloud storage buckets update \\
+  gs://personalizacao-stand.firebasestorage.app \\
+  --cors-file=cors.json`
+
 const n1 = (v) => (isFinite(v) ? v.toFixed(1) : '—')
 const n2 = (v) => (isFinite(v) ? v.toFixed(2) : '—')
 const mil = (v) => v.toLocaleString('pt-BR')
@@ -268,6 +281,34 @@ export default function Editor() {
                     <li>Testar em <b>outra rede</b> — VPN e firewall de empresa costumam barrar.</li>
                     <li>Se continuar, me avise: o problema é no bucket e eu resolvo.</li>
                   </ol>
+                </>
+              )}
+
+              {erroGlb.cors && (
+                <>
+                  <div className="hr" />
+                  <div className="label" style={{ marginBottom: 7 }}>Liberar sem instalar nada — leva 2 minutos</div>
+                  <p className="muted" style={{ margin: '0 0 10px', fontSize: 12.5, lineHeight: 1.65 }}>
+                    Essa configuração não existe na tela do Firebase nem do Google Cloud — só por
+                    comando. Mas o Google tem um terminal dentro do navegador, então você não
+                    instala nada no seu computador.
+                  </p>
+                  <ol className="muted" style={{ margin: '0 0 12px', paddingLeft: 18, fontSize: 12.5, lineHeight: 1.9 }}>
+                    <li>Abra <a className="grad-text" style={{ fontWeight: 600 }} target="_blank" rel="noreferrer"
+                      href="https://console.cloud.google.com/?project=personalizacao-stand&cloudshell=true">o Cloud Shell ↗</a> (autorize se pedir).</li>
+                    <li>Espere aparecer a linha de comando preta embaixo.</li>
+                    <li>Cole o bloco abaixo inteiro e aperte <b>Enter</b>.</li>
+                    <li>Volte aqui e clique em <b>Tentar de novo</b>.</li>
+                  </ol>
+                  <pre className="mono" style={{
+                    margin: 0, padding: '12px 13px', borderRadius: 'var(--r)', overflowX: 'auto',
+                    background: 'var(--bg-deep)', border: '1px solid var(--line)',
+                    fontSize: 11.5, lineHeight: 1.7, color: 'var(--text-mid)', whiteSpace: 'pre',
+                  }}>{CMD_CORS}</pre>
+                  <button className="btn btn-sm" style={{ width: '100%', marginTop: 9 }}
+                    onClick={() => navigator.clipboard?.writeText(CMD_CORS)}>
+                    Copiar comando
+                  </button>
                 </>
               )}
 

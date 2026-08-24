@@ -5,7 +5,10 @@
   "type": "module",
   "description": "USET Stand Studio — plataforma multi-modelo: ingest de projetos .glb, identificação de superfícies personalizáveis e configurador para o expositor.",
   "scripts": {
+    "decoders": "node scripts/copiar-decoders.mjs",
+    "predev": "npm run decoders",
     "dev": "vite",
+    "prebuild": "npm run decoders",
     "build": "vite build",
     "preview": "vite preview --host"
   },

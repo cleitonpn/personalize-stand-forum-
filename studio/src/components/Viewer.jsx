@@ -2,8 +2,34 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Grid, Environment, Lightformer } from '@react-three/drei'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as THREE from 'three'
 import { PAPEIS } from '../lib/glb/roles.js'
+
+/**
+ * Loader com os decodificadores de compressão registrados.
+ *
+ * Um .glb de fornecedor pode vir com malha comprimida em Draco/Meshopt ou
+ * texturas em KTX2. Sem estes decodificadores o GLTFLoader recusa o arquivo,
+ * e a mensagem não deixa claro que a causa é compressão. Os arquivos ficam em
+ * public/decoders (copiados do three no prebuild) — nada de CDN externo.
+ */
+let _loader = null
+function obterLoader() {
+  if (_loader) return _loader
+
+  const draco = new DRACOLoader().setDecoderPath('/decoders/draco/')
+  const ktx2 = new KTX2Loader().setTranscoderPath('/decoders/basis/')
+
+  _loader = new GLTFLoader()
+    .setDRACOLoader(draco)
+    .setKTX2Loader(ktx2)
+    .setMeshoptDecoder(MeshoptDecoder)
+
+  return _loader
+}
 
 /**
  * Descobre POR QUE o carregamento falhou.
@@ -34,13 +60,27 @@ async function diagnosticar(url) {
     }
     return { titulo: `O servidor respondeu ${r.status}`, detalhe: 'Resposta inesperada ao buscar o arquivo.' }
   } catch {
-    // fetch estourando sem status: rede caiu, extensão bloqueou, ou CORS.
-    // CORS é o menos provável aqui — o link do getDownloadURL já vem com os
-    // cabeçalhos liberados (só getBytes/getBlob é que exigiriam configuração).
-    return {
-      titulo: 'O navegador não conseguiu buscar o arquivo',
-      detalhe: 'A requisição foi bloqueada antes de chegar resposta. Costuma ser queda de conexão, VPN/firewall corporativo ou uma extensão do navegador barrando o download. Tente numa aba anônima; se persistir, me avise que investigo o bucket.',
-      rede: true,
+    // O fetch acima estourou sem status. Isso tanto pode ser CORS quanto o
+    // servidor inalcançável — e a correção é completamente diferente.
+    //
+    // O modo 'no-cors' distingue os dois com certeza: ele devolve uma resposta
+    // opaca se o servidor respondeu (só não deixa LER), e só estoura se não deu
+    // nem para falar com o servidor. Então:
+    //   no-cors passa + cors falha  = é CORS, sem dúvida
+    //   os dois falham              = rede/servidor
+    try {
+      await fetch(url, { mode: 'no-cors' })
+      return {
+        titulo: 'Bloqueado por CORS',
+        detalhe: 'O servidor entrega o arquivo, mas não autoriza este site a lê-lo por JavaScript. Baixar pelo link funciona (navegação não passa por CORS); ler pelo app, não. É uma liberação única no bucket do Storage.',
+        cors: true,
+      }
+    } catch {
+      return {
+        titulo: 'Não foi possível falar com o servidor',
+        detalhe: 'A requisição não chegou a receber resposta. Costuma ser queda de conexão, VPN/firewall corporativo, ou uma extensão do navegador barrando.',
+        rede: true,
+      }
     }
   }
 }
