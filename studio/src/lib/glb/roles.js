@@ -111,7 +111,11 @@ const REGRAS_NOME = [
 export function sugerirPapel(mat) {
   const nome = mat.nome || ''
   const { largura, altura, profundidade } = mat.bbox
-  const espessura = Math.min(largura, profundidade)
+  // As regras de FORMA olham a peça típica, não a caixa do conjunto: 28 painéis
+  // de 2,90 × 2,90 × 0,10 espalhados formam um conjunto de 10 × 3,9 × 8, cuja
+  // "espessura" é 8 m. Medir o conjunto transforma parede em mobiliário.
+  const t = mat.tipica || mat.bbox
+  const espessura = Math.min(t.largura, t.profundidade)
 
   // O tamanho VETA o nome, e essa ordem importa: a cúpula de céu do Enscape no
   // arquivo de 20m² se chama "COR DA PAREDE" e, pela regra de nome, viraria
@@ -133,16 +137,19 @@ export function sugerirPapel(mat) {
     if (re.test(nome)) return { papel, motivo: `nome do material casa com "${re.source.split('|')[0]}"` }
   }
   // Plano fino deitado no chão.
-  if (altura < 0.15 && largura > 1.5 && profundidade > 1.5 && mat.bbox.min[1] < 0.3) {
-    return { papel: 'piso', motivo: 'plano fino no nível do chão' }
+  if (t.altura < 0.15 && t.largura > 1.5 && t.profundidade > 1.5 && mat.bbox.min[1] < 0.3) {
+    return { papel: 'piso', motivo: `peça típica de ${t.largura.toFixed(1)}×${t.profundidade.toFixed(1)} m deitada no chão` }
   }
   // Plano fino deitado lá no alto: teto, treliça ou rack de iluminação.
-  if (altura < 0.45 && largura > 1.5 && profundidade > 1.5 && mat.bbox.min[1] > 2.4) {
+  if (t.altura < 0.45 && t.largura > 1.5 && t.profundidade > 1.5 && mat.bbox.min[1] > 2.4) {
     return { papel: 'metal', motivo: 'plano horizontal acima de 2,4 m — estrutura de teto' }
   }
   // Painel em pé e fino: é parede.
-  if (altura > 1.2 && espessura < 0.4) {
-    return { papel: 'bagum', motivo: 'painel vertical fino — geometria de parede' }
+  if (t.altura > 1.2 && espessura < 0.4) {
+    return {
+      papel: 'bagum',
+      motivo: `peça típica de ${t.largura.toFixed(1)}×${t.altura.toFixed(1)} m com ${(espessura * 100).toFixed(0)} cm — geometria de parede`,
+    }
   }
   return { papel: 'mobiliario', motivo: 'sem pista no nome — classificado como volume solto' }
 }

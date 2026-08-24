@@ -86,12 +86,14 @@ export function agruparPorMaterial(pecas) {
         // conjunto. Sete painéis de 5 m espalhados pelo arquivo somam 42 m de
         // extensão sem que nenhum deles seja grande.
         maiorPeca: 0,
+        dims: [],
         uuids: [],
       }
       mapa.set(p.materialNome, g)
     }
     g.pecas++; g.tris += p.tris; g.uuids.push(p.uuid)
     g.maiorPeca = Math.max(g.maiorPeca, p.bbox.largura, p.bbox.altura, p.bbox.profundidade)
+    g.dims.push([p.bbox.largura, p.bbox.altura, p.bbox.profundidade])
     for (let k = 0; k < 3; k++) {
       g.min[k] = Math.min(g.min[k], p.bbox.min[k])
       g.max[k] = Math.max(g.max[k], p.bbox.max[k])
@@ -106,9 +108,20 @@ export function agruparPorMaterial(pecas) {
         altura: g.max[1] - g.min[1],
         profundidade: g.max[2] - g.min[2],
       }
-      const mat = { nome: g.nome, bbox, maiorPeca: g.maiorPeca }
+      // A peça TÍPICA (mediana) é o que representa o material — a caixa do
+      // conjunto não representa nada. Os 28 painéis A08_Garnet_Shadow medem
+      // 2,90 × 2,90 × 0,10 cada, mas espalhados formam um conjunto de
+      // 10 × 3,9 × 8: pela caixa do conjunto a "espessura" vira 8 m e a regra
+      // de painel vertical nunca dispara, jogando parede em mobiliário.
+      const mediana = (i) => {
+        const v = g.dims.map((d) => d[i]).sort((a, b) => a - b)
+        return v.length ? v[Math.floor(v.length / 2)] : 0
+      }
+      const tipica = { largura: mediana(0), altura: mediana(1), profundidade: mediana(2) }
+
+      const mat = { nome: g.nome, bbox, maiorPeca: g.maiorPeca, tipica }
       const { papel, motivo } = sugerirPapel(mat)
-      return { ...g, bbox, papelSugerido: papel, motivo }
+      return { ...g, bbox, tipica, papelSugerido: papel, motivo }
     })
     .sort((a, b) => b.tris - a.tris)
 }

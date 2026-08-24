@@ -7,6 +7,7 @@ import { analisar } from '../lib/glb/analyze.js'
 import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
 import { superficiesPadrao, indicePorPeca } from '../lib/glb/superficies.js'
 import PainelPersonalizar from '../components/PainelPersonalizar.jsx'
+import PainelSuperficies from '../components/PainelSuperficies.jsx'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
 // nem o do Google Cloud expõem isso na interface. Roda no Cloud Shell, que é um
@@ -353,7 +354,7 @@ export default function Editor() {
         <Viewer cena={cena} materialFoco={foco} papeis={papeis} modo={modo} recorte={recorte}
           mostrarIgnorados={mostrarIgnorados}
           indice={indice} acabamentos={acabamentos}
-          supFoco={aba === 'personalizar' ? supFoco : null} />
+          supFoco={(aba === 'personalizar' || aba === 'superficies') ? supFoco : null} />
 
         {/* controles flutuantes */}
         <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -417,26 +418,37 @@ export default function Editor() {
               </div>
             )}
 
-            {/* abas */}
-            <div className="row" style={{ gap: 6, padding: '0 18px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+            {/* Abas fixas no topo: se rolarem junto com a lista de materiais,
+                não há como trocar de aba sem voltar ao começo do painel. */}
+            <div className="row" style={{
+              gap: 6, padding: '12px 18px 14px', flexWrap: 'wrap',
+              position: 'sticky', top: 0, zIndex: 6,
+              background: 'rgba(4,6,13,.94)', backdropFilter: 'blur(10px)',
+              borderBottom: '1px solid var(--line)',
+            }}>
               {[
                 ['materiais', `Materiais (${totalMat})`],
+                ['superficies', `Superfícies${superficies ? ` (${superficies.length})` : ''}`],
                 ['recorte', 'Área do estande'],
-                ['personalizar', `Personalizar${superficies ? ` (${superficies.length})` : ''}`],
+                ['personalizar', 'Prévia'],
               ].map(([k, r]) => (
                 <button key={k} className={`chip ${aba === k ? 'sel' : ''}`} onClick={() => setAba(k)}>{r}</button>
               ))}
             </div>
 
             <div style={{ padding: 18 }}>
-              {aba === 'personalizar' ? (
-                superficies
-                  ? <PainelPersonalizar
-                      analise={analise} superficies={superficies}
-                      setSuperficies={(v) => { setSuperficies(v); setSalvo(false) }}
-                      acabamentos={acabamentos} setAcabamentos={setAcabamentos}
-                      supFoco={supFoco} setSupFoco={setSupFoco} />
-                  : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
+              {aba === 'superficies' || aba === 'personalizar' ? (
+                !superficies
+                  ? <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
+                  : aba === 'superficies'
+                    ? <PainelSuperficies
+                        analise={analise} superficies={superficies}
+                        setSuperficies={(v) => { setSuperficies(v); setSalvo(false) }}
+                        supFoco={supFoco} setSupFoco={setSupFoco} />
+                    : <PainelPersonalizar
+                        analise={analise} superficies={superficies}
+                        acabamentos={acabamentos} setAcabamentos={setAcabamentos}
+                        supFoco={supFoco} setSupFoco={setSupFoco} />
               ) : aba === 'materiais' ? (
                 <div className="col" style={{ gap: 9 }}>
                   {mapeados < totalMat && (

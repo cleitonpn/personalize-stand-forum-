@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { PAPEIS } from '../lib/glb/roles.js'
-import { dividirPorPeca, dividirPorProximidade, unir, medir } from '../lib/glb/superficies.js'
+import { medir } from '../lib/glb/superficies.js'
 
 // Paleta de teste. Vira o catálogo real de napas/carpetes quando a montadora
 // mandar a tabela — a estrutura já é a mesma: id, nome e cor.
@@ -25,20 +25,18 @@ const CORES = [
 
 const n1 = (v) => (isFinite(v) ? v.toFixed(1) : '—')
 
+/**
+ * Prévia do que o expositor vê: escolher acabamento sobre a estrutura já
+ * definida no mapeamento. Nada aqui altera quais peças formam uma superfície —
+ * isso é decisão do admin, na aba Superfícies.
+ */
 export default function PainelPersonalizar({
-  analise, superficies, setSuperficies, acabamentos, setAcabamentos, supFoco, setSupFoco,
+  analise, superficies, acabamentos, setAcabamentos, supFoco, setSupFoco,
 }) {
-  const [sel, setSel] = useState([])           // seleção múltipla para unir
   const fileRef = useRef(null)
   const [alvoArte, setAlvoArte] = useState(null)
 
-  const alternarSel = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id])
-
-  const substituir = (id, novas) =>
-    setSuperficies((ss) => ss.flatMap((s) => (s.id === id ? novas : [s])))
-
-  const aplicar = (id, patch) =>
-    setAcabamentos((a) => ({ ...a, [id]: { ...a[id], ...patch } }))
+  const aplicar = (id, patch) => setAcabamentos((a) => ({ ...a, [id]: { ...a[id], ...patch } }))
 
   const enviarArte = (e) => {
     const f = e.target.files?.[0]
@@ -49,34 +47,38 @@ export default function PainelPersonalizar({
     e.target.value = ''
   }
 
-  const unirSelecionadas = () => {
-    const alvo = superficies.filter((s) => sel.includes(s.id))
-    if (alvo.length < 2) return
-    const nova = unir(alvo)
-    setSuperficies((ss) => [nova, ...ss.filter((s) => !sel.includes(s.id))])
-    setSel([]); setSupFoco(nova.id)
-  }
+  // O expositor só enxerga o que é personalizável; o resto é estrutura.
+  const visiveis = superficies.filter((s) => PAPEIS[s.papel]?.personalizavel)
+  const nEscolhas = Object.keys(acabamentos).length
 
   return (
     <div className="col" style={{ gap: 12 }}>
-      <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6 }}>
-        Cada superfície é um controle independente para o expositor.
-        <b> Dividir</b> separa peças que hoje mudam juntas (os logos, por exemplo);
-        <b> unir</b> junta peças que são um objeto só (assento e pés da banqueta).
-      </p>
+      <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
+        <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, flex: 1 }}>
+          Prévia da tela do expositor: {visiveis.length} {visiveis.length === 1 ? 'superfície disponível' : 'superfícies disponíveis'}.
+          Para mudar o que pode ser personalizado, use a aba <b>Superfícies</b>.
+        </p>
+        {nEscolhas > 0 && (
+          <button className="btn btn-sm btn-ghost" style={{ flex: 'none' }}
+            onClick={() => setAcabamentos({})}>Limpar tudo</button>
+        )}
+      </div>
 
-      {sel.length >= 2 && (
-        <button className="btn btn-primary btn-sm" onClick={unirSelecionadas}>
-          ⛓ Unir {sel.length} superfícies numa só
-        </button>
+      {visiveis.length === 0 && (
+        <div className="card card-pad" style={{ textAlign: 'center', padding: '32px 20px' }}>
+          <div style={{ fontSize: 28, marginBottom: 8, opacity: .5 }}>🎨</div>
+          <h3 style={{ fontSize: 14.5, marginBottom: 5 }}>Nada personalizável ainda</h3>
+          <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+            Marque materiais como lona, bagum, piso, adesivo ou madeira na aba Materiais.
+          </p>
+        </div>
       )}
 
-      {superficies.map((s) => {
+      {visiveis.map((s) => {
         const m = medir(s, analise)
         const def = PAPEIS[s.papel]
         const acab = acabamentos[s.id] || {}
         const ativo = supFoco === s.id
-        const marcada = sel.includes(s.id)
 
         return (
           <div key={s.id}
@@ -85,24 +87,21 @@ export default function PainelPersonalizar({
             style={{
               padding: '12px 13px', borderRadius: 'var(--r)',
               background: ativo ? 'var(--surface-3)' : 'var(--surface-2)',
-              border: `1px solid ${marcada ? 'var(--brand-green)' : ativo ? 'var(--brand-blue-lit)' : 'var(--line)'}`,
-              transition: 'all var(--t) var(--ease)',
+              border: `1px solid ${ativo ? 'var(--brand-blue-lit)' : 'var(--line)'}`,
+              transition: 'background var(--t) var(--ease), border-color var(--t) var(--ease)',
             }}>
             <div className="row" style={{ justifyContent: 'space-between', gap: 9, marginBottom: 9 }}>
-              <label className="row" style={{ gap: 8, minWidth: 0, cursor: 'pointer' }}>
-                <input type="checkbox" checked={marcada} onChange={() => alternarSel(s.id)} />
-                <span className="col" style={{ gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.nome}</span>
-                  {m && <span className="dim" style={{ fontSize: 11 }}>
-                    {m.pecas} {m.pecas === 1 ? 'peça' : 'peças'} · {n1(m.largura)}×{n1(m.altura)}×{n1(m.profundidade)} m
-                  </span>}
-                </span>
-              </label>
-              {def && <span className="tag" style={{ flex: 'none', color: def.cor, borderColor: 'currentColor' }}>
-                <i className="tag-dot" />{def.rotulo}</span>}
+              <div className="col" style={{ gap: 2, minWidth: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.nome}</span>
+                {m && <span className="dim" style={{ fontSize: 11 }}>
+                  {n1(m.largura)}×{n1(m.altura)}×{n1(m.profundidade)} m
+                </span>}
+              </div>
+              <span className="tag" style={{ flex: 'none', color: def.cor, borderColor: 'currentColor' }}>
+                <i className="tag-dot" />{def.rotulo}
+              </span>
             </div>
 
-            {/* cores */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 5, marginBottom: 9 }}>
               {CORES.map((c) => (
                 <button key={c.id} title={c.nome}
@@ -110,35 +109,20 @@ export default function PainelPersonalizar({
                   style={{
                     aspectRatio: '1', borderRadius: 6, background: c.hex,
                     border: acab.corId === c.id ? '2px solid var(--brand-green)' : '1px solid var(--line-lit)',
-                    transition: 'transform var(--t-fast) var(--ease)',
                   }} />
               ))}
             </div>
 
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-              {def?.personalizavel && (
-                <button className="btn btn-sm btn-ghost"
-                  onClick={() => { setAlvoArte(s.id); fileRef.current?.click() }}>
-                  {acab.arte ? `✓ ${(acab.nomeArte || 'arte').slice(0, 12)}` : '🖼 Arte'}
-                </button>
-              )}
+              <button className="btn btn-sm btn-ghost"
+                onClick={() => { setAlvoArte(s.id); fileRef.current?.click() }}>
+                {acab.arte ? `✓ ${(acab.nomeArte || 'arte').slice(0, 14)}` : '🖼 Aplicar arte'}
+              </button>
               {(acab.cor || acab.arte) && (
                 <button className="btn btn-sm btn-ghost" onClick={() =>
                   setAcabamentos((a) => { const n = { ...a }; delete n[s.id]; return n })}>
                   Limpar
                 </button>
-              )}
-              {m && m.pecas > 1 && (
-                <>
-                  <button className="btn btn-sm btn-ghost"
-                    onClick={() => substituir(s.id, dividirPorProximidade(s, analise))}>
-                    ⧉ Separar por posição
-                  </button>
-                  <button className="btn btn-sm btn-ghost"
-                    onClick={() => substituir(s.id, dividirPorPeca(s, analise))}>
-                    ⁝⁝ Separar {m.pecas}
-                  </button>
-                </>
               )}
             </div>
           </div>
