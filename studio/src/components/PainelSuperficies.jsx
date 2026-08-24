@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Interruptor } from './Interruptor.jsx'
 import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
 import { dividirPorPeca, dividirPorProximidade, unir, medir } from '../lib/glb/superficies.js'
 
@@ -101,6 +102,14 @@ export default function PainelSuperficies({ analise, superficies, setSuperficies
               </div>
               {def && <span className="tag" style={{ flex: 'none', color: def.cor, borderColor: 'currentColor' }}>
                 <i className="tag-dot" />{def.rotulo}</span>}
+            </div>
+
+            {/* permissões do expositor — decisão do admin, não da heurística */}
+            <div className="row" style={{ gap: 14, marginBottom: 9, flexWrap: 'wrap' }}>
+              <Interruptor ligado={!!s.podeCor} rotulo="Cliente troca a cor"
+                aoMudar={() => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? { ...x, podeCor: !x.podeCor } : x)))} />
+              <Interruptor ligado={!!s.podeArte} rotulo="Cliente sobe arte"
+                aoMudar={() => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? { ...x, podeArte: !x.podeArte } : x)))} />
             </div>
 
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>

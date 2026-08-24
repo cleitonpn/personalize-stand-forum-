@@ -8,6 +8,8 @@ import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
 import { superficiesPadrao, indicePorPeca } from '../lib/glb/superficies.js'
 import PainelPersonalizar from '../components/PainelPersonalizar.jsx'
 import PainelSuperficies from '../components/PainelSuperficies.jsx'
+import PainelObjetos from '../components/PainelObjetos.jsx'
+import { detectarObjetos, numerar } from '../lib/glb/objetos.js'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
 // nem o do Google Cloud expõem isso na interface. Roda no Cloud Shell, que é um
@@ -198,6 +200,8 @@ export default function Editor() {
   const [superficies, setSuperficies] = useState(null)
   const [acabamentos, setAcabamentos] = useState({})
   const [supFoco, setSupFoco] = useState(null)
+  const [objetos, setObjetos] = useState(null)
+  const [objFoco, setObjFoco] = useState(null)
   const [aba, setAba] = useState('materiais')
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
@@ -224,6 +228,7 @@ export default function Editor() {
   useEffect(() => {
     if (!analise || superficies) return
     setSuperficies(modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, papeis))
+    setObjetos(modelo?.objetos?.length ? modelo.objetos : numerar(detectarObjetos(analise, papeis)))
   }, [analise, superficies, modelo, papeis])
 
   const indice = useMemo(() => (superficies ? indicePorPeca(superficies) : null), [superficies])
@@ -246,6 +251,7 @@ export default function Editor() {
       await updateDoc(doc(db, 'modelos', id), {
         papeis, recorte,
         superficies: superficies || [],
+        objetos: objetos || [],
         status: Object.keys(papeis).length ? 'mapeado' : 'novo',
       })
       setSalvo(true); setTimeout(() => setSalvo(false), 2600)
@@ -354,7 +360,8 @@ export default function Editor() {
         <Viewer cena={cena} materialFoco={foco} papeis={papeis} modo={modo} recorte={recorte}
           mostrarIgnorados={mostrarIgnorados}
           indice={indice} acabamentos={acabamentos}
-          supFoco={(aba === 'personalizar' || aba === 'superficies') ? supFoco : null} />
+          supFoco={(aba === 'personalizar' || aba === 'superficies') ? supFoco : null}
+          objetos={objetos} objFoco={aba === 'objetos' ? objFoco : null} />
 
         {/* controles flutuantes */}
         <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -429,6 +436,7 @@ export default function Editor() {
               {[
                 ['materiais', `Materiais (${totalMat})`],
                 ['superficies', `Superfícies${superficies ? ` (${superficies.length})` : ''}`],
+                ['objetos', `Objetos${objetos ? ` (${objetos.length})` : ''}`],
                 ['recorte', 'Área do estande'],
                 ['personalizar', 'Prévia'],
               ].map(([k, r]) => (
@@ -437,7 +445,13 @@ export default function Editor() {
             </div>
 
             <div style={{ padding: 18 }}>
-              {aba === 'superficies' || aba === 'personalizar' ? (
+              {aba === 'objetos' ? (
+                objetos
+                  ? <PainelObjetos objetos={objetos}
+                      setObjetos={(v) => { setObjetos(v); setSalvo(false) }}
+                      objFoco={objFoco} setObjFoco={setObjFoco} />
+                  : <div className="row"><span className="spinner" /><span className="muted">Detectando objetos…</span></div>
+              ) : aba === 'superficies' || aba === 'personalizar' ? (
                 !superficies
                   ? <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
                   : aba === 'superficies'
@@ -448,7 +462,7 @@ export default function Editor() {
                     : <PainelPersonalizar
                         analise={analise} superficies={superficies}
                         acabamentos={acabamentos} setAcabamentos={setAcabamentos}
-                        supFoco={supFoco} setSupFoco={setSupFoco} />
+                        supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetos} />
               ) : aba === 'materiais' ? (
                 <div className="col" style={{ gap: 9 }}>
                   {mapeados < totalMat && (

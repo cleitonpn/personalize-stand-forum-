@@ -11,6 +11,8 @@
 //  livremente. O material só semeia o estado inicial.
 // ============================================================================
 
+import { PAPEIS } from './roles.js'
+
 let seq = 0
 const novoId = () => `sup-${Date.now().toString(36)}-${seq++}`
 
@@ -18,13 +20,20 @@ const novoId = () => `sup-${Date.now().toString(36)}-${seq++}`
 export function superficiesPadrao(analise, papeis) {
   return analise.materiais
     .filter((m) => (papeis[m.nome] || m.papelSugerido) !== 'ignorar')
-    .map((m) => ({
-      id: novoId(),
-      nome: m.nome,
-      papel: papeis[m.nome] || m.papelSugerido,
-      pecas: analise.pecas.filter((p) => p.materialNome === m.nome).map((p) => p.chave),
-      origem: m.nome,
-    }))
+    .map((m) => {
+      const papel = papeis[m.nome] || m.papelSugerido
+      return {
+        id: novoId(),
+        nome: m.nome,
+        papel,
+        // Permissões do expositor, cada uma explícita. Quem decide é o ADMIN;
+        // o papel sugerido só define o valor inicial.
+        podeCor: !!PAPEIS[papel]?.personalizavel,
+        podeArte: !!PAPEIS[papel]?.personalizavel,
+        pecas: analise.pecas.filter((p) => p.materialNome === m.nome).map((p) => p.chave),
+        origem: m.nome,
+      }
+    })
 }
 
 /** Uma superfície por peça — para os casos "quero cada logo separado". */
@@ -40,6 +49,7 @@ export function dividirPorPeca(sup, analise) {
     id: novoId(),
     nome: `${sup.nome} ${i + 1}`,
     papel: sup.papel,
+    podeCor: sup.podeCor, podeArte: sup.podeArte,
     pecas: [p.chave],
     origem: sup.origem,
   }))
@@ -72,6 +82,7 @@ export function dividirPorProximidade(sup, analise, raio = 1.2) {
     id: novoId(),
     nome: `${sup.nome} ${i + 1}`,
     papel: sup.papel,
+    podeCor: sup.podeCor, podeArte: sup.podeArte,
     pecas: [...new Set(g.pecas.map((p) => p.chave))],
     origem: sup.origem,
   }))
@@ -85,6 +96,9 @@ export function unir(sups, nome) {
     // o papel do maior manda: unir uma peça grande com um detalhe pequeno
     // não deve deixar o detalhe decidir o que a superfície é
     papel: [...sups].sort((a, b) => b.pecas.length - a.pecas.length)[0]?.papel || 'mobiliario',
+    // se qualquer parte permitia, a união continua permitindo
+    podeCor: sups.some((s) => s.podeCor),
+    podeArte: sups.some((s) => s.podeArte),
     pecas: [...new Set(sups.flatMap((s) => s.pecas))],
     origem: sups.map((s) => s.origem).join(','),
   }

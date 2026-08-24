@@ -31,7 +31,7 @@ const n1 = (v) => (isFinite(v) ? v.toFixed(1) : '—')
  * isso é decisão do admin, na aba Superfícies.
  */
 export default function PainelPersonalizar({
-  analise, superficies, acabamentos, setAcabamentos, supFoco, setSupFoco,
+  analise, superficies, acabamentos, setAcabamentos, supFoco, setSupFoco, objetos,
 }) {
   const fileRef = useRef(null)
   const [alvoArte, setAlvoArte] = useState(null)
@@ -47,16 +47,18 @@ export default function PainelPersonalizar({
     e.target.value = ''
   }
 
-  // O expositor só enxerga o que é personalizável; o resto é estrutura.
-  const visiveis = superficies.filter((s) => PAPEIS[s.papel]?.personalizavel)
+  // O que aparece para o expositor é o que o ADMIN liberou, não o que a
+  // heurística achou que era personalizável.
+  const visiveis = superficies.filter((s) => s.podeCor || s.podeArte)
   const nEscolhas = Object.keys(acabamentos).length
 
   return (
     <div className="col" style={{ gap: 12 }}>
       <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
         <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6, flex: 1 }}>
-          Prévia da tela do expositor: {visiveis.length} {visiveis.length === 1 ? 'superfície disponível' : 'superfícies disponíveis'}.
-          Para mudar o que pode ser personalizado, use a aba <b>Superfícies</b>.
+          Prévia da tela do expositor: {visiveis.length} {visiveis.length === 1 ? 'superfície liberada' : 'superfícies liberadas'}
+          {objetos ? ` e ${objetos.filter((o) => o.podeMover || o.podeGirar).length} objetos móveis` : ''}.
+          Para liberar ou bloquear, use as abas <b>Superfícies</b> e <b>Objetos</b>.
         </p>
         {nEscolhas > 0 && (
           <button className="btn btn-sm btn-ghost" style={{ flex: 'none' }}
@@ -69,7 +71,7 @@ export default function PainelPersonalizar({
           <div style={{ fontSize: 28, marginBottom: 8, opacity: .5 }}>🎨</div>
           <h3 style={{ fontSize: 14.5, marginBottom: 5 }}>Nada personalizável ainda</h3>
           <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
-            Marque materiais como lona, bagum, piso, adesivo ou madeira na aba Materiais.
+            Libere "trocar a cor" ou "subir arte" em alguma superfície, na aba Superfícies.
           </p>
         </div>
       )}
@@ -102,7 +104,7 @@ export default function PainelPersonalizar({
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 5, marginBottom: 9 }}>
+            {s.podeCor && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 5, marginBottom: 9 }}>
               {CORES.map((c) => (
                 <button key={c.id} title={c.nome}
                   onClick={() => aplicar(s.id, { cor: c.hex, corId: c.id })}
@@ -111,13 +113,15 @@ export default function PainelPersonalizar({
                     border: acab.corId === c.id ? '2px solid var(--brand-green)' : '1px solid var(--line-lit)',
                   }} />
               ))}
-            </div>
+            </div>}
 
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-              <button className="btn btn-sm btn-ghost"
-                onClick={() => { setAlvoArte(s.id); fileRef.current?.click() }}>
-                {acab.arte ? `✓ ${(acab.nomeArte || 'arte').slice(0, 14)}` : '🖼 Aplicar arte'}
-              </button>
+              {s.podeArte && (
+                <button className="btn btn-sm btn-ghost"
+                  onClick={() => { setAlvoArte(s.id); fileRef.current?.click() }}>
+                  {acab.arte ? `✓ ${(acab.nomeArte || 'arte').slice(0, 14)}` : '🖼 Aplicar arte'}
+                </button>
+              )}
               {(acab.cor || acab.arte) && (
                 <button className="btn btn-sm btn-ghost" onClick={() =>
                   setAcabamentos((a) => { const n = { ...a }; delete n[s.id]; return n })}>

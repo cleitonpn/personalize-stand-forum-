@@ -181,7 +181,14 @@ function Enquadrar({ alvo, deps }) {
  * Aplica realce por material: o que está selecionado recebe a cor do papel,
  * o resto perde saturação. Guarda o material original para restaurar depois.
  */
-function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco }) {
+function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco }) {
+  // peças do objeto em foco, para acender só ele
+  const pecasDoObj = useMemo(() => {
+    if (!objFoco || !objetos) return null
+    const o = objetos.find((x) => x.id === objFoco)
+    return o ? new Set(o.pecas) : null
+  }, [objFoco, objetos])
+
   useEffect(() => {
     if (!cena) return
     const criados = []
@@ -259,6 +266,22 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
         }
       }
 
+      // realce do objeto selecionado — o que vai se mover
+      if (pecasDoObj) {
+        if (pecasDoObj.has(o.userData._chave)) {
+          const m = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#f59e0b'), emissive: new THREE.Color('#b45309'),
+            emissiveIntensity: 0.8, roughness: 0.4, toneMapped: false,
+          })
+          criados.push(m); usar = m
+        } else {
+          const m = new THREE.MeshStandardMaterial({
+            color: '#1a2130', roughness: 0.95, transparent: true, opacity: 0.2, depthWrite: false,
+          })
+          criados.push(m); usar = m
+        }
+      }
+
       // realce da superfície selecionada, por cima de tudo
       if (supFoco) {
         if (sup?.id === supFoco) {
@@ -287,7 +310,94 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       criados.forEach((m) => m.dispose())
       texturas.forEach((t) => t.dispose())
     }
-  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco])
+  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, pecasDoObj])
+}
+
+/**
+ * Aplica mover/girar por objeto.
+ *
+ * As peças de um objeto estão espalhadas pela hierarquia do arquivo, com pais
+ * arbitrários. Em vez de recalcular matriz peça a peça, cada objeto ganha um
+ * Group posicionado no seu ponto de apoio e as peças são levadas para ele com
+ * attach(), que preserva a transformação em mundo. A partir daí mover e girar o
+ * grupo move o objeto inteiro, e a rotação acontece em torno do próprio apoio —
+ * não da origem da cena.
+ */
+function useTransformes(cena, objetos) {
+  const grupos = useRef(new Map())
+
+  // Assinatura só da ESTRUTURA. Sem isso os grupos seriam desmontados e
+  // remontados a cada clique de mover, o que é caro e desnecessário: mudar a
+  // posição não muda quais peças formam o objeto.
+  const estrutura = useMemo(
+    () => (objetos || []).map((o) => `${o.id}:${o.pecas.length}`).join('|'),
+    [objetos],
+  )
+
+  useEffect(() => {
+    if (!cena || !objetos?.length) return
+    const criados = new Map()
+    const porChave = new Map()
+    for (const o of objetos) for (const c of o.pecas) porChave.set(c, o.id)
+
+    const alvos = new Map()
+    cena.updateWorldMatrix(true, true)
+    cena.traverse((o) => {
+      if (!o.isMesh) return
+      // a chave normalmente já foi calculada pelo realce; recalcula se não
+      if (!o.userData._chave) {
+        const nome = (Array.isArray(o.material) ? o.material[0] : o.material)?.name || '(sem material)'
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+        const c = new THREE.Box3().copy(o.geometry.boundingBox)
+          .applyMatrix4(o.matrixWorld).getCenter(new THREE.Vector3())
+        o.userData._chave = chaveDaPeca(nome, c.toArray())
+      }
+      const id = porChave.get(o.userData._chave)
+      if (!id) return
+      if (!alvos.has(id)) alvos.set(id, [])
+      alvos.get(id).push(o)
+    })
+
+    for (const obj of objetos) {
+      const malhas = alvos.get(obj.id)
+      if (!malhas?.length) continue
+      const g = new THREE.Group()
+      g.name = `obj:${obj.id}`
+      g.position.set(...obj.apoio)
+      cena.add(g)
+      // attach preserva a posição em mundo de cada peça
+      for (const m of malhas) {
+        if (!m.userData._paiOrig) m.userData._paiOrig = m.parent
+        g.attach(m)
+      }
+      criados.set(obj.id, g)
+    }
+    grupos.current = criados
+
+    return () => {
+      for (const g of criados.values()) {
+        for (const m of [...g.children]) {
+          const pai = m.userData._paiOrig
+          if (pai) pai.attach(m)
+        }
+        g.removeFromParent()
+      }
+      grupos.current = new Map()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cena, estrutura])
+
+  // aplica as transformações — barato, roda a cada ajuste
+  useEffect(() => {
+    if (!objetos) return
+    for (const obj of objetos) {
+      const g = grupos.current.get(obj.id)
+      if (!g) continue
+      const t = obj.transform || { dx: 0, dz: 0, rotY: 0 }
+      g.position.set(obj.apoio[0] + (t.dx || 0), obj.apoio[1], obj.apoio[2] + (t.dz || 0))
+      g.rotation.y = t.rotY || 0
+    }
+  }, [objetos])
 }
 
 /** Caixa que mostra a área do estande escolhida no recorte. */
@@ -313,9 +423,10 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
 
 export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
-  indice, acabamentos, supFoco,
+  indice, acabamentos, supFoco, objetos, objFoco,
 }) {
-  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco })
+  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco })
+  useTransformes(cena, objetos)
   const chave = useMemo(() => cena?.uuid, [cena])
   // reenquadra quando o descarte muda o que está visível
   const nIgnorados = useMemo(
