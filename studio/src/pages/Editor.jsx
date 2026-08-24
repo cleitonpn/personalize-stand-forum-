@@ -5,6 +5,8 @@ import { db } from '../lib/firebase.js'
 import Viewer, { useGLB } from '../components/Viewer.jsx'
 import { analisar } from '../lib/glb/analyze.js'
 import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
+import { superficiesPadrao, indicePorPeca } from '../lib/glb/superficies.js'
+import PainelPersonalizar from '../components/PainelPersonalizar.jsx'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
 // nem o do Google Cloud expõem isso na interface. Roda no Cloud Shell, que é um
@@ -192,6 +194,9 @@ export default function Editor() {
   const [foco, setFoco] = useState(null)
   const [modo, setModo] = useState('original')
   const [mostrarIgnorados, setMostrarIgnorados] = useState(false)
+  const [superficies, setSuperficies] = useState(null)
+  const [acabamentos, setAcabamentos] = useState({})
+  const [supFoco, setSupFoco] = useState(null)
   const [aba, setAba] = useState('materiais')
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
@@ -212,8 +217,20 @@ export default function Editor() {
   const { cena, erro: erroGlb, progresso, carregando } = useGLB(modelo?.arquivo?.url)
   const analise = useMemo(() => (cena ? analisar(cena) : null), [cena])
 
+  // Semeia as superfícies a partir dos materiais na primeira vez que a análise
+  // fica pronta. Depois disso o admin manda: dividir e unir não são desfeitos
+  // por uma mudança de papel.
+  useEffect(() => {
+    if (!analise || superficies) return
+    setSuperficies(modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, papeis))
+  }, [analise, superficies, modelo, papeis])
+
+  const indice = useMemo(() => (superficies ? indicePorPeca(superficies) : null), [superficies])
+
   const mudarPapel = (nome, papel) => {
     setPapeis((p) => ({ ...p, [nome]: papel })); setSalvo(false)
+    // reflete o papel novo nas superfícies que ainda vieram daquele material
+    setSuperficies((ss) => ss?.map((s) => (s.origem === nome ? { ...s, papel } : s)))
   }
   const aplicarSugestoes = () => {
     if (!analise) return
@@ -227,6 +244,7 @@ export default function Editor() {
     try {
       await updateDoc(doc(db, 'modelos', id), {
         papeis, recorte,
+        superficies: superficies || [],
         status: Object.keys(papeis).length ? 'mapeado' : 'novo',
       })
       setSalvo(true); setTimeout(() => setSalvo(false), 2600)
@@ -333,7 +351,9 @@ export default function Editor() {
         )}
 
         <Viewer cena={cena} materialFoco={foco} papeis={papeis} modo={modo} recorte={recorte}
-          mostrarIgnorados={mostrarIgnorados} />
+          mostrarIgnorados={mostrarIgnorados}
+          indice={indice} acabamentos={acabamentos}
+          supFoco={aba === 'personalizar' ? supFoco : null} />
 
         {/* controles flutuantes */}
         <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -398,14 +418,26 @@ export default function Editor() {
             )}
 
             {/* abas */}
-            <div className="row" style={{ gap: 6, padding: '0 18px 14px', borderBottom: '1px solid var(--line)' }}>
-              {[['materiais', `Materiais (${totalMat})`], ['recorte', 'Área do estande']].map(([k, r]) => (
+            <div className="row" style={{ gap: 6, padding: '0 18px 14px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+              {[
+                ['materiais', `Materiais (${totalMat})`],
+                ['recorte', 'Área do estande'],
+                ['personalizar', `Personalizar${superficies ? ` (${superficies.length})` : ''}`],
+              ].map(([k, r]) => (
                 <button key={k} className={`chip ${aba === k ? 'sel' : ''}`} onClick={() => setAba(k)}>{r}</button>
               ))}
             </div>
 
             <div style={{ padding: 18 }}>
-              {aba === 'materiais' ? (
+              {aba === 'personalizar' ? (
+                superficies
+                  ? <PainelPersonalizar
+                      analise={analise} superficies={superficies}
+                      setSuperficies={(v) => { setSuperficies(v); setSalvo(false) }}
+                      acabamentos={acabamentos} setAcabamentos={setAcabamentos}
+                      supFoco={supFoco} setSupFoco={setSupFoco} />
+                  : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
+              ) : aba === 'materiais' ? (
                 <div className="col" style={{ gap: 9 }}>
                   {mapeados < totalMat && (
                     <button className="btn btn-sm" onClick={aplicarSugestoes} style={{ width: '100%' }}>

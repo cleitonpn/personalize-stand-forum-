@@ -7,6 +7,7 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as THREE from 'three'
 import { PAPEIS } from '../lib/glb/roles.js'
+import { chaveDaPeca } from '../lib/glb/analyze.js'
 
 /**
  * Loader com os decodificadores de compressão registrados.
@@ -180,10 +181,11 @@ function Enquadrar({ alvo, deps }) {
  * Aplica realce por material: o que está selecionado recebe a cor do papel,
  * o resto perde saturação. Guarda o material original para restaurar depois.
  */
-function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados }) {
+function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco }) {
   useEffect(() => {
     if (!cena) return
     const criados = []
+    const texturas = []
 
     cena.traverse((o) => {
       if (!o.isMesh) return
@@ -193,6 +195,15 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados }) {
       const orig = o.userData._matOrig
       const nome = (Array.isArray(orig) ? orig[0] : orig)?.name || '(sem material)'
       const papel = papeis?.[nome]
+
+      // chave estável da peça, calculada uma vez e guardada no próprio objeto
+      if (!o.userData._chave) {
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+        const c = new THREE.Box3().copy(o.geometry.boundingBox)
+          .applyMatrix4(o.matrixWorld).getCenter(new THREE.Vector3())
+        o.userData._chave = chaveDaPeca(nome, c.toArray())
+      }
+      const sup = indice?.get(o.userData._chave)
 
       // O que foi marcado para descarte sai de cena de vez. Deixar semi-
       // transparente não resolve: a cúpula do Enscape envolve o estande inteiro
@@ -214,6 +225,25 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados }) {
         criados.push(m); usar = m
       }
 
+      // acabamento escolhido pelo expositor, por superfície
+      const acab = sup && acabamentos?.[sup.id]
+      if (acab && (acab.cor || acab.arte)) {
+        const m = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(acab.cor || '#ffffff'),
+          roughness: acab.brilho != null ? 1 - acab.brilho : 0.7,
+          metalness: 0.02,
+        })
+        if (acab.arte) {
+          const tex = new THREE.TextureLoader().load(acab.arte)
+          tex.colorSpace = THREE.SRGBColorSpace
+          tex.flipY = false
+          // a arte manda na cor: sem isso o tom da napa tinge a imagem
+          m.map = tex; m.color.set('#ffffff')
+          texturas.push(tex)
+        }
+        criados.push(m); usar = m
+      }
+
       if (materialFoco) {
         if (nome === materialFoco) {
           const m = new THREE.MeshStandardMaterial({
@@ -229,6 +259,22 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados }) {
         }
       }
 
+      // realce da superfície selecionada, por cima de tudo
+      if (supFoco) {
+        if (sup?.id === supFoco) {
+          const m = new THREE.MeshStandardMaterial({
+            color: new THREE.Color('#16e0a3'), emissive: new THREE.Color('#0b7a5c'),
+            emissiveIntensity: 0.75, roughness: 0.4, toneMapped: false,
+          })
+          criados.push(m); usar = m
+        } else if (!acab?.arte) {
+          const m = new THREE.MeshStandardMaterial({
+            color: '#1a2130', roughness: 0.95, transparent: true, opacity: 0.18, depthWrite: false,
+          })
+          criados.push(m); usar = m
+        }
+      }
+
       o.material = usar
     })
 
@@ -239,8 +285,9 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados }) {
         if (o.userData._visOrig !== undefined) o.visible = o.userData._visOrig
       })
       criados.forEach((m) => m.dispose())
+      texturas.forEach((t) => t.dispose())
     }
-  }, [cena, materialFoco, papeis, modo, mostrarIgnorados])
+  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco])
 }
 
 /** Caixa que mostra a área do estande escolhida no recorte. */
@@ -266,8 +313,9 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
 
 export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
+  indice, acabamentos, supFoco,
 }) {
-  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados })
+  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco })
   const chave = useMemo(() => cena?.uuid, [cena])
   // reenquadra quando o descarte muda o que está visível
   const nIgnorados = useMemo(

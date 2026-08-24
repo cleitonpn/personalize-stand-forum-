@@ -13,6 +13,21 @@ import { sugerirPapel } from './roles.js'
 
 const v = new THREE.Vector3()
 
+/**
+ * Identificador estável de uma peça, para guardar no banco.
+ *
+ * O uuid do three é gerado a cada carregamento — salvar uuid não sobrevive a um
+ * reload. Já material + posição do centro no mundo é uma propriedade do arquivo:
+ * vale entre sessões, entre navegadores e independe da ordem de travessia.
+ *
+ * Peças exatamente coincidentes colidem de propósito: são as duplicatas que o
+ * analisador detecta, e para efeito de personalização elas são intercambiáveis.
+ */
+export function chaveDaPeca(materialNome, centro) {
+  const p = centro.map((n) => (Math.round(n * 100) / 100).toFixed(2)).join(',')
+  return `${materialNome}@${p}`
+}
+
 /** Percorre a cena e coleta uma "peça" por primitiva de malha, com bbox em mundo. */
 export function coletarPecas(root) {
   const pecas = []
@@ -34,10 +49,12 @@ export function coletarPecas(root) {
     const mats = Array.isArray(o.material) ? o.material : [o.material]
     const mat = mats[0]
 
+    const materialNome = mat?.name || '(sem material)'
     pecas.push({
       uuid: o.uuid,
+      chave: chaveDaPeca(materialNome, centro.toArray()),
       nome: o.name || '',
-      materialNome: mat?.name || '(sem material)',
+      materialNome,
       materialUuid: mat?.uuid || 'none',
       tris,
       bbox: {
