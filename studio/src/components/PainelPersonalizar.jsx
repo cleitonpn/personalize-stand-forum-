@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { PAPEIS } from '../lib/glb/roles.js'
 import { medir } from '../lib/glb/superficies.js'
+import { calcularOrcamento, areaDaSuperficie, fmtBRL, fmtM2 } from '../lib/glb/precos.js'
 
 // Paleta de teste. Vira o catálogo real de napas/carpetes quando a montadora
 // mandar a tabela — a estrutura já é a mesma: id, nome e cor.
@@ -32,6 +33,7 @@ const n1 = (v) => (isFinite(v) ? v.toFixed(1) : '—')
  */
 export default function PainelPersonalizar({
   analise, superficies, acabamentos, setAcabamentos, supFoco, setSupFoco, objetos,
+  precos, precosObjeto, recorte, removidos, setRemovidos,
 }) {
   const fileRef = useRef(null)
   const [alvoArte, setAlvoArte] = useState(null)
@@ -51,6 +53,9 @@ export default function PainelPersonalizar({
   // heurística achou que era personalizável.
   const visiveis = superficies.filter((s) => s.podeCor || s.podeArte)
   const nEscolhas = Object.keys(acabamentos).length
+  const orcamento = calcularOrcamento({
+    analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte,
+  })
 
   return (
     <div className="col" style={{ gap: 12 }}>
@@ -65,6 +70,34 @@ export default function PainelPersonalizar({
             onClick={() => setAcabamentos({})}>Limpar tudo</button>
         )}
       </div>
+
+      {/* orçamento ao vivo — o expositor vê o valor a cada escolha */}
+      {orcamento.itens.length > 0 && (
+        <div style={{
+          padding: '13px 14px', borderRadius: 'var(--r)',
+          background: 'var(--brand-grad-soft)', border: '1px solid var(--brand-green)',
+        }}>
+          <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+            <span className="label" style={{ fontSize: 10.5 }}>Total das personalizações</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, color: 'var(--brand-green)' }}>
+              {fmtBRL(orcamento.total)}
+            </span>
+          </div>
+          <div className="col" style={{ gap: 4 }}>
+            {orcamento.itens.map((i) => (
+              <div key={i.id} className="row" style={{ justifyContent: 'space-between', gap: 10, fontSize: 11.5 }}>
+                <span className="muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {i.nome}
+                  <span className="dim">
+                    {' · '}{i.unidade === 'm2' ? `${fmtM2(i.quantidade)} × ${fmtBRL(i.valorUnitario)}` : `1 × ${fmtBRL(i.valorUnitario)}`}
+                  </span>
+                </span>
+                <span className="mono" style={{ flex: 'none' }}>{fmtBRL(i.total)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {visiveis.length === 0 && (
         <div className="card card-pad" style={{ textAlign: 'center', padding: '32px 20px' }}>
@@ -96,7 +129,7 @@ export default function PainelPersonalizar({
               <div className="col" style={{ gap: 2, minWidth: 0 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.nome}</span>
                 {m && <span className="dim" style={{ fontSize: 11 }}>
-                  {n1(m.largura)}×{n1(m.altura)}×{n1(m.profundidade)} m
+                  {n1(m.largura)}×{n1(m.altura)}×{n1(m.profundidade)} m · {fmtM2(areaDaSuperficie(s, analise, recorte))}
                 </span>}
               </div>
               <span className="tag" style={{ flex: 'none', color: def.cor, borderColor: 'currentColor' }}>
@@ -128,6 +161,14 @@ export default function PainelPersonalizar({
                   Limpar
                 </button>
               )}
+              {(() => {
+                const item = orcamento.itens.find((i) => i.id === s.id)
+                return item ? (
+                  <span className="mono" style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--brand-green)' }}>
+                    {fmtBRL(item.total)}
+                  </span>
+                ) : null
+              })()}
             </div>
           </div>
         )

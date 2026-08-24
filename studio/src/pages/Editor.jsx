@@ -9,6 +9,8 @@ import { superficiesPadrao, indicePorPeca } from '../lib/glb/superficies.js'
 import PainelPersonalizar from '../components/PainelPersonalizar.jsx'
 import PainelSuperficies from '../components/PainelSuperficies.jsx'
 import PainelObjetos from '../components/PainelObjetos.jsx'
+import PainelPrecos from '../components/PainelPrecos.jsx'
+import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO } from '../lib/glb/precos.js'
 import { detectarObjetos, numerar } from '../lib/glb/objetos.js'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
@@ -202,6 +204,9 @@ export default function Editor() {
   const [supFoco, setSupFoco] = useState(null)
   const [objetos, setObjetos] = useState(null)
   const [objFoco, setObjFoco] = useState(null)
+  const [precos, setPrecos] = useState(PRECOS_PADRAO)
+  const [precosObjeto, setPrecosObjeto] = useState(PRECOS_OBJETO_PADRAO)
+  const [removidos, setRemovidos] = useState({})
   const [aba, setAba] = useState('materiais')
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
@@ -214,6 +219,8 @@ export default function Editor() {
         const d = snap.data()
         setModelo({ id: snap.id, ...d })
         setPapeis(d.papeis || {})
+        setPrecos({ ...PRECOS_PADRAO, ...(d.precos || {}) })
+        setPrecosObjeto({ ...PRECOS_OBJETO_PADRAO, ...(d.precosObjeto || {}) })
         setRecorte(d.recorte || null)
       } catch (ex) { setErro(ex.message) }
     })()
@@ -252,6 +259,7 @@ export default function Editor() {
         papeis, recorte,
         superficies: superficies || [],
         objetos: objetos || [],
+        precos, precosObjeto,
         status: Object.keys(papeis).length ? 'mapeado' : 'novo',
       })
       setSalvo(true); setTimeout(() => setSalvo(false), 2600)
@@ -437,6 +445,7 @@ export default function Editor() {
                 ['materiais', `Materiais (${totalMat})`],
                 ['superficies', `Superfícies${superficies ? ` (${superficies.length})` : ''}`],
                 ['objetos', `Objetos${objetos ? ` (${objetos.length})` : ''}`],
+                ['precos', 'Preços'],
                 ['recorte', 'Área do estande'],
                 ['personalizar', 'Prévia'],
               ].map(([k, r]) => (
@@ -445,7 +454,14 @@ export default function Editor() {
             </div>
 
             <div style={{ padding: 18 }}>
-              {aba === 'objetos' ? (
+              {aba === 'precos' ? (
+                superficies && objetos
+                  ? <PainelPrecos analise={analise} superficies={superficies} objetos={objetos}
+                      recorte={recorte}
+                      precos={precos} setPrecos={(v) => { setPrecos(v); setSalvo(false) }}
+                      precosObjeto={precosObjeto} setPrecosObjeto={(v) => { setPrecosObjeto(v); setSalvo(false) }} />
+                  : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
+              ) : aba === 'objetos' ? (
                 objetos
                   ? <PainelObjetos objetos={objetos}
                       setObjetos={(v) => { setObjetos(v); setSalvo(false) }}
@@ -462,7 +478,9 @@ export default function Editor() {
                     : <PainelPersonalizar
                         analise={analise} superficies={superficies}
                         acabamentos={acabamentos} setAcabamentos={setAcabamentos}
-                        supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetos} />
+                        supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetos}
+                        precos={precos} precosObjeto={precosObjeto} recorte={recorte}
+                        removidos={removidos} setRemovidos={setRemovidos} />
               ) : aba === 'materiais' ? (
                 <div className="col" style={{ gap: 9 }}>
                   {mapeados < totalMat && (
