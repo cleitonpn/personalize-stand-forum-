@@ -110,17 +110,27 @@ const REGRAS_NOME = [
  */
 export function sugerirPapel(mat) {
   const nome = mat.nome || ''
-
-  for (const [re, papel] of REGRAS_NOME) {
-    if (re.test(nome)) return { papel, motivo: `nome do material casa com "${re.source.split('|')[0]}"` }
-  }
-
   const { largura, altura, profundidade } = mat.bbox
   const espessura = Math.min(largura, profundidade)
 
-  // Caixa de céu do Enscape / pranchas 2D: ocupam muito mais que um estande.
-  if (largura > 40 || profundidade > 40) {
-    return { papel: 'ignorar', motivo: 'extensão muito maior que um estande — provável céu do render ou prancha 2D' }
+  // O tamanho VETA o nome, e essa ordem importa: a cúpula de céu do Enscape no
+  // arquivo de 20m² se chama "COR DA PAREDE" e, pela regra de nome, viraria
+  // bagum personalizável — sendo um objeto de 88 m que precisa ser descartado.
+  //
+  // A medida tem que ser a da MAIOR PEÇA, nunca a extensão do conjunto. Nesse
+  // mesmo arquivo as pranchas 2D do SketchUp trazem cópias do estande, então os
+  // 7 painéis de bagum (de ~5 m cada) ficam espalhados por 42 m. Vetar pelo
+  // conjunto descartaria justamente as superfícies personalizáveis.
+  const maior = mat.maiorPeca ?? Math.max(largura, altura, profundidade)
+  if (maior > 30) {
+    return {
+      papel: 'ignorar',
+      motivo: `peça única de ${Math.round(maior)} m — grande demais para um estande, provável céu do render ou prancha 2D`,
+    }
+  }
+
+  for (const [re, papel] of REGRAS_NOME) {
+    if (re.test(nome)) return { papel, motivo: `nome do material casa com "${re.source.split('|')[0]}"` }
   }
   // Plano fino deitado no chão.
   if (altura < 0.15 && largura > 1.5 && profundidade > 1.5 && mat.bbox.min[1] < 0.3) {

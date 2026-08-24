@@ -142,12 +142,26 @@ export function useGLB(fonte) {
   return estado
 }
 
-/** Enquadra a câmera no conteúdo assim que ele entra na cena. */
+/**
+ * Enquadra a câmera no conteúdo assim que ele entra na cena.
+ * Ignora o que estiver invisível: senão a cúpula de céu de 88 m que vem no
+ * export do Enscape domina o enquadramento e o estande vira um ponto.
+ */
 function Enquadrar({ alvo, deps }) {
   const { camera, controls } = useThree()
   useEffect(() => {
     if (!alvo) return
-    const caixa = new THREE.Box3().setFromObject(alvo)
+
+    const caixa = new THREE.Box3()
+    alvo.updateWorldMatrix(true, true)
+    alvo.traverse((o) => {
+      if (!o.isMesh || !o.visible) return
+      // um pai invisível esconde a subárvore inteira
+      for (let p = o.parent; p; p = p.parent) if (!p.visible) return
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+      caixa.union(new THREE.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld))
+    })
+    if (caixa.isEmpty()) caixa.setFromObject(alvo)
     if (caixa.isEmpty()) return
     const centro = caixa.getCenter(new THREE.Vector3())
     const tam = caixa.getSize(new THREE.Vector3())
@@ -166,7 +180,7 @@ function Enquadrar({ alvo, deps }) {
  * Aplica realce por material: o que está selecionado recebe a cor do papel,
  * o resto perde saturação. Guarda o material original para restaurar depois.
  */
-function useRealce(cena, { materialFoco, papeis, modo }) {
+function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados }) {
   useEffect(() => {
     if (!cena) return
     const criados = []
@@ -174,10 +188,16 @@ function useRealce(cena, { materialFoco, papeis, modo }) {
     cena.traverse((o) => {
       if (!o.isMesh) return
       if (!o.userData._matOrig) o.userData._matOrig = o.material
+      if (o.userData._visOrig === undefined) o.userData._visOrig = o.visible
 
       const orig = o.userData._matOrig
       const nome = (Array.isArray(orig) ? orig[0] : orig)?.name || '(sem material)'
       const papel = papeis?.[nome]
+
+      // O que foi marcado para descarte sai de cena de vez. Deixar semi-
+      // transparente não resolve: a cúpula do Enscape envolve o estande inteiro
+      // e continuaria por cima de tudo, inclusive no modo Original.
+      o.visible = (papel === 'ignorar' && !mostrarIgnorados) ? false : o.userData._visOrig
 
       let usar = orig
       if (modo === 'papeis' && papel && papel !== 'ignorar') {
@@ -213,10 +233,14 @@ function useRealce(cena, { materialFoco, papeis, modo }) {
     })
 
     return () => {
-      cena.traverse((o) => { if (o.isMesh && o.userData._matOrig) o.material = o.userData._matOrig })
+      cena.traverse((o) => {
+        if (!o.isMesh) return
+        if (o.userData._matOrig) o.material = o.userData._matOrig
+        if (o.userData._visOrig !== undefined) o.visible = o.userData._visOrig
+      })
       criados.forEach((m) => m.dispose())
     }
-  }, [cena, materialFoco, papeis, modo])
+  }, [cena, materialFoco, papeis, modo, mostrarIgnorados])
 }
 
 /** Caixa que mostra a área do estande escolhida no recorte. */
@@ -240,9 +264,16 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
   )
 }
 
-export default function Viewer({ cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%' }) {
-  useRealce(cena, { materialFoco, papeis, modo })
+export default function Viewer({
+  cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
+}) {
+  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados })
   const chave = useMemo(() => cena?.uuid, [cena])
+  // reenquadra quando o descarte muda o que está visível
+  const nIgnorados = useMemo(
+    () => Object.values(papeis || {}).filter((p) => p === 'ignorar').length,
+    [papeis],
+  )
 
   return (
     <Canvas
@@ -274,7 +305,7 @@ export default function Viewer({ cena, materialFoco, papeis, modo = 'original', 
 
       {cena && <primitive object={cena} />}
       <CaixaRecorte recorte={recorte} />
-      <Enquadrar alvo={cena} deps={[chave]} />
+      <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados]} />
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />
     </Canvas>

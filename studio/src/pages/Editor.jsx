@@ -191,6 +191,7 @@ export default function Editor() {
   const [recorte, setRecorte] = useState(null)
   const [foco, setFoco] = useState(null)
   const [modo, setModo] = useState('original')
+  const [mostrarIgnorados, setMostrarIgnorados] = useState(false)
   const [aba, setAba] = useState('materiais')
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
@@ -246,6 +247,7 @@ export default function Editor() {
   const mapeados = Object.keys(papeis).length
   const totalMat = analise?.materiais.length || 0
   const personalizaveis = analise?.materiais.filter((m) => PAPEIS[papeis[m.nome]]?.personalizavel) || []
+  const nIgnorados = Object.values(papeis).filter((p) => p === 'ignorar').length
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 400px', height: 'calc(100vh - 62px)' }}>
@@ -330,14 +332,23 @@ export default function Editor() {
           </div>
         )}
 
-        <Viewer cena={cena} materialFoco={foco} papeis={papeis} modo={modo} recorte={recorte} />
+        <Viewer cena={cena} materialFoco={foco} papeis={papeis} modo={modo} recorte={recorte}
+          mostrarIgnorados={mostrarIgnorados} />
 
         {/* controles flutuantes */}
-        <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 7 }}>
+        <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
           {[['original', 'Original'], ['papeis', 'Por papel']].map(([k, r]) => (
             <button key={k} className={`chip ${modo === k ? 'sel' : ''}`} onClick={() => setModo(k)}
               style={{ backdropFilter: 'blur(10px)' }}>{r}</button>
           ))}
+          {nIgnorados > 0 && (
+            <button className={`chip ${mostrarIgnorados ? 'sel' : ''}`}
+              onClick={() => setMostrarIgnorados((v) => !v)}
+              style={{ backdropFilter: 'blur(10px)' }}
+              title="Mostra de novo o que foi marcado como Ignorar">
+              {mostrarIgnorados ? '👁 Descarte visível' : `🚫 ${nIgnorados} descartado${nIgnorados > 1 ? 's' : ''}`}
+            </button>
+          )}
         </div>
 
         {foco && (

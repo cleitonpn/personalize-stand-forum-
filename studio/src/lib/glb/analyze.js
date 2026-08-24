@@ -65,11 +65,16 @@ export function agruparPorMaterial(pecas) {
         pecas: 0, tris: 0,
         min: [Infinity, Infinity, Infinity],
         max: [-Infinity, -Infinity, -Infinity],
+        // maior peça INDIVIDUAL do material — não confundir com a extensão do
+        // conjunto. Sete painéis de 5 m espalhados pelo arquivo somam 42 m de
+        // extensão sem que nenhum deles seja grande.
+        maiorPeca: 0,
         uuids: [],
       }
       mapa.set(p.materialNome, g)
     }
     g.pecas++; g.tris += p.tris; g.uuids.push(p.uuid)
+    g.maiorPeca = Math.max(g.maiorPeca, p.bbox.largura, p.bbox.altura, p.bbox.profundidade)
     for (let k = 0; k < 3; k++) {
       g.min[k] = Math.min(g.min[k], p.bbox.min[k])
       g.max[k] = Math.max(g.max[k], p.bbox.max[k])
@@ -84,7 +89,7 @@ export function agruparPorMaterial(pecas) {
         altura: g.max[1] - g.min[1],
         profundidade: g.max[2] - g.min[2],
       }
-      const mat = { nome: g.nome, bbox }
+      const mat = { nome: g.nome, bbox, maiorPeca: g.maiorPeca }
       const { papel, motivo } = sugerirPapel(mat)
       return { ...g, bbox, papelSugerido: papel, motivo }
     })
