@@ -1,0 +1,42 @@
+name: Deploy Studio (Firebase Hosting)
+
+# O protótipo do Fórum continua indo para o GitHub Pages pelo deploy.yml.
+# Este workflow cuida só do app novo em studio/.
+on:
+  push:
+    branches:
+      - claude/stand-personalizacao-brainstorm-075ofg
+    paths:
+      - 'studio/**'
+      - '.github/workflows/deploy-studio.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-e-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: studio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Deploy no Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: personalizacao-stand
+          channelId: live
+          entryPoint: studio

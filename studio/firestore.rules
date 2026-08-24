@@ -1,0 +1,46 @@
+rules_version = '2';
+
+// ============================================================================
+//  Quem manda aqui é o servidor, não o app.
+//  O papel do usuário vive em /usuarios/{uid}.papel e NUNCA pode ser escrito
+//  pelo cliente — só pelo Console do Firebase ou por um backend com service
+//  account. Assim ninguém vira admin editando o próprio documento.
+// ============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function ehAdmin() {
+      return autenticado()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == 'admin';
+    }
+
+    // Perfis: cada um lê o seu; admin lê todos. Escrita nunca vem do cliente.
+    match /usuarios/{uid} {
+      allow read: if autenticado() && (request.auth.uid == uid || ehAdmin());
+      allow write: if false;
+    }
+
+    // Modelos de estande: qualquer autenticado consulta (o expositor precisa
+    // abrir o modelo dele); só o time da montadora cria, edita e apaga.
+    match /modelos/{modeloId} {
+      allow read:  if autenticado();
+      allow write: if ehAdmin();
+    }
+
+    // Projetos do expositor: dono e admin.
+    match /projetos/{projetoId} {
+      allow read, update, delete: if autenticado()
+        && (resource.data.dono == request.auth.uid || ehAdmin());
+      allow create: if autenticado() && request.resource.data.dono == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
