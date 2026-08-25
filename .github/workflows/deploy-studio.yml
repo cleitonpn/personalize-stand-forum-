@@ -77,6 +77,17 @@ jobs:
         continue-on-error: true
         run: npm ci
 
+      # Antes de publicar, a CLI consulta o plano de faturamento do projeto. Se a
+      # Cloud Billing API estiver desligada, essa consulta volta 403 e o deploy
+      # morre ali — mesmo com o projeto no Blaze. As demais APIs a própria CLI
+      # liga sozinha; esta ela só consome, então ligamos aqui. O gcloud já vem
+      # no runner, e o papel Editor da conta de serviço permite habilitar APIs.
+      - name: Habilitar a API de faturamento
+        continue-on-error: true
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+          gcloud services enable cloudbilling.googleapis.com --project personalizacao-stand --quiet
+
       # Functions exigem o plano Blaze. Num projeto no plano gratuito este passo
       # falha, e isso não pode derrubar o resto — o app foi feito para funcionar
       # sem elas.
@@ -108,5 +119,5 @@ jobs:
             echo "::warning::Regras do Storage NÃO publicadas. $FALTA"
           fi
           if [ "${{ steps.functions.outcome }}" != "success" ]; then
-            echo "::warning::Cloud Functions não publicadas. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Veja o log do passo: se falou em plano de faturamento, o projeto precisa estar no Blaze; se falou em módulo não encontrado, o passo de instalar dependências não rodou."
+            echo "::warning::Cloud Functions não publicadas. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Se o log disser que o projeto está no plano Spark, é preciso mudar para o Blaze em console.firebase.google.com → Configurações → Uso e faturamento."
           fi
