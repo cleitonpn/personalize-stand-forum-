@@ -10,7 +10,7 @@ const n1 = (v) => (isFinite(v) ? v.toFixed(1) : '—')
  * Dividir e unir moram aqui, no mapeamento — não na personalização, que é a
  * tela do expositor e só deve escolher acabamento sobre estrutura já pronta.
  */
-export default function PainelSuperficies({ analise, superficies, setSuperficies, supFoco, setSupFoco }) {
+export default function PainelSuperficies({ analise, superficies, setSuperficies, supFoco, setSupFoco, aoNovaOpcao }) {
   const [sel, setSel] = useState([])
   const [renomeando, setRenomeando] = useState(null)
   const [rascunho, setRascunho] = useState('')
@@ -130,6 +130,17 @@ export default function PainelSuperficies({ analise, superficies, setSuperficies
                 </>
               )}
             </div>
+
+            {/* Peça opcional para ESTE ponto: painel de LED nesta parede, esta
+                peça noutra posição. Fica aqui porque é olhando a parede que o
+                admin percebe o que cabe nela. */}
+            {aoNovaOpcao && (
+              <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginTop: 7 }}
+                title="Subir um .glb de peça que o expositor pode escolher aqui"
+                onClick={() => aoNovaOpcao(s)}>
+                🧩 Peça opcional nesta superfície
+              </button>
+            )}
           </div>
         )
       })}

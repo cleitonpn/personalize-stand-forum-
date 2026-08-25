@@ -32,6 +32,21 @@ function obterLoader() {
   return _loader
 }
 
+/** Carrega um .glb e devolve a cena, em promessa. Usado fora do ciclo do React. */
+export function carregarGLB(fonte) {
+  return new Promise((resolve, reject) => {
+    const local = typeof fonte !== 'string'
+    const url = local ? URL.createObjectURL(fonte) : fonte
+    const limpar = () => { if (local) URL.revokeObjectURL(url) }
+    obterLoader().load(
+      url,
+      (gltf) => { limpar(); resolve(gltf.scene) },
+      undefined,
+      (err) => { limpar(); reject(err) },
+    )
+  })
+}
+
 /**
  * Descobre POR QUE o carregamento falhou.
  * O GLTFLoader entrega um ProgressEvent sem mensagem quando o XHR morre, então
@@ -144,6 +159,48 @@ export function useGLB(fonte) {
 }
 
 /**
+ * Peças opcionais escolhidas (painel de LED, depósito em outra posição).
+ *
+ * O cache é por URL e guarda a promessa, não o resultado: dois grupos que
+ * apontem para o mesmo arquivo — ou uma troca de ida e volta entre duas opções —
+ * não baixam nada duas vezes. Cada uso recebe um clone, porque o mesmo
+ * Object3D não pode estar em dois pontos da cena ao mesmo tempo; o clone do
+ * three compartilha geometria e material, então o custo é só a hierarquia.
+ */
+const _cachePecas = new Map()
+
+function pecaDoCache(url) {
+  if (!_cachePecas.has(url)) {
+    _cachePecas.set(url, carregarGLB(url).catch((e) => { _cachePecas.delete(url); throw e }))
+  }
+  return _cachePecas.get(url)
+}
+
+function usePecasExtras(extras) {
+  const [prontas, setProntas] = useState([])
+
+  // A assinatura evita recarregar quando o pai recria a lista com o mesmo
+  // conteúdo — o que acontece a cada render, já que ela sai de um map().
+  const chave = useMemo(
+    () => (extras || []).map((e) => `${e.id}@${e.url}@${(e.offset || []).join(',')}`).join('|'),
+    [extras],
+  )
+
+  useEffect(() => {
+    if (!extras?.length) { setProntas([]); return }
+    let vivo = true
+    Promise.all((extras).map(async (e) => {
+      try { return { ...e, objeto: (await pecaDoCache(e.url)).clone(true) } }
+      catch { return null }   // peça que não carrega não pode derrubar a cena
+    })).then((r) => { if (vivo) setProntas(r.filter(Boolean)) })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chave])
+
+  return prontas
+}
+
+/**
  * Enquadra a câmera no conteúdo assim que ele entra na cena.
  * Ignora o que estiver invisível: senão a cúpula de céu de 88 m que vem no
  * export do Enscape domina o enquadramento e o estande vira um ponto.
@@ -236,7 +293,7 @@ function IrParaVista({ vista, alvo, aoConcluir }) {
  * Aplica realce por material: o que está selecionado recebe a cor do papel,
  * o resto perde saturação. Guarda o material original para restaurar depois.
  */
-function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco }) {
+function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos }) {
   // peças do objeto em foco, para acender só ele
   const pecasDoObj = useMemo(() => {
     if (!objFoco || !objetos) return null
@@ -270,7 +327,11 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       // O que foi marcado para descarte sai de cena de vez. Deixar semi-
       // transparente não resolve: a cúpula do Enscape envolve o estande inteiro
       // e continuaria por cima de tudo, inclusive no modo Original.
-      o.visible = (papel === 'ignorar' && !mostrarIgnorados) ? false : o.userData._visOrig
+      //
+      // Peça substituída por um complemento some pelo mesmo caminho: escolher o
+      // depósito na ponta esquerda tem que tirar o do centro, senão ficam dois.
+      const trocada = escondidos?.has(o.userData._chave)
+      o.visible = (trocada || (papel === 'ignorar' && !mostrarIgnorados)) ? false : o.userData._visOrig
 
       let usar = orig
       if (modo === 'papeis' && papel && papel !== 'ignorar') {
@@ -365,7 +426,7 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       criados.forEach((m) => m.dispose())
       texturas.forEach((t) => t.dispose())
     }
-  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, pecasDoObj])
+  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, pecasDoObj, escondidos])
 }
 
 /**
@@ -479,9 +540,11 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
 export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
+  extras, escondidos,
 }) {
-  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco })
+  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos })
   useTransformes(cena, objetos)
+  const pecasExtras = usePecasExtras(extras)
   const chave = useMemo(() => cena?.uuid, [cena])
   // reenquadra quando o descarte muda o que está visível
   const nIgnorados = useMemo(
@@ -523,6 +586,14 @@ export default function Viewer({
       />
 
       {cena && <primitive object={cena} />}
+
+      {/* Peças opcionais escolhidas. Ficam fora do realce e das transformações
+          de propósito: são o objeto real que a montadora vai montar, com o
+          acabamento que o projetista deu — não uma superfície a colorir. */}
+      {pecasExtras.map((p) => (
+        <primitive key={p.id} object={p.objeto} position={p.offset || [0, 0, 0]} />
+      ))}
+
       {/* a caixa do recorte é ferramenta de mapeamento — o expositor não vê */}
       {mostrarRecorte && <CaixaRecorte recorte={recorte} />}
       <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados]} />

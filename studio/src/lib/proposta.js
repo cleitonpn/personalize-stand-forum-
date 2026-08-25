@@ -11,7 +11,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
  * texto selecionável e na fonte certa. Quando o fluxo virar envio automático por
  * e-mail, isso passa para o servidor.
  */
-export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem }) {
+export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem, complementos }) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   const linhas = (itens || []).map((i) => `
@@ -24,6 +24,12 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
       <td class="num">${fmtBRL(i.valorUnitario)}</td>
       <td class="num forte">${fmtBRL(i.total)}</td>
     </tr>`).join('')
+
+  // As escolhas de peça entram numa lista à parte porque várias custam zero e
+  // não geram linha no orçamento — mas a produção precisa de todas elas para
+  // montar o estande certo.
+  const escolhas = (complementos || []).map((c) => `
+    <li><b>${esc(c.grupo)}:</b> ${esc(c.opcao)}</li>`).join('')
 
   return `<!doctype html>
 <html lang="pt-BR"><head><meta charset="UTF-8">
@@ -57,6 +63,11 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
            margin-top: 16px; padding: 14px 16px; background: #14181f; color: #fff; border-radius: 9px; }
   .total .r { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; opacity: .75; }
   .total .v { font-size: 21px; font-weight: 800; }
+  .escolhas { margin-top: 16px; padding: 12px 16px; background: #f4f6f9; border-radius: 9px; }
+  .escolhas .r { font-size: 9px; text-transform: uppercase; letter-spacing: .09em;
+                 color: #6b7280; font-weight: 700; }
+  .escolhas ul { margin: 7px 0 0; padding-left: 17px; }
+  .escolhas li { margin-bottom: 3px; }
   .rodape { margin-top: 22px; padding-top: 12px; border-top: 1px solid #e5e7eb;
             font-size: 10px; color: #6b7280; line-height: 1.7; }
   .acoes { position: fixed; top: 14px; right: 14px; display: flex; gap: 8px; }
@@ -93,6 +104,11 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
     <span class="r">Total das personalizações</span>
     <span class="v">${fmtBRL(total)}</span>
   </div>
+
+  ${escolhas ? `<div class="escolhas">
+    <div class="r">Configuração escolhida</div>
+    <ul>${escolhas}</ul>
+  </div>` : ''}
 
   <div class="rodape">
     As metragens são apuradas na geometria do projeto aprovado. O mobiliário que

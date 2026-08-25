@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { agruparParaExpositor } from '../lib/glb/nomes.js'
 import { areaDaSuperficie, fmtBRL, fmtM2 } from '../lib/glb/precos.js'
+import { opcoesAtivas, superficiesEscondidas } from '../lib/glb/complementos.js'
+import EscolhaComplemento from './EscolhaComplemento.jsx'
 
 // Cartela de teste até chegar a tabela oficial de napas e carpetes.
 const CORES = [
@@ -32,13 +34,40 @@ const CORES = [
  */
 export default function PainelExpositor({
   analise, superficies, acabamentos, setAcabamentos, supFoco, setSupFoco, recorte, precos, orcamento,
+  complementos, escolhas, setEscolhas,
 }) {
   const fileRef = useRef(null)
   const [alvoArte, setAlvoArte] = useState(null)
   const [aberto, setAberto] = useState('piso')
 
-  const grupos = agruparParaExpositor(superficies, analise, recorte)
+  const grupos = agruparParaExpositor(superficies, analise, recorte, complementos)
   const aplicar = (id, patch) => setAcabamentos((a) => ({ ...a, [id]: { ...a[id], ...patch } }))
+  const escolher = (gid, oid) => setEscolhas?.((e) => ({ ...e, [gid]: oid }))
+
+  // Perguntas presas a uma parede aparecem junto dela; as soltas ganham seção
+  // própria no fim. Uma pergunta longe do que ela muda obriga o expositor a
+  // relacionar as duas coisas de cabeça.
+  const porAncora = useMemo(() => {
+    const m = new Map()
+    for (const g of complementos || []) {
+      if (!g.ancora || !(g.opcoes || []).some((o) => o.arquivo?.url)) continue
+      if (!m.has(g.ancora)) m.set(g.ancora, [])
+      m.get(g.ancora).push(g)
+    }
+    return m
+  }, [complementos])
+
+  const soltos = useMemo(
+    () => (complementos || []).filter((g) => !g.ancora && (g.opcoes || []).some((o) => o.arquivo?.url)),
+    [complementos],
+  )
+
+  // Superfície substituída por uma peça escolhida saiu de cena: mostrar cartela
+  // de cor para ela seria oferecer um acabamento que ninguém vai ver.
+  const escondidas = useMemo(
+    () => superficiesEscondidas(opcoesAtivas(complementos, escolhas)),
+    [complementos, escolhas],
+  )
 
   const enviarArte = (e) => {
     const f = e.target.files?.[0]
@@ -49,7 +78,7 @@ export default function PainelExpositor({
     e.target.value = ''
   }
 
-  if (!grupos.length) {
+  if (!grupos.length && !soltos.length) {
     return (
       <div className="card card-pad" style={{ textAlign: 'center', padding: '36px 22px' }}>
         <div style={{ fontSize: 30, marginBottom: 10, opacity: .5 }}>🛠</div>
@@ -97,6 +126,8 @@ export default function PainelExpositor({
                   const area = areaDaSuperficie(s, analise, recorte)
                   const regra = precos?.[s.papel]
                   const item = orcamento?.itens?.find((i) => i.id === s.id)
+                  const perguntas = porAncora.get(s.id) || []
+                  const substituida = escondidas.has(s.id)
 
                   return (
                     <div key={s.id}
@@ -123,7 +154,14 @@ export default function PainelExpositor({
                         )}
                       </div>
 
-                      {s.podeCor && (
+                      {substituida && (
+                        <div className="dim" style={{ fontSize: 11.5, lineHeight: 1.55, marginBottom: 2 }}>
+                          Esta parte saiu do estande por causa da opção que você
+                          escolheu abaixo. Volte ao padrão para personalizá-la de novo.
+                        </div>
+                      )}
+
+                      {s.podeCor && !substituida && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 6, marginBottom: 10 }}>
                           {CORES.map((c) => (
                             <button key={c.id} title={c.nome}
@@ -138,19 +176,26 @@ export default function PainelExpositor({
                         </div>
                       )}
 
-                      <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
-                        {s.podeArte && (
-                          <button className="btn btn-sm" onClick={() => { setAlvoArte(s.id); fileRef.current?.click() }}>
-                            {acab.arte ? `✓ ${(acab.nomeArte || 'imagem').slice(0, 16)}` : '🖼 Enviar minha arte'}
-                          </button>
-                        )}
-                        {(acab.cor || acab.arte) && (
-                          <button className="btn btn-sm btn-ghost" onClick={() =>
-                            setAcabamentos((a) => { const n = { ...a }; delete n[s.id]; return n })}>
-                            Desfazer
-                          </button>
-                        )}
-                      </div>
+                      {!substituida && (
+                        <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
+                          {s.podeArte && (
+                            <button className="btn btn-sm" onClick={() => { setAlvoArte(s.id); fileRef.current?.click() }}>
+                              {acab.arte ? `✓ ${(acab.nomeArte || 'imagem').slice(0, 16)}` : '🖼 Enviar minha arte'}
+                            </button>
+                          )}
+                          {(acab.cor || acab.arte) && (
+                            <button className="btn btn-sm btn-ghost" onClick={() =>
+                              setAcabamentos((a) => { const n = { ...a }; delete n[s.id]; return n })}>
+                              Desfazer
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {perguntas.map((q) => (
+                        <EscolhaComplemento key={q.id} grupo={q} escolhido={escolhas?.[q.id]}
+                          aoEscolher={(oid) => escolher(q.id, oid)} />
+                      ))}
                     </div>
                   )
                 })}
@@ -159,6 +204,35 @@ export default function PainelExpositor({
           </div>
         )
       })}
+
+      {soltos.length > 0 && (
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <button onClick={() => setAberto(aberto === '_opcoes' ? null : '_opcoes')}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 11,
+              padding: '14px 15px', textAlign: 'left',
+              background: aberto === '_opcoes' ? 'var(--surface-2)' : 'transparent',
+              transition: 'background var(--t) var(--ease)',
+            }}>
+            <span style={{ fontSize: 17 }}>🧩</span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600 }}>Opções do estande</span>
+              <span className="dim" style={{ fontSize: 11.5 }}>
+                {soltos.length} {soltos.length === 1 ? 'escolha' : 'escolhas'}
+              </span>
+            </span>
+            <span className="dim" style={{ fontSize: 17, transform: aberto === '_opcoes' ? 'rotate(90deg)' : 'none', transition: 'transform var(--t) var(--ease)' }}>›</span>
+          </button>
+          {aberto === '_opcoes' && (
+            <div className="col" style={{ gap: 14, padding: '4px 15px 16px' }}>
+              {soltos.map((q) => (
+                <EscolhaComplemento key={q.id} grupo={q} escolhido={escolhas?.[q.id]}
+                  aoEscolher={(oid) => escolher(q.id, oid)} compacto />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={enviarArte} />
     </div>

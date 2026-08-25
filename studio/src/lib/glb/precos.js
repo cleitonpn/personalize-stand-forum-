@@ -9,6 +9,8 @@
 //  parede tem a medida que tem no arquivo, e é essa que entra na conta.
 // ============================================================================
 
+import { areaDaOpcao } from './complementos.js'
+
 export const UNIDADES = { m2: 'm²', peca: 'peça' }
 
 /** Régua por papel de superfície. O admin edita; estes são os padrões. */
@@ -95,10 +97,18 @@ export const tipoDoObjeto = (o) => (o.nome || '').replace(/\s+\d+$/, '')
  * cobra a metragem daquela parede; não mexer nela não cobra nada. Objeto
  * removido sai do orçamento.
  */
-export function calcularOrcamento({ analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte }) {
+export function calcularOrcamento({
+  analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte, complementos,
+}) {
   const itens = []
 
+  // Superfície coberta por um complemento não é mais vista nem produzida: se o
+  // expositor pintou a parede do depósito e depois levou o depósito para a ponta,
+  // aquela parede saiu de cena. Cobrar seria vender uma lona que ninguém imprime.
+  const escondidas = complementos?.escondidas || null
+
   for (const s of superficies || []) {
+    if (escondidas?.has(s.id)) continue
     const acab = acabamentos?.[s.id]
     if (!acab || (!acab.cor && !acab.arte)) continue
     const regra = precos?.[s.papel]
@@ -138,13 +148,34 @@ export function calcularOrcamento({ analise, superficies, objetos, acabamentos, 
     })
   }
 
+  // Complementos escolhidos: painel de LED, depósito noutra posição.
+  // Trocar de posição costuma custar zero, e nesse caso não vira linha de
+  // orçamento — mas continua registrado na proposta pelo nome da opção.
+  for (const o of complementos?.ativas || []) {
+    const valor = o.preco?.valor || 0
+    if (!valor) continue
+    const qtd = o.preco.unidade === 'm2' ? areaDaOpcao(o.bbox) : 1
+    itens.push({
+      id: o.id,
+      grupo: 'complemento',
+      nome: o.nome,
+      detalhe: o.grupoNome,
+      unidade: o.preco.unidade,
+      quantidade: qtd,
+      valorUnitario: valor,
+      total: valor * qtd,
+    })
+  }
+
   const total = itens.reduce((s, i) => s + i.total, 0)
+  const soma = (g) => itens.filter((i) => i.grupo === g).reduce((s, i) => s + i.total, 0)
   return {
     itens,
     total,
     porGrupo: {
-      superficie: itens.filter((i) => i.grupo === 'superficie').reduce((s, i) => s + i.total, 0),
-      objeto: itens.filter((i) => i.grupo === 'objeto').reduce((s, i) => s + i.total, 0),
+      superficie: soma('superficie'),
+      objeto: soma('objeto'),
+      complemento: soma('complemento'),
     },
   }
 }

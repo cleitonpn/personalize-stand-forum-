@@ -98,8 +98,15 @@ function posicaoRelativa([cx, cz], lim) {
   return 'central'
 }
 
-/** Agrupa as superfícies por assunto, para o expositor não ver uma lista crua. */
-export function agruparParaExpositor(superficies, analise, recorte) {
+/**
+ * Agrupa as superfícies por assunto, para o expositor não ver uma lista crua.
+ *
+ * `complementos` entra na conta porque uma parede pode não aceitar cor nem arte
+ * e ainda assim ter uma escolha: a da frente do depósito, que só recebe o painel
+ * de LED. Sem isto ela ficaria de fora e a opção não teria onde aparecer.
+ */
+export function agruparParaExpositor(superficies, analise, recorte, complementos) {
+  const comOpcao = new Set((complementos || []).map((g) => g.ancora).filter(Boolean))
   const grupos = [
     { id: 'piso', rotulo: 'Piso', icone: '▦', itens: [] },
     { id: 'paredes', rotulo: 'Paredes', icone: '▚', itens: [] },
@@ -109,7 +116,7 @@ export function agruparParaExpositor(superficies, analise, recorte) {
   const achar = (id) => grupos.find((g) => g.id === id)
 
   for (const s of superficies) {
-    if (!s.podeCor && !s.podeArte) continue
+    if (!s.podeCor && !s.podeArte && !comOpcao.has(s.id)) continue
     const item = { ...s, rotulo: nomeAmigavel(s, analise, recorte) }
     if (s.papel === 'piso') achar('piso').itens.push(item)
     else if (s.papel === 'lona' || s.papel === 'adesivo') achar('marca').itens.push(item)

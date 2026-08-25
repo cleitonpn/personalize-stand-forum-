@@ -10,12 +10,14 @@ import { calcularOrcamento, fmtBRL } from '../lib/glb/precos.js'
 import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO } from '../lib/glb/precos.js'
 import Tutorial from '../components/Tutorial.jsx'
 import { gerarPropostaHTML } from '../lib/proposta.js'
+import { opcoesAtivas, superficiesEscondidas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
 
 export default function Expositor() {
   const { user, perfil } = useAuth()
   const [modelo, setModelo] = useState(null)
   const [erro, setErro] = useState(null)
   const [acabamentos, setAcabamentos] = useState({})
+  const [escolhas, setEscolhas] = useState({})
   const [supFoco, setSupFoco] = useState(null)
   const [objetos, setObjetos] = useState(null)
   const [tutorial, setTutorial] = useState(false)
@@ -48,9 +50,15 @@ export default function Expositor() {
   const precosObjeto = { ...PRECOS_OBJETO_PADRAO, ...(modelo?.precosObjeto || {}) }
   const indice = useMemo(() => (superficies.length ? indicePorPeca(superficies) : null), [superficies])
 
+  const complementos = modelo?.complementos || []
+  const ativas = useMemo(() => opcoesAtivas(complementos, escolhas), [complementos, escolhas])
+  const extras = useMemo(() => pecasParaCena(ativas), [ativas])
+  const escondidos = useMemo(() => chavesEscondidas(ativas, superficies), [ativas, superficies])
+
   const orcamento = useMemo(() => (analise ? calcularOrcamento({
     analise, superficies, objetos, acabamentos, precos, precosObjeto, recorte: modelo?.recorte,
-  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo])
+    complementos: { ativas, escondidas: superficiesEscondidas(ativas) },
+  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas])
 
   const fecharTutorial = () => {
     setTutorial(false)
@@ -71,6 +79,13 @@ export default function Expositor() {
         modeloNome: modelo.nome,
         acabamentos,
         objetos: (objetos || []).map((o) => ({ id: o.id, nome: o.nome, transform: o.transform })),
+        // As escolhas vão pelo nome, não só pelo id: quem abrir a proposta na
+        // produção precisa ler "Depósito na ponta esquerda" sem ter que
+        // consultar o mapeamento do modelo para traduzir um id.
+        escolhas,
+        complementos: ativas.map((o) => ({
+          grupo: o.grupoNome, opcao: o.nome, arquivo: o.arquivo?.nomeOriginal || null,
+        })),
         itens: orcamento.itens,
         total: orcamento.total,
         criadoEm: serverTimestamp(),
@@ -91,6 +106,7 @@ export default function Expositor() {
       modelo: modelo?.nome,
       itens: orcamento.itens,
       total: orcamento.total,
+      complementos: ativas.map((o) => ({ grupo: o.grupoNome, opcao: o.nome })),
       imagem: gravado?.imagem || window.__psfShot?.() || null,
     })
     const w = window.open('', '_blank')
@@ -134,6 +150,7 @@ export default function Expositor() {
 
         <Viewer cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
           indice={indice} acabamentos={acabamentos} supFoco={supFoco} objetos={objetos}
+          extras={extras} escondidos={escondidos}
           vista={vista} aoAplicarVista={() => setVista(null)} />
 
         {/* vistas prontas: girar com o mouse não é óbvio para quem não usa 3D */}
@@ -172,6 +189,7 @@ export default function Expositor() {
               analise={analise} superficies={superficies}
               acabamentos={acabamentos} setAcabamentos={setAcabamentos}
               supFoco={supFoco} setSupFoco={setSupFoco}
+              complementos={complementos} escolhas={escolhas} setEscolhas={setEscolhas}
               recorte={modelo?.recorte} precos={precos} orcamento={orcamento} />
           ) : null}
         </div>
@@ -201,11 +219,14 @@ export default function Expositor() {
                   {fmtBRL(orcamento.total)}
                 </span>
               </div>
+              {/* Trocar o depósito de lugar pode custar zero e mesmo assim é uma
+                  escolha que a produção precisa receber — então também libera o
+                  envio, não só o que gera valor. */}
               <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
-                disabled={gravando || !orcamento.itens.length} onClick={gravar}>
+                disabled={gravando || (!orcamento.itens.length && !ativas.length)} onClick={gravar}>
                 {gravando ? <><span className="spinner" /> Enviando…</> : 'Gravar e gerar proposta'}
               </button>
-              {!orcamento.itens.length && (
+              {!orcamento.itens.length && !ativas.length && (
                 <div className="dim" style={{ fontSize: 11.5, marginTop: 8, textAlign: 'center' }}>
                   Faça ao menos uma personalização para enviar.
                 </div>

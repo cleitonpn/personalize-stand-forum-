@@ -12,6 +12,11 @@ const PASSOS = [
     texto: 'Onde houver o botão de arte, envie a imagem da sua campanha. Ela é aplicada direto na lona ou no adesivo.',
   },
   {
+    icone: '🧩',
+    titulo: 'Troque peças de lugar',
+    texto: 'Alguns pontos do estande têm opções prontas — um painel de LED, o depósito noutra posição. Clique numa opção e a peça entra no 3D; clique na primeira para voltar ao projeto original.',
+  },
+  {
     icone: '🖱',
     titulo: 'Gire e aproxime',
     texto: 'Arraste com o botão esquerdo para girar o estande. Use a rolagem do mouse para aproximar e afastar.',

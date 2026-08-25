@@ -10,8 +10,10 @@ import PainelPersonalizar from '../components/PainelPersonalizar.jsx'
 import PainelSuperficies from '../components/PainelSuperficies.jsx'
 import PainelObjetos from '../components/PainelObjetos.jsx'
 import PainelPrecos from '../components/PainelPrecos.jsx'
+import PainelComplementos from '../components/PainelComplementos.jsx'
 import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO } from '../lib/glb/precos.js'
 import { detectarObjetos, numerar } from '../lib/glb/objetos.js'
+import { novoGrupo, opcoesAtivas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
 // nem o do Google Cloud expõem isso na interface. Roda no Cloud Shell, que é um
@@ -207,6 +209,10 @@ export default function Editor() {
   const [precos, setPrecos] = useState(PRECOS_PADRAO)
   const [precosObjeto, setPrecosObjeto] = useState(PRECOS_OBJETO_PADRAO)
   const [removidos, setRemovidos] = useState({})
+  const [grupos, setGrupos] = useState([])
+  // Prévia usa exatamente a mesma estrutura de escolha do expositor — assim o
+  // admin confere o que ele vai ver, e não uma aproximação.
+  const [previa, setPrevia] = useState({})
   const [aba, setAba] = useState('materiais')
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
@@ -222,6 +228,7 @@ export default function Editor() {
         setPrecos({ ...PRECOS_PADRAO, ...(d.precos || {}) })
         setPrecosObjeto({ ...PRECOS_OBJETO_PADRAO, ...(d.precosObjeto || {}) })
         setRecorte(d.recorte || null)
+        setGrupos(d.complementos || [])
       } catch (ex) { setErro(ex.message) }
     })()
   }, [id])
@@ -239,6 +246,12 @@ export default function Editor() {
   }, [analise, superficies, modelo, papeis])
 
   const indice = useMemo(() => (superficies ? indicePorPeca(superficies) : null), [superficies])
+
+  // O que a prévia acrescenta e o que ela tira, nos mesmos termos do expositor
+  const ativas = useMemo(() => opcoesAtivas(grupos, previa), [grupos, previa])
+  const extras = useMemo(() => pecasParaCena(ativas), [ativas])
+  const escondidos = useMemo(
+    () => chavesEscondidas(ativas, superficies || []), [ativas, superficies])
 
   const mudarPapel = (nome, papel) => {
     setPapeis((p) => ({ ...p, [nome]: papel })); setSalvo(false)
@@ -259,6 +272,7 @@ export default function Editor() {
         papeis, recorte,
         superficies: superficies || [],
         objetos: objetos || [],
+        complementos: grupos || [],
         precos, precosObjeto,
         status: Object.keys(papeis).length ? 'mapeado' : 'novo',
       })
@@ -369,7 +383,8 @@ export default function Editor() {
           mostrarIgnorados={mostrarIgnorados} mostrarRecorte
           indice={indice} acabamentos={acabamentos}
           supFoco={(aba === 'personalizar' || aba === 'superficies') ? supFoco : null}
-          objetos={objetos} objFoco={aba === 'objetos' ? objFoco : null} />
+          objetos={objetos} objFoco={aba === 'objetos' ? objFoco : null}
+          extras={extras} escondidos={escondidos} />
 
         {/* controles flutuantes */}
         <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
@@ -445,6 +460,7 @@ export default function Editor() {
                 ['materiais', `Materiais (${totalMat})`],
                 ['superficies', `Superfícies${superficies ? ` (${superficies.length})` : ''}`],
                 ['objetos', `Objetos${objetos ? ` (${objetos.length})` : ''}`],
+                ['complementos', `Complementos${grupos.length ? ` (${grupos.length})` : ''}`],
                 ['precos', 'Preços'],
                 ['recorte', 'Área do estande'],
                 ['personalizar', 'Prévia'],
@@ -461,6 +477,12 @@ export default function Editor() {
                       precos={precos} setPrecos={(v) => { setPrecos(v); setSalvo(false) }}
                       precosObjeto={precosObjeto} setPrecosObjeto={(v) => { setPrecosObjeto(v); setSalvo(false) }} />
                   : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
+              ) : aba === 'complementos' ? (
+                superficies
+                  ? <PainelComplementos analise={analise} recorte={recorte} superficies={superficies}
+                      grupos={grupos} setGrupos={(v) => { setGrupos(v); setSalvo(false) }}
+                      previa={previa} setPrevia={setPrevia} />
+                  : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
               ) : aba === 'objetos' ? (
                 objetos
                   ? <PainelObjetos objetos={objetos}
@@ -474,7 +496,11 @@ export default function Editor() {
                     ? <PainelSuperficies
                         analise={analise} superficies={superficies}
                         setSuperficies={(v) => { setSuperficies(v); setSalvo(false) }}
-                        supFoco={supFoco} setSupFoco={setSupFoco} />
+                        supFoco={supFoco} setSupFoco={setSupFoco}
+                        aoNovaOpcao={(sup) => {
+                          const g = novoGrupo({ nome: `Opções — ${sup.nome}`, ancora: sup.id })
+                          setGrupos((gg) => [...gg, g]); setSalvo(false); setAba('complementos')
+                        }} />
                     : <PainelPersonalizar
                         analise={analise} superficies={superficies}
                         acabamentos={acabamentos} setAcabamentos={setAcabamentos}
