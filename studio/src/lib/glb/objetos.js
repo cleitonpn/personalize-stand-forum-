@@ -134,6 +134,11 @@ function montarObjeto(membros, papeis) {
     materiais: [...porMaterial.keys()],
     podeMover: assentaNoChao,
     podeGirar: assentaNoChao,
+    // O mobiliário que já vem no projeto está incluso no valor do estande.
+    // Só entra no orçamento o que o expositor ACRESCENTAR — e isso passa a
+    // existir quando a biblioteca de mobiliário da fase 2 ficar pronta.
+    // O admin pode desmarcar para cobrar um item específico à parte.
+    incluso: true,
     transform: { dx: 0, dz: 0, rotY: 0 },
     centro: [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2],
     apoio: [(min[0] + max[0]) / 2, min[1], (min[2] + max[2]) / 2],

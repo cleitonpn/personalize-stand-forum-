@@ -20,7 +20,12 @@ export const PRECOS_PADRAO = {
   madeira:    { unidade: 'm2', valor: 0 },
 }
 
-/** Régua por tipo de objeto, cobrada por unidade. */
+/**
+ * Régua por tipo de objeto, cobrada por unidade.
+ *
+ * Vale para o que o expositor ACRESCENTA. O mobiliário que já vem no projeto
+ * está incluso no valor do estande e não é cobrado de novo.
+ */
 export const PRECOS_OBJETO_PADRAO = {
   Balcão:     { unidade: 'peca', valor: 0 },
   Cadeira:    { unidade: 'peca', valor: 0 },
@@ -115,6 +120,8 @@ export function calcularOrcamento({ analise, superficies, objetos, acabamentos, 
 
   for (const o of objetos || []) {
     if (removidos?.[o.id]) continue
+    // mobiliário do projeto é incluso: só cobra o que foi acrescentado
+    if (o.incluso !== false) continue
     // objeto fora da área do estande não é cobrado — é cópia espelhada ou prancha
     if (recorte && !noRecorte({ bbox: { centro: o.centro } }, recorte)) continue
     const regra = precosObjeto?.[tipoDoObjeto(o)]
@@ -123,7 +130,7 @@ export function calcularOrcamento({ analise, superficies, objetos, acabamentos, 
       id: o.id,
       grupo: 'objeto',
       nome: o.nome,
-      detalhe: 'item de mobiliário',
+      detalhe: 'item adicional',
       unidade: 'peca',
       quantidade: 1,
       valorUnitario: regra.valor,

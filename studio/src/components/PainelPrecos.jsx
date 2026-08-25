@@ -22,9 +22,11 @@ export default function PainelPrecos({
   }
 
   const porTipo = {}
+  const nIncluso = {}
   for (const o of objetos || []) {
     const t = tipoDoObjeto(o)
     porTipo[t] = (porTipo[t] || 0) + 1
+    if (o.incluso !== false) nIncluso[t] = (nIncluso[t] || 0) + 1
   }
 
   const setValor = (chave, valor) =>
@@ -87,7 +89,12 @@ export default function PainelPrecos({
       </div>
 
       <div className="col" style={{ gap: 9 }}>
-        <div className="label">Por peça</div>
+        <div className="label">Por peça — itens adicionais</div>
+        <p className="dim" style={{ margin: '-4px 0 2px', fontSize: 11.5, lineHeight: 1.55 }}>
+          O mobiliário que já vem no projeto está incluso no valor do estande.
+          Estes preços valem para o que o expositor acrescentar, e para itens que
+          você marcar como não inclusos na aba Objetos.
+        </p>
         {Object.entries(porTipo).sort((a, b) => b[1] - a[1]).map(([tipo, n]) => {
           const regra = precosObjeto?.[tipo] || { unidade: 'peca', valor: 0 }
           return (
@@ -98,7 +105,9 @@ export default function PainelPrecos({
               <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
                 <div className="col" style={{ gap: 2, minWidth: 0 }}>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{tipo}</span>
-                  <span className="dim" style={{ fontSize: 11 }}>{n} {n === 1 ? 'unidade' : 'unidades'} no projeto</span>
+                  <span className="dim" style={{ fontSize: 11 }}>
+                    {n} {n === 1 ? 'unidade' : 'unidades'} no projeto{nIncluso[tipo] ? ` · ${nIncluso[tipo]} inclusa${nIncluso[tipo] > 1 ? 's' : ''}` : ''}
+                  </span>
                 </div>
                 <Campo valor={regra.valor} aoMudar={(v) => setValorObj(tipo, v)} sufixo="/ un." />
               </div>

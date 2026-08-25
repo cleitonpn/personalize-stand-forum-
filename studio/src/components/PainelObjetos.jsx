@@ -42,7 +42,8 @@ export default function PainelObjetos({ objetos, setObjetos, objFoco, setObjFoco
       <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6 }}>
         Objeto é o que <b>se move junto</b> — detectado por contato entre peças.
         O balcão é um objeto com duas superfícies (marcenaria e adesivo): move
-        inteiro, mas cada parte recebe seu acabamento.
+        inteiro, mas cada parte recebe seu acabamento. Tudo que vem no projeto
+        entra como <b>incluso</b> e não é cobrado; desmarque para cobrar à parte.
       </p>
 
       <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
@@ -105,6 +106,8 @@ export default function PainelObjetos({ objetos, setObjetos, objFoco, setObjFoco
                 aoMudar={() => mexer(o.id, { podeMover: !o.podeMover })} />
               <Interruptor ligado={!!o.podeGirar} rotulo="Cliente gira"
                 aoMudar={() => mexer(o.id, { podeGirar: !o.podeGirar })} />
+              <Interruptor ligado={o.incluso !== false} rotulo="Incluso no pacote"
+                aoMudar={() => mexer(o.id, { incluso: o.incluso === false })} />
             </div>
 
             {(o.podeMover || o.podeGirar) && (
