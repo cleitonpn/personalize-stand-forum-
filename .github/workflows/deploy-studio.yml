@@ -40,3 +40,36 @@ jobs:
           projectId: personalizacao-stand
           channelId: live
           entryPoint: studio
+
+      # A action acima publica só o site. Regras e functions precisam da CLI —
+      # e sem isto elas nunca chegariam ao Firebase, porque dependeriam de
+      # alguém rodar comando na mão.
+      - name: Credencial da conta de serviço
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      - name: Publicar regras do Firestore e do Storage
+        run: npx --yes firebase-tools@13 deploy
+          --only firestore:rules,storage
+          --project personalizacao-stand
+          --non-interactive
+
+      # Functions exigem o plano Blaze. Num projeto no plano gratuito este passo
+      # falha, e isso não pode derrubar o deploy do site nem das regras — o app
+      # foi feito para funcionar sem elas.
+      - name: Publicar Cloud Functions (requer plano Blaze)
+        id: functions
+        continue-on-error: true
+        run: npx --yes firebase-tools@13 deploy
+          --only functions
+          --project personalizacao-stand
+          --non-interactive
+
+      - name: Aviso sobre as functions
+        if: steps.functions.outcome == 'failure'
+        run: |
+          echo "::warning::As Cloud Functions não foram publicadas. O app segue" \
+               "funcionando sem elas — só a exclusão do login do expositor fica" \
+               "pela metade. A causa mais comum é o projeto estar no plano" \
+               "gratuito (Spark): Functions exigem o Blaze."

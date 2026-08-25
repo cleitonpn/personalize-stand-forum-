@@ -45,11 +45,8 @@ os **materiais** — 18 a 21 por arquivo. Então o fluxo é:
 - A config web em `src/lib/firebase.js` é pública por definição (vai no bundle).
   Quem protege os dados são as regras, não esconder essas chaves.
 
-Publique as regras antes de usar:
-
-```bash
-npx firebase deploy --only firestore:rules,storage --project personalizacao-stand
-```
+As regras são publicadas **automaticamente** pelo workflow a cada push em
+`studio/**` — não é preciso rodar comando nenhum.
 
 ## Cloud Functions (opcional)
 
@@ -62,15 +59,21 @@ Duas operações não existem no navegador porque exigem o Admin SDK:
   não chega (caixa corporativa costuma barrar).
 
 O app funciona sem elas: a exclusão apaga o perfil, o acesso é bloqueado, e a
-tela avisa o que resta fazer no Console. Publicar exige o **plano Blaze** do
-Firebase (o uso aqui cabe na cota gratuita, mas o plano pede cartão).
+tela avisa o que resta fazer no Console.
 
-```bash
-cd studio/functions && npm install
-cd .. && npx firebase deploy --only functions --project personalizacao-stand
-```
+O workflow tenta publicá-las a cada push, mas **elas exigem o plano Blaze** do
+Firebase (o uso aqui cabe na cota gratuita; o plano é que pede cartão). Enquanto
+o projeto estiver no plano gratuito esse passo falha de propósito sem derrubar o
+resto do deploy, e o workflow deixa um aviso dizendo isso. Basta mudar o plano
+no Console para que o próximo push publique as funções.
 
 ## Deploy
 
-Automático pelo workflow `.github/workflows/deploy-studio.yml` (usa o secret
-`FIREBASE_SERVICE_ACCOUNT`), disparado só quando `studio/**` muda.
+Tudo automático pelo workflow `.github/workflows/deploy-studio.yml`, disparado
+quando `studio/**` muda. Ele usa o secret `FIREBASE_SERVICE_ACCOUNT` e publica,
+nesta ordem: o site (Hosting), as regras do Firestore e do Storage, e as Cloud
+Functions. Nenhuma etapa exige terminal.
+
+Se a conta de serviço não tiver permissão para publicar regras, o passo falha
+com a mensagem do Google dizendo qual papel falta — normalmente
+`Firebase Rules Admin`, concedido no IAM do projeto.
