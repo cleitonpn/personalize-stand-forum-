@@ -10,21 +10,22 @@ export function AuthProvider({ children }) {
   const [perfil, setPerfil] = useState(null)
   const [carregando, setCarregando] = useState(true)
 
+  const lerPerfil = async (u) => {
+    if (!u) { setPerfil(null); return }
+    try {
+      const snap = await getDoc(doc(db, 'usuarios', u.uid))
+      setPerfil(snap.exists() ? snap.data() : { papel: 'expositor' })
+    } catch {
+      setPerfil({ papel: 'expositor' })
+    }
+  }
+
   useEffect(() => onAuthStateChanged(auth, async (u) => {
     setUser(u)
-    if (u) {
-      // O papel do usuário (admin / expositor) vive em /usuarios/{uid}.
-      // As regras do Firestore leem esse mesmo documento — o app nunca decide
-      // permissão sozinho, só espelha o que o servidor já garante.
-      try {
-        const snap = await getDoc(doc(db, 'usuarios', u.uid))
-        setPerfil(snap.exists() ? snap.data() : { papel: 'expositor' })
-      } catch {
-        setPerfil({ papel: 'expositor' })
-      }
-    } else {
-      setPerfil(null)
-    }
+    // O papel do usuário (admin / expositor) vive em /usuarios/{uid}.
+    // As regras do Firestore leem esse mesmo documento — o app nunca decide
+    // permissão sozinho, só espelha o que o servidor já garante.
+    await lerPerfil(u)
     setCarregando(false)
   }), [])
 
@@ -32,6 +33,7 @@ export function AuthProvider({ children }) {
     user, perfil, carregando,
     ehAdmin: perfil?.papel === 'admin',
     entrar: (email, senha) => signInWithEmailAndPassword(auth, email, senha),
+    recarregarPerfil: () => lerPerfil(auth.currentUser),
     sair: () => signOut(auth),
   }), [user, perfil, carregando])
 

@@ -107,7 +107,7 @@ export function useGLB(fonte) {
 
     setEstado({ cena: null, erro: null, progresso: 0, carregando: true })
 
-    new GLTFLoader().load(
+    obterLoader().load(
       url,
       (gltf) => {
         if (!vivo) return
@@ -174,6 +174,61 @@ function Enquadrar({ alvo, deps }) {
     camera.updateProjectionMatrix()
     if (controls) { controls.target.copy(centro); controls.update() }
   }, [alvo, camera, controls, ...(deps || [])])
+  return null
+}
+
+/**
+ * Vistas prontas.
+ *
+ * Orbitar com o mouse é natural para quem usa 3D e nada óbvio para quem não
+ * usa — e o expositor é justamente esse público. Estes botões levam a câmera a
+ * enquadramentos que qualquer pessoa reconhece, calculados a partir da caixa do
+ * próprio estande em vez de coordenadas fixas (que só valeriam para um arquivo).
+ */
+export const VISTAS = [
+  { id: 'perspectiva', rotulo: 'Visão geral' },
+  { id: 'frente', rotulo: 'De frente' },
+  { id: 'dentro', rotulo: 'Por dentro' },
+  { id: 'cima', rotulo: 'De cima' },
+]
+
+function IrParaVista({ vista, alvo, aoConcluir }) {
+  const { camera, controls } = useThree()
+  useEffect(() => {
+    if (!vista || !alvo) return
+    const caixa = new THREE.Box3()
+    alvo.updateWorldMatrix(true, true)
+    alvo.traverse((o) => {
+      if (!o.isMesh || !o.visible) return
+      for (let p = o.parent; p; p = p.parent) if (!p.visible) return
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+      caixa.union(new THREE.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld))
+    })
+    if (caixa.isEmpty()) return
+
+    const c = caixa.getCenter(new THREE.Vector3())
+    const t = caixa.getSize(new THREE.Vector3())
+    const raio = Math.max(t.x, t.y, t.z)
+    const d = raio / Math.tan((camera.fov * Math.PI) / 360) * 0.95
+
+    const pos = {
+      perspectiva: [c.x + d * 0.62, c.y + d * 0.5, c.z + d * 0.72],
+      frente:      [c.x, c.y + t.y * 0.12, c.z + d * 1.05],
+      dentro:      [c.x, caixa.min.y + Math.min(1.6, t.y * 0.62), c.z + t.z * 0.28],
+      cima:        [c.x + 0.001, c.y + d * 1.15, c.z + 0.001],
+    }[vista] || null
+    if (!pos) return
+
+    const olhar = vista === 'dentro'
+      ? new THREE.Vector3(c.x, caixa.min.y + t.y * 0.45, caixa.min.z)
+      : c
+
+    camera.position.set(...pos)
+    camera.near = Math.max(0.05, d / 500); camera.far = d * 12
+    camera.updateProjectionMatrix()
+    if (controls) { controls.target.copy(olhar); controls.update() }
+    aoConcluir?.()
+  }, [vista, alvo, camera, controls, aoConcluir])
   return null
 }
 
@@ -423,7 +478,7 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
 
 export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
-  indice, acabamentos, supFoco, objetos, objFoco,
+  indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
 }) {
   useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco })
   useTransformes(cena, objetos)
@@ -440,6 +495,11 @@ export default function Viewer({
       dpr={[1, 1.75]}
       camera={{ position: [8, 6, 10], fov: 45 }}
       gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+      onCreated={({ gl }) => {
+        // usado pela proposta em PDF para registrar o estande como ficou.
+        // preserveDrawingBuffer acima é o que permite ler o canvas depois.
+        window.__psfShot = () => { try { return gl.domElement.toDataURL('image/png') } catch { return null } }
+      }}
       style={{ height: altura, width: '100%', background: 'transparent' }}
     >
       <color attach="background" args={['#070a14']} />
@@ -463,8 +523,10 @@ export default function Viewer({
       />
 
       {cena && <primitive object={cena} />}
-      <CaixaRecorte recorte={recorte} />
+      {/* a caixa do recorte é ferramenta de mapeamento — o expositor não vê */}
+      {mostrarRecorte && <CaixaRecorte recorte={recorte} />}
       <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados]} />
+      <IrParaVista vista={vista} alvo={cena} aoConcluir={aoAplicarVista} />
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />
     </Canvas>

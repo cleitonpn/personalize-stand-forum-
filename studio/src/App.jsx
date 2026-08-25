@@ -3,6 +3,10 @@ import { AuthProvider, useAuth } from './store/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import Modelos from './pages/Modelos.jsx'
 import Editor from './pages/Editor.jsx'
+import Clientes from './pages/Clientes.jsx'
+import TrocarSenha from './pages/TrocarSenha.jsx'
+import Expositor from './pages/Expositor.jsx'
+import Propostas from './pages/Propostas.jsx'
 
 function Marca() {
   return (
@@ -23,9 +27,13 @@ function Topbar() {
   return (
     <header className="topbar">
       <Marca />
-      <nav className="row" style={{ gap: 4, marginLeft: 12 }}>
-        <Link to="/modelos" className={`btn btn-ghost btn-sm ${pathname.startsWith('/modelos') ? 'sel' : ''}`}>Modelos</Link>
-      </nav>
+      {perfil?.papel === 'admin' && (
+        <nav className="row" style={{ gap: 4, marginLeft: 12 }}>
+          <Link to="/modelos" className={`btn btn-ghost btn-sm ${pathname.startsWith('/modelos') ? 'sel' : ''}`}>Modelos</Link>
+          <Link to="/expositores" className={`btn btn-ghost btn-sm ${pathname.startsWith('/expositores') ? 'sel' : ''}`}>Expositores</Link>
+          <Link to="/propostas" className={`btn btn-ghost btn-sm ${pathname.startsWith('/propostas') ? 'sel' : ''}`}>Propostas</Link>
+        </nav>
+      )}
       <div className="spacer" />
       <span className="tag">
         <i className="tag-dot" style={{ color: perfil?.papel === 'admin' ? 'var(--brand-green)' : 'var(--text-dim)' }} />
@@ -38,7 +46,7 @@ function Topbar() {
 }
 
 function Protegida({ children, exigeAdmin }) {
-  const { user, ehAdmin, carregando } = useAuth()
+  const { user, perfil, ehAdmin, carregando, recarregarPerfil } = useAuth()
   if (carregando) {
     return (
       <div style={{ display: 'grid', placeItems: 'center', minHeight: '70vh' }}>
@@ -47,6 +55,8 @@ function Protegida({ children, exigeAdmin }) {
     )
   }
   if (!user) return <Navigate to="/entrar" replace />
+  // senha provisória bloqueia tudo até ser trocada
+  if (perfil?.precisaTrocarSenha) return <TrocarSenha aoConcluir={recarregarPerfil} />
   if (exigeAdmin && !ehAdmin) {
     return (
       <div className="card card-pad" style={{ maxWidth: 460, margin: '80px auto', textAlign: 'center' }}>
@@ -60,6 +70,14 @@ function Protegida({ children, exigeAdmin }) {
   return children
 }
 
+/** Cada papel entra na sua casa: admin nos modelos, expositor no estande dele. */
+function Inicio() {
+  const { user, ehAdmin, carregando } = useAuth()
+  if (carregando) return null
+  if (!user) return <Navigate to="/entrar" replace />
+  return <Navigate to={ehAdmin ? '/modelos' : '/meu-estande'} replace />
+}
+
 function Rotas() {
   return (
     <div className="shell">
@@ -70,7 +88,10 @@ function Rotas() {
           <Route path="/entrar" element={<Login />} />
           <Route path="/modelos" element={<Protegida exigeAdmin><Modelos /></Protegida>} />
           <Route path="/modelos/:id" element={<Protegida exigeAdmin><Editor /></Protegida>} />
-          <Route path="*" element={<Navigate to="/modelos" replace />} />
+          <Route path="/expositores" element={<Protegida exigeAdmin><Clientes /></Protegida>} />
+          <Route path="/propostas" element={<Protegida exigeAdmin><Propostas /></Protegida>} />
+          <Route path="/meu-estande" element={<Protegida><Expositor /></Protegida>} />
+          <Route path="*" element={<Inicio />} />
         </Routes>
       </main>
     </div>

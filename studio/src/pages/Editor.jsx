@@ -366,7 +366,7 @@ export default function Editor() {
         )}
 
         <Viewer cena={cena} materialFoco={foco} papeis={papeis} modo={modo} recorte={recorte}
-          mostrarIgnorados={mostrarIgnorados}
+          mostrarIgnorados={mostrarIgnorados} mostrarRecorte
           indice={indice} acabamentos={acabamentos}
           supFoco={(aba === 'personalizar' || aba === 'superficies') ? supFoco : null}
           objetos={objetos} objFoco={aba === 'objetos' ? objFoco : null} />

@@ -19,10 +19,28 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == 'admin';
     }
 
-    // Perfis: cada um lê o seu; admin lê todos. Escrita nunca vem do cliente.
+    // Perfis. O admin cadastra expositores pelo painel; cada um lê o seu.
+    //
+    // O expositor NUNCA pode mexer no próprio papel — se pudesse, viraria admin
+    // editando o próprio documento. A única escrita que ele faz é desligar o
+    // aviso de senha provisória depois de trocá-la.
     match /usuarios/{uid} {
-      allow read: if autenticado() && (request.auth.uid == uid || ehAdmin());
-      allow write: if false;
+      allow read:   if autenticado() && (request.auth.uid == uid || ehAdmin());
+      allow create: if ehAdmin() && request.resource.data.papel == 'expositor';
+      allow delete: if ehAdmin();
+      allow update: if ehAdmin()
+        || (request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['precisaTrocarSenha'])
+            && request.resource.data.precisaTrocarSenha == false);
+    }
+
+    // Propostas do expositor: ele cria e edita a sua; o admin lê todas.
+    match /propostas/{propostaId} {
+      allow read:   if autenticado() && (resource.data.cliente == request.auth.uid || ehAdmin());
+      allow create: if autenticado() && request.resource.data.cliente == request.auth.uid;
+      allow update, delete: if autenticado()
+        && (resource.data.cliente == request.auth.uid || ehAdmin());
     }
 
     // Modelos de estande: qualquer autenticado consulta (o expositor precisa
