@@ -19,6 +19,7 @@ export default function Expositor() {
   const [acabamentos, setAcabamentos] = useState({})
   const [escolhas, setEscolhas] = useState({})
   const [supFoco, setSupFoco] = useState(null)
+  const [objFoco, setObjFoco] = useState(null)
   const [objetos, setObjetos] = useState(null)
   const [tutorial, setTutorial] = useState(false)
   const [gravando, setGravando] = useState(false)
@@ -150,7 +151,7 @@ export default function Expositor() {
 
         <Viewer cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
           indice={indice} acabamentos={acabamentos} supFoco={supFoco} objetos={objetos}
-          extras={extras} escondidos={escondidos}
+          extras={extras} escondidos={escondidos} objFoco={objFoco}
           vista={vista} aoAplicarVista={() => setVista(null)} />
 
         {/* vistas prontas: girar com o mouse não é óbvio para quem não usa 3D */}
@@ -190,6 +191,7 @@ export default function Expositor() {
               acabamentos={acabamentos} setAcabamentos={setAcabamentos}
               supFoco={supFoco} setSupFoco={setSupFoco}
               complementos={complementos} escolhas={escolhas} setEscolhas={setEscolhas}
+              objetos={objetos} setObjetos={setObjetos} objFoco={objFoco} setObjFoco={setObjFoco}
               recorte={modelo?.recorte} precos={precos} orcamento={orcamento} />
           ) : null}
         </div>

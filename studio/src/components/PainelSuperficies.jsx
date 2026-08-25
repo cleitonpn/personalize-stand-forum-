@@ -6,6 +6,21 @@ import { dividirPorPeca, dividirPorProximidade, unir, medir } from '../lib/glb/s
 const n1 = (v) => (isFinite(v) ? v.toFixed(1) : '—')
 
 /**
+ * Troca o papel de uma superfície, re-semeando as permissões.
+ *
+ * Trocar o papel sem tocar nos interruptores deixava um resíduo da classificação
+ * antiga: uma parede reclassificada como mobiliário continuava com "cliente troca
+ * a cor" ligado, e o expositor recebia cartela de cor num item que não é para
+ * personalizar. O re-semeio só acontece enquanto o admin não mexeu nos
+ * interruptores — depois disso a decisão é dele e não é desfeita por aqui.
+ */
+export function aplicarPapel(sup, papel) {
+  if (sup.permsManuais) return { ...sup, papel }
+  const p = !!PAPEIS[papel]?.personalizavel
+  return { ...sup, papel, podeCor: p, podeArte: p }
+}
+
+/**
  * Trabalho estrutural do admin: definir QUAIS são as superfícies.
  * Dividir e unir moram aqui, no mapeamento — não na personalização, que é a
  * tela do expositor e só deve escolher acabamento sobre estrutura já pronta.
@@ -30,8 +45,13 @@ export default function PainelSuperficies({ analise, superficies, setSuperficies
     setRenomeando(nova.id); setRascunho(nova.nome)
   }
 
+  // nomeManual marca que o nome passou a ser seu: a partir daí a tela do
+  // expositor mostra exatamente o que você escreveu, sem derivar da posição.
   const renomear = (id) => {
-    setSuperficies((ss) => ss.map((s) => (s.id === id ? { ...s, nome: rascunho.trim() || s.nome } : s)))
+    const novo = rascunho.trim()
+    setSuperficies((ss) => ss.map((s) => (s.id === id
+      ? (novo ? { ...s, nome: novo, nomeManual: true } : s)
+      : s)))
     setRenomeando(null)
   }
 
@@ -106,15 +126,17 @@ export default function PainelSuperficies({ analise, superficies, setSuperficies
 
             {/* permissões do expositor — decisão do admin, não da heurística */}
             <div className="row" style={{ gap: 14, marginBottom: 9, flexWrap: 'wrap' }}>
+              {/* permsManuais grava que a decisão passou a ser sua: a partir daí
+                  trocar o papel não mexe mais nestes interruptores */}
               <Interruptor ligado={!!s.podeCor} rotulo="Cliente troca a cor"
-                aoMudar={() => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? { ...x, podeCor: !x.podeCor } : x)))} />
+                aoMudar={() => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? { ...x, podeCor: !x.podeCor, permsManuais: true } : x)))} />
               <Interruptor ligado={!!s.podeArte} rotulo="Cliente sobe arte"
-                aoMudar={() => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? { ...x, podeArte: !x.podeArte } : x)))} />
+                aoMudar={() => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? { ...x, podeArte: !x.podeArte, permsManuais: true } : x)))} />
             </div>
 
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
               <select className="select" value={s.papel} style={{ padding: '5px 9px', fontSize: 12, width: 'auto', flex: 1, minWidth: 130 }}
-                onChange={(e) => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? { ...x, papel: e.target.value } : x)))}>
+                onChange={(e) => setSuperficies((ss) => ss.map((x) => (x.id === s.id ? aplicarPapel(x, e.target.value) : x)))}>
                 {LISTA_PAPEIS.map((p) => <option key={p.id} value={p.id}>{p.rotulo}</option>)}
               </select>
               {m && m.pecas > 1 && (

@@ -12,14 +12,26 @@
 
 import { PAPEIS } from './roles.js'
 
-/** Parece nome de material de CAD? Então não mostramos ao expositor. */
-function pareceTecnico(nome) {
-  return !nome
-    || /^[A-Z]\d{2}_/.test(nome)              // A08_Garnet_Shadow
-    || /^\[/.test(nome)                        // [Color M00]1
-    || /_/.test(nome)                          // VS_bagum-preto3
-    || /\d$/.test(nome)                        // Madeira 16
-    || /sem t[íi]tulo/i.test(nome)
+/**
+ * O nome desta superfície foi escrito pelo admin?
+ *
+ * Adivinhar isso pela cara do texto não funcionava: "Tiffany - Metal Preto" e
+ * "METAL PRETO" são nomes de material de CAD e passavam por qualquer regra
+ * razoável, enquanto endurecer a regra passaria a engolir renomeações legítimas.
+ *
+ * Mas não é preciso adivinhar. `origem` guarda o material de onde a superfície
+ * saiu, então o nome automático é sempre o próprio material, ou uma variação
+ * numerada dele (ao separar), ou uma junção (ao unir). Qualquer outra coisa foi
+ * digitada por alguém. `nomeManual` grava isso direto nos modelos novos; a
+ * comparação com `origem` cobre os que foram salvos antes de a marca existir.
+ */
+function nomeDoAdmin(sup) {
+  if (sup.nomeManual) return true
+  if (!sup.origem) return false
+  const automatico = sup.nome === sup.origem
+    || sup.nome.startsWith(`${sup.origem} `)   // separado: "Madeira 16 3"
+    || sup.origem.includes(',')                // unido: origem lista os materiais
+  return !automatico
 }
 
 /**
@@ -27,7 +39,7 @@ function pareceTecnico(nome) {
  * Se o admin renomeou, respeita — ele conhece o projeto melhor que a heurística.
  */
 export function nomeAmigavel(sup, analise, recorte) {
-  if (!pareceTecnico(sup.nome)) return sup.nome
+  if (nomeDoAdmin(sup)) return sup.nome
 
   const pecas = analise.pecas.filter((p) => sup.pecas.includes(p.chave))
   if (!pecas.length) return PAPEIS[sup.papel]?.rotulo || 'Superfície'
@@ -42,16 +54,38 @@ export function nomeAmigavel(sup, analise, recorte) {
   const alturaMin = Math.min(...pecas.map((p) => p.bbox.min[1]))
   if (papel === 'adesivo' && alturaMin < 1.4) return 'Adesivo do balcão'
 
-  const base = papel === 'lona' ? 'Lona' : papel === 'adesivo' ? 'Adesivo' : 'Parede'
+  const { um: base, muitos } = SUBSTANTIVO[papel] || SUBSTANTIVO._
 
   // Só dá para dizer "da direita" se a superfície ESTIVER à direita. Enquanto o
   // material cobre paredes espalhadas pelo estande inteiro, o centro de massa
   // cai no meio e o nome sairia errado — e errado igual para várias superfícies.
   // Nesse caso assumimos o plural, que é verdadeiro.
-  if (espalhada(pecas, lim)) return base === 'Parede' ? 'Paredes do estande' : `${base}s do estande`
+  if (espalhada(pecas, lim)) return muitos
 
   const lugar = posicaoRelativa(c, lim)
   return lugar ? `${base} ${lugar}` : (PAPEIS[papel]?.rotulo || 'Superfície')
+}
+
+/**
+ * Como o expositor chama cada tipo de superfície.
+ *
+ * Cada papel precisa do seu substantivo. Antes só lona e adesivo tinham nome
+ * próprio e todo o resto caía em "Parede" — então uma cadeira mapeada como
+ * mobiliário aparecia para o expositor como "Parede da frente".
+ *
+ * O plural vem escrito porque não sai de regra: "Marcenarias" e "Iluminações"
+ * seriam formas erradas de falar de um estande.
+ */
+const SUBSTANTIVO = {
+  bagum:      { um: 'Parede',     muitos: 'Paredes do estande' },
+  lona:       { um: 'Lona',       muitos: 'Lonas do estande' },
+  adesivo:    { um: 'Adesivo',    muitos: 'Adesivos do estande' },
+  madeira:    { um: 'Marcenaria', muitos: 'Marcenaria do estande' },
+  mobiliario: { um: 'Mobiliário', muitos: 'Mobiliário do estande' },
+  vidro:      { um: 'Vidro',      muitos: 'Vidros do estande' },
+  metal:      { um: 'Estrutura',  muitos: 'Estrutura do estande' },
+  luz:        { um: 'Iluminação', muitos: 'Iluminação do estande' },
+  _:          { um: 'Superfície', muitos: 'Superfícies do estande' },
 }
 
 /** As peças ocupam boa parte do estande, em vez de um canto dele? */
@@ -111,6 +145,7 @@ export function agruparParaExpositor(superficies, analise, recorte, complementos
     { id: 'piso', rotulo: 'Piso', icone: '▦', itens: [] },
     { id: 'paredes', rotulo: 'Paredes', icone: '▚', itens: [] },
     { id: 'marca', rotulo: 'Sua marca', icone: '🖼', itens: [] },
+    { id: 'moveis', rotulo: 'Mobiliário e marcenaria', icone: '🪑', itens: [] },
     { id: 'outros', rotulo: 'Outros acabamentos', icone: '✦', itens: [] },
   ]
   const achar = (id) => grupos.find((g) => g.id === id)
@@ -121,6 +156,7 @@ export function agruparParaExpositor(superficies, analise, recorte, complementos
     if (s.papel === 'piso') achar('piso').itens.push(item)
     else if (s.papel === 'lona' || s.papel === 'adesivo') achar('marca').itens.push(item)
     else if (s.papel === 'bagum') achar('paredes').itens.push(item)
+    else if (s.papel === 'mobiliario' || s.papel === 'madeira') achar('moveis').itens.push(item)
     else achar('outros').itens.push(item)
   }
 

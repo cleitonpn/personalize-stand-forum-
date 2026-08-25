@@ -12,6 +12,11 @@ const PASSOS = [
     texto: 'Onde houver o botão de arte, envie a imagem da sua campanha. Ela é aplicada direto na lona ou no adesivo.',
   },
   {
+    icone: '🪑',
+    titulo: 'Mova os móveis',
+    texto: 'Em "Mover móveis" você escolhe uma cadeira ou um balcão e usa as setas para reposicionar. O item acende no 3D para você saber qual está mexendo, e mudar de lugar não altera o valor.',
+  },
+  {
     icone: '🧩',
     titulo: 'Troque peças de lugar',
     texto: 'Alguns pontos do estande têm opções prontas — um painel de LED, o depósito noutra posição. Clique numa opção e a peça entra no 3D; clique na primeira para voltar ao projeto original.',

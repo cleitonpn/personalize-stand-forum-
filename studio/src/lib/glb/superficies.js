@@ -30,6 +30,11 @@ export function superficiesPadrao(analise, papeis) {
         // o papel sugerido só define o valor inicial.
         podeCor: !!PAPEIS[papel]?.personalizavel,
         podeArte: !!PAPEIS[papel]?.personalizavel,
+        // Marca que o admin mexeu nos interruptores. Enquanto for falso, o valor
+        // acima é só a semente do papel e pode ser semeado de novo quando o papel
+        // mudar — senão uma parede reclassificada como mobiliário continuaria
+        // oferecendo cartela de cor ao expositor, herdada da classificação antiga.
+        permsManuais: false,
         pecas: analise.pecas.filter((p) => p.materialNome === m.nome).map((p) => p.chave),
         origem: m.nome,
       }
@@ -49,7 +54,7 @@ export function dividirPorPeca(sup, analise) {
     id: novoId(),
     nome: `${sup.nome} ${i + 1}`,
     papel: sup.papel,
-    podeCor: sup.podeCor, podeArte: sup.podeArte,
+    podeCor: sup.podeCor, podeArte: sup.podeArte, permsManuais: sup.permsManuais,
     pecas: [p.chave],
     origem: sup.origem,
   }))
@@ -82,7 +87,7 @@ export function dividirPorProximidade(sup, analise, raio = 1.2) {
     id: novoId(),
     nome: `${sup.nome} ${i + 1}`,
     papel: sup.papel,
-    podeCor: sup.podeCor, podeArte: sup.podeArte,
+    podeCor: sup.podeCor, podeArte: sup.podeArte, permsManuais: sup.permsManuais,
     pecas: [...new Set(g.pecas.map((p) => p.chave))],
     origem: sup.origem,
   }))
@@ -99,6 +104,8 @@ export function unir(sups, nome) {
     // se qualquer parte permitia, a união continua permitindo
     podeCor: sups.some((s) => s.podeCor),
     podeArte: sups.some((s) => s.podeArte),
+    // união de coisas diferentes é decisão do admin: não re-semear depois
+    permsManuais: sups.some((s) => s.permsManuais),
     pecas: [...new Set(sups.flatMap((s) => s.pecas))],
     origem: sups.map((s) => s.origem).join(','),
   }

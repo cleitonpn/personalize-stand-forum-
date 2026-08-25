@@ -7,7 +7,7 @@ import { analisar } from '../lib/glb/analyze.js'
 import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
 import { superficiesPadrao, indicePorPeca } from '../lib/glb/superficies.js'
 import PainelPersonalizar from '../components/PainelPersonalizar.jsx'
-import PainelSuperficies from '../components/PainelSuperficies.jsx'
+import PainelSuperficies, { aplicarPapel } from '../components/PainelSuperficies.jsx'
 import PainelObjetos from '../components/PainelObjetos.jsx'
 import PainelPrecos from '../components/PainelPrecos.jsx'
 import PainelComplementos from '../components/PainelComplementos.jsx'
@@ -256,7 +256,7 @@ export default function Editor() {
   const mudarPapel = (nome, papel) => {
     setPapeis((p) => ({ ...p, [nome]: papel })); setSalvo(false)
     // reflete o papel novo nas superfícies que ainda vieram daquele material
-    setSuperficies((ss) => ss?.map((s) => (s.origem === nome ? { ...s, papel } : s)))
+    setSuperficies((ss) => ss?.map((s) => (s.origem === nome ? aplicarPapel(s, papel) : s)))
   }
   const aplicarSugestoes = () => {
     if (!analise) return

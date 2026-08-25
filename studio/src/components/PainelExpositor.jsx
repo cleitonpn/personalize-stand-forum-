@@ -3,6 +3,7 @@ import { agruparParaExpositor } from '../lib/glb/nomes.js'
 import { areaDaSuperficie, fmtBRL, fmtM2 } from '../lib/glb/precos.js'
 import { opcoesAtivas, superficiesEscondidas } from '../lib/glb/complementos.js'
 import EscolhaComplemento from './EscolhaComplemento.jsx'
+import MobiliarioExpositor from './MobiliarioExpositor.jsx'
 
 // Cartela de teste até chegar a tabela oficial de napas e carpetes.
 const CORES = [
@@ -34,7 +35,7 @@ const CORES = [
  */
 export default function PainelExpositor({
   analise, superficies, acabamentos, setAcabamentos, supFoco, setSupFoco, recorte, precos, orcamento,
-  complementos, escolhas, setEscolhas,
+  complementos, escolhas, setEscolhas, objetos, setObjetos, objFoco, setObjFoco,
 }) {
   const fileRef = useRef(null)
   const [alvoArte, setAlvoArte] = useState(null)
@@ -204,6 +205,10 @@ export default function PainelExpositor({
           </div>
         )
       })}
+
+      <MobiliarioExpositor objetos={objetos} setObjetos={setObjetos}
+        objFoco={objFoco} setObjFoco={setObjFoco} recorte={recorte}
+        aberto={aberto} setAberto={setAberto} />
 
       {soltos.length > 0 && (
         <div className="card" style={{ overflow: 'hidden' }}>
