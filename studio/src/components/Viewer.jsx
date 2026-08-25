@@ -8,6 +8,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import * as THREE from 'three'
 import { PAPEIS } from '../lib/glb/roles.js'
 import { chaveDaPeca } from '../lib/glb/analyze.js'
+import GizmoObjeto from './GizmoObjeto.jsx'
 
 /**
  * Loader com os decodificadores de compressão registrados.
@@ -249,7 +250,7 @@ export const VISTAS = [
   { id: 'cima', rotulo: 'De cima' },
 ]
 
-function IrParaVista({ vista, alvo, aoConcluir }) {
+function IrParaVista({ vista, alvo, recorte, aoConcluir }) {
   const { camera, controls } = useThree()
   useEffect(() => {
     if (!vista || !alvo) return
@@ -262,6 +263,14 @@ function IrParaVista({ vista, alvo, aoConcluir }) {
       caixa.union(new THREE.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld))
     })
     if (caixa.isEmpty()) return
+
+    // A vista de cima é a de trabalhar: precisa mostrar o estande contratado, e
+    // não o arquivo inteiro. Num projeto espelhado, enquadrar a cena toda deixa
+    // o estande ocupando metade da tela e a cópia ocupando a outra metade.
+    if (recorte) {
+      caixa.min.x = Math.min(recorte.x0, recorte.x1); caixa.max.x = Math.max(recorte.x0, recorte.x1)
+      caixa.min.z = Math.min(recorte.z0, recorte.z1); caixa.max.z = Math.max(recorte.z0, recorte.z1)
+    }
 
     const c = caixa.getCenter(new THREE.Vector3())
     const t = caixa.getSize(new THREE.Vector3())
@@ -285,7 +294,7 @@ function IrParaVista({ vista, alvo, aoConcluir }) {
     camera.updateProjectionMatrix()
     if (controls) { controls.target.copy(olhar); controls.update() }
     aoConcluir?.()
-  }, [vista, alvo, camera, controls, aoConcluir])
+  }, [vista, alvo, camera, controls, recorte, aoConcluir])
   return null
 }
 
@@ -293,7 +302,7 @@ function IrParaVista({ vista, alvo, aoConcluir }) {
  * Aplica realce por material: o que está selecionado recebe a cor do papel,
  * o resto perde saturação. Guarda o material original para restaurar depois.
  */
-function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos }) {
+function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos, realceSuave }) {
   // peças do objeto em foco, para acender só ele
   const pecasDoObj = useMemo(() => {
     if (!objFoco || !objetos) return null
@@ -390,7 +399,10 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
             emissiveIntensity: 0.8, roughness: 0.4, toneMapped: false,
           })
           criados.push(m); usar = m
-        } else {
+        } else if (!realceSuave) {
+          // No mapeamento, apagar o resto ajuda a conferir a detecção. Na tela do
+          // expositor atrapalha: quem está posicionando uma banqueta precisa ver
+          // o balcão e as paredes para saber ONDE está pondo. Lá só a peça acende.
           const m = new THREE.MeshStandardMaterial({
             color: '#1a2130', roughness: 0.95, transparent: true, opacity: 0.2, depthWrite: false,
           })
@@ -426,7 +438,7 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       criados.forEach((m) => m.dispose())
       texturas.forEach((t) => t.dispose())
     }
-  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, pecasDoObj, escondidos])
+  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, pecasDoObj, escondidos, realceSuave])
 }
 
 /**
@@ -540,11 +552,16 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
 export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
-  extras, escondidos,
+  extras, escondidos, objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
 }) {
-  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos })
+  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos, realceSuave })
   useTransformes(cena, objetos)
   const pecasExtras = usePecasExtras(extras)
+  // objeto sob manipulação direta — só existe na tela do expositor
+  const alvoGizmo = useMemo(
+    () => (objSel ? (objetos || []).find((o) => o.id === objSel && (o.podeMover || o.podeGirar)) : null),
+    [objSel, objetos],
+  )
   const chave = useMemo(() => cena?.uuid, [cena])
   // reenquadra quando o descarte muda o que está visível
   const nIgnorados = useMemo(
@@ -596,8 +613,13 @@ export default function Viewer({
 
       {/* a caixa do recorte é ferramenta de mapeamento — o expositor não vê */}
       {mostrarRecorte && <CaixaRecorte recorte={recorte} />}
+      {alvoGizmo && aoTransformarObjeto && (
+        <GizmoObjeto obj={alvoGizmo} limites={limitesGizmo}
+          aoTransformar={(patch) => aoTransformarObjeto(alvoGizmo.id, patch)} />
+      )}
+
       <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados]} />
-      <IrParaVista vista={vista} alvo={cena} aoConcluir={aoAplicarVista} />
+      <IrParaVista vista={vista} alvo={cena} recorte={recorte} aoConcluir={aoAplicarVista} />
 
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />
     </Canvas>

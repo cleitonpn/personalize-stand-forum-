@@ -14,7 +14,7 @@ const PASSOS = [
   {
     icone: '🪑',
     titulo: 'Mova os móveis',
-    texto: 'Em "Mover móveis" você escolhe uma cadeira ou um balcão e usa as setas para reposicionar. O item acende no 3D para você saber qual está mexendo, e mudar de lugar não altera o valor.',
+    texto: 'Em "Mover móveis", escolha uma cadeira ou um balcão: a vista sobe para cima e a peça ganha uma marca verde no chão. Arraste a marca para levar a peça e o anel azul para girar. Mudar de lugar não altera o valor.',
   },
   {
     icone: '🧩',

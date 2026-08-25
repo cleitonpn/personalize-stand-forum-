@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 const n2 = (v) => (isFinite(v) ? v.toFixed(2) : '—')
 const GRAUS = (r) => Math.round(((r || 0) * 180) / Math.PI)
@@ -21,12 +21,14 @@ function noRecorte(o, recorte) {
  * objeto só — move inteiro, mesmo tendo a marcenaria e o adesivo como
  * acabamentos separados na lista de cima.
  *
- * Os controles são setas e não arrastar-no-3D de propósito: acertar um objeto
- * pequeno com o mouse dentro de uma cena 3D é difícil para quem não usa 3D, e
- * errar significa girar a câmera sem querer.
+ * A lista escolhe QUAL peça; o gesto acontece no 3D, em GizmoObjeto. Escolher
+ * pela lista resolve o problema de acertar um objeto pequeno com o mouse dentro
+ * da cena, e as setas daqui ficam como ajuste fino de quem já colocou a peça
+ * quase no lugar e quer 25 cm exatos.
  */
-export default function MobiliarioExpositor({ objetos, setObjetos, objFoco, setObjFoco, recorte, aberto, setAberto }) {
-  const [sel, setSel] = useState(null)
+export default function MobiliarioExpositor({
+  objetos, setObjetos, objFoco, setObjFoco, recorte, aberto, setAberto, sel, setSel,
+}) {
 
   const lista = useMemo(
     () => (objetos || []).filter((o) => (o.podeMover || o.podeGirar) && noRecorte(o, recorte)),
@@ -74,8 +76,10 @@ export default function MobiliarioExpositor({ objetos, setObjetos, objFoco, setO
       {open && (
         <div className="col" style={{ gap: 9, padding: '4px 15px 16px' }}>
           <p className="dim" style={{ margin: '0 0 2px', fontSize: 11.5, lineHeight: 1.6 }}>
-            Escolha um item e use as setas. Ele acende no 3D para você saber qual é.
-            Mudar de lugar não altera o valor — o mobiliário do projeto já está incluso.
+            Escolha um item: a vista vai para cima e ele fica marcado no chão.
+            <b> Arraste a marca verde</b> para levar a peça, e o <b>anel azul</b> para
+            girar. As setas abaixo servem para o ajuste fino. Mudar de lugar não
+            altera o valor — o mobiliário do projeto já está incluso.
           </p>
 
           {lista.map((o) => {
@@ -109,7 +113,7 @@ export default function MobiliarioExpositor({ objetos, setObjetos, objFoco, setO
                   <div className="col" style={{ gap: 9, marginTop: 11 }}>
                     {o.podeMover && (
                       <div>
-                        <div className="label" style={{ fontSize: 10, marginBottom: 6 }}>Mover</div>
+                        <div className="label" style={{ fontSize: 10, marginBottom: 6 }}>Ajuste fino</div>
                         <div className="row" style={{ gap: 6, justifyContent: 'center' }}>
                           <button className="btn btn-sm" style={{ minWidth: 40 }}
                             onClick={() => mover(o.id, -PASSO, 0)} title="Para a esquerda">←</button>

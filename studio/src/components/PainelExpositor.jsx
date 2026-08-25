@@ -35,7 +35,7 @@ const CORES = [
  */
 export default function PainelExpositor({
   analise, superficies, acabamentos, setAcabamentos, supFoco, setSupFoco, recorte, precos, orcamento,
-  complementos, escolhas, setEscolhas, objetos, setObjetos, objFoco, setObjFoco,
+  complementos, escolhas, setEscolhas, objetos, setObjetos, objFoco, setObjFoco, objSel, setObjSel,
 }) {
   const fileRef = useRef(null)
   const [alvoArte, setAlvoArte] = useState(null)
@@ -208,6 +208,7 @@ export default function PainelExpositor({
 
       <MobiliarioExpositor objetos={objetos} setObjetos={setObjetos}
         objFoco={objFoco} setObjFoco={setObjFoco} recorte={recorte}
+        sel={objSel} setSel={setObjSel}
         aberto={aberto} setAberto={setAberto} />
 
       {soltos.length > 0 && (

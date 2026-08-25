@@ -11,6 +11,7 @@ import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO } from '../lib/glb/precos.js'
 import Tutorial from '../components/Tutorial.jsx'
 import { gerarPropostaHTML } from '../lib/proposta.js'
 import { opcoesAtivas, superficiesEscondidas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
+import { limitesDoEstande } from '../lib/glb/nomes.js'
 
 export default function Expositor() {
   const { user, perfil } = useAuth()
@@ -20,6 +21,7 @@ export default function Expositor() {
   const [escolhas, setEscolhas] = useState({})
   const [supFoco, setSupFoco] = useState(null)
   const [objFoco, setObjFoco] = useState(null)
+  const [objSel, setObjSel] = useState(null)
   const [objetos, setObjetos] = useState(null)
   const [tutorial, setTutorial] = useState(false)
   const [gravando, setGravando] = useState(false)
@@ -60,6 +62,23 @@ export default function Expositor() {
     analise, superficies, objetos, acabamentos, precos, precosObjeto, recorte: modelo?.recorte,
     complementos: { ativas, escondidas: superficiesEscondidas(ativas) },
   }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas])
+
+  // Escolher a peça vira a câmera para cima: é de lá que arrastar no chão
+  // corresponde exatamente ao movimento do mouse, sem dúvida de profundidade.
+  const escolherObjeto = (id) => {
+    setObjSel(id)
+    setObjFoco(id)
+    if (id) setVista('cima')
+  }
+
+  const transformarObjeto = (id, patch) => setObjetos((os) => os.map((o) => (o.id === id
+    ? { ...o, transform: { dx: 0, dz: 0, rotY: 0, ...o.transform, ...patch } }
+    : o)))
+
+  const limitesGizmo = useMemo(
+    () => (analise ? limitesDoEstande(analise, modelo?.recorte) : null),
+    [analise, modelo],
+  )
 
   const fecharTutorial = () => {
     setTutorial(false)
@@ -152,6 +171,8 @@ export default function Expositor() {
         <Viewer cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
           indice={indice} acabamentos={acabamentos} supFoco={supFoco} objetos={objetos}
           extras={extras} escondidos={escondidos} objFoco={objFoco}
+          objSel={objSel} aoTransformarObjeto={transformarObjeto} limitesGizmo={limitesGizmo}
+          realceSuave
           vista={vista} aoAplicarVista={() => setVista(null)} />
 
         {/* vistas prontas: girar com o mouse não é óbvio para quem não usa 3D */}
@@ -172,7 +193,9 @@ export default function Expositor() {
           background: 'rgba(7,10,20,.7)', backdropFilter: 'blur(8px)',
           padding: '6px 11px', borderRadius: 99, border: '1px solid var(--line)',
         }}>
-          Arraste para girar · role para aproximar
+          {objSel
+            ? 'Arraste a marca verde para mover · o anel azul para girar'
+            : 'Arraste para girar · role para aproximar'}
         </div>
       </div>
 
@@ -192,6 +215,7 @@ export default function Expositor() {
               supFoco={supFoco} setSupFoco={setSupFoco}
               complementos={complementos} escolhas={escolhas} setEscolhas={setEscolhas}
               objetos={objetos} setObjetos={setObjetos} objFoco={objFoco} setObjFoco={setObjFoco}
+              objSel={objSel} setObjSel={escolherObjeto}
               recorte={modelo?.recorte} precos={precos} orcamento={orcamento} />
           ) : null}
         </div>
