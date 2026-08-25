@@ -49,15 +49,28 @@ jobs:
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
-      - name: Publicar regras do Firestore e do Storage
+      # Cada alvo vai num passo próprio e tolerante a falha. Publicar tudo junto
+      # fazia uma permissão faltante no Storage derrubar também as regras do
+      # Firestore, que são as que governam quem lê e escreve o quê.
+      - name: Publicar regras do Firestore
+        id: firestore
+        continue-on-error: true
         run: npx --yes firebase-tools@13 deploy
-          --only firestore:rules,storage
+          --only firestore:rules
+          --project personalizacao-stand
+          --non-interactive
+
+      - name: Publicar regras do Storage
+        id: storage
+        continue-on-error: true
+        run: npx --yes firebase-tools@13 deploy
+          --only storage
           --project personalizacao-stand
           --non-interactive
 
       # Functions exigem o plano Blaze. Num projeto no plano gratuito este passo
-      # falha, e isso não pode derrubar o deploy do site nem das regras — o app
-      # foi feito para funcionar sem elas.
+      # falha, e isso não pode derrubar o resto — o app foi feito para funcionar
+      # sem elas.
       - name: Publicar Cloud Functions (requer plano Blaze)
         id: functions
         continue-on-error: true
@@ -66,10 +79,25 @@ jobs:
           --project personalizacao-stand
           --non-interactive
 
-      - name: Aviso sobre as functions
-        if: steps.functions.outcome == 'failure'
+      - name: O que foi publicado
         run: |
-          echo "::warning::As Cloud Functions não foram publicadas. O app segue" \
-               "funcionando sem elas — só a exclusão do login do expositor fica" \
-               "pela metade. A causa mais comum é o projeto estar no plano" \
-               "gratuito (Spark): Functions exigem o Blaze."
+          echo "### Publicação no Firebase" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Alvo | Resultado |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Site (Hosting) | publicado |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Regras do Firestore | ${{ steps.firestore.outcome }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Regras do Storage | ${{ steps.storage.outcome }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cloud Functions | ${{ steps.functions.outcome }} |" >> "$GITHUB_STEP_SUMMARY"
+
+          FALTA="A conta de serviço precisa do papel Editor (ou, no mínimo, Service Usage Consumer + Firebase Rules Admin) no IAM do projeto: console.cloud.google.com/iam-admin/iam"
+
+          if [ "${{ steps.firestore.outcome }}" != "success" ]; then
+            echo "::warning::Regras do Firestore NÃO publicadas — o app está rodando com as regras antigas. $FALTA"
+          fi
+          if [ "${{ steps.storage.outcome }}" != "success" ]; then
+            echo "::warning::Regras do Storage NÃO publicadas. $FALTA"
+          fi
+          if [ "${{ steps.functions.outcome }}" != "success" ]; then
+            echo "::warning::Cloud Functions não publicadas. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Causa mais comum: projeto no plano gratuito (Spark); Functions exigem o Blaze."
+          fi
