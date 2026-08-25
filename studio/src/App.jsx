@@ -7,6 +7,7 @@ import Clientes from './pages/Clientes.jsx'
 import TrocarSenha from './pages/TrocarSenha.jsx'
 import Expositor from './pages/Expositor.jsx'
 import Propostas from './pages/Propostas.jsx'
+import Conta from './pages/Conta.jsx'
 
 function Marca() {
   return (
@@ -39,7 +40,7 @@ function Topbar() {
         <i className="tag-dot" style={{ color: perfil?.papel === 'admin' ? 'var(--brand-green)' : 'var(--text-dim)' }} />
         {perfil?.papel === 'admin' ? 'Admin' : 'Expositor'}
       </span>
-      <span className="dim" style={{ fontSize: 12.5 }}>{user.email}</span>
+      <Link to="/conta" className="btn btn-ghost btn-sm" style={{ fontWeight: 400 }}>{user.email}</Link>
       <button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
     </header>
   )
@@ -56,6 +57,18 @@ function Protegida({ children, exigeAdmin }) {
   }
   if (!user) return <Navigate to="/entrar" replace />
   // senha provisória bloqueia tudo até ser trocada
+  // acesso desativado pelo admin: bloqueia antes de qualquer tela
+  if (perfil?.ativo === false) {
+    return (
+      <div className="card card-pad" style={{ maxWidth: 440, margin: '80px auto', textAlign: 'center' }}>
+        <div style={{ fontSize: 28, marginBottom: 10, opacity: .6 }}>🔒</div>
+        <h2 style={{ fontSize: 17, marginBottom: 8 }}>Acesso desativado</h2>
+        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
+          Sua conta foi desativada. Fale com a equipe da USET para reativá-la.
+        </p>
+      </div>
+    )
+  }
   if (perfil?.precisaTrocarSenha) return <TrocarSenha aoConcluir={recarregarPerfil} />
   if (exigeAdmin && !ehAdmin) {
     return (
@@ -91,6 +104,7 @@ function Rotas() {
           <Route path="/expositores" element={<Protegida exigeAdmin><Clientes /></Protegida>} />
           <Route path="/propostas" element={<Protegida exigeAdmin><Propostas /></Protegida>} />
           <Route path="/meu-estande" element={<Protegida><Expositor /></Protegida>} />
+          <Route path="/conta" element={<Protegida><Conta /></Protegida>} />
           <Route path="*" element={<Inicio />} />
         </Routes>
       </main>

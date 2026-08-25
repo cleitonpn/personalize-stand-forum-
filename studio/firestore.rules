@@ -13,10 +13,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function ehAdmin() {
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function temPerfil() {
       return autenticado()
-        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
-        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == 'admin';
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function ehAdmin() {
+      return temPerfil() && perfil().papel == 'admin';
+    }
+
+    // Desativar precisa valer no SERVIDOR, não só na tela: sem isto, um
+    // expositor desativado continuaria gravando propostas direto pela API,
+    // e o bloqueio seria só cosmético.
+    function ativo() {
+      return temPerfil() && perfil().get('ativo', true) == true;
     }
 
     // Perfis. O admin cadastra expositores pelo painel; cada um lê o seu.
@@ -38,15 +52,14 @@ service cloud.firestore {
     // Propostas do expositor: ele cria e edita a sua; o admin lê todas.
     match /propostas/{propostaId} {
       allow read:   if autenticado() && (resource.data.cliente == request.auth.uid || ehAdmin());
-      allow create: if autenticado() && request.resource.data.cliente == request.auth.uid;
-      allow update, delete: if autenticado()
-        && (resource.data.cliente == request.auth.uid || ehAdmin());
+      allow create: if ativo() && request.resource.data.cliente == request.auth.uid;
+      allow update, delete: if (ativo() && resource.data.cliente == request.auth.uid) || ehAdmin();
     }
 
     // Modelos de estande: qualquer autenticado consulta (o expositor precisa
     // abrir o modelo dele); só o time da montadora cria, edita e apaga.
     match /modelos/{modeloId} {
-      allow read:  if autenticado();
+      allow read:  if ativo();
       allow write: if ehAdmin();
     }
 
@@ -54,7 +67,7 @@ service cloud.firestore {
     match /projetos/{projetoId} {
       allow read, update, delete: if autenticado()
         && (resource.data.dono == request.auth.uid || ehAdmin());
-      allow create: if autenticado() && request.resource.data.dono == request.auth.uid;
+      allow create: if ativo() && request.resource.data.dono == request.auth.uid;
     }
 
     match /{document=**} {

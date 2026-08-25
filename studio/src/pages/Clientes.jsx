@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, orderBy, doc, updateDoc } from 'fire
 import { db } from '../lib/firebase.js'
 import { useAuth } from '../store/AuthContext.jsx'
 import { criarExpositor, MENSAGENS_CADASTRO } from '../lib/criarUsuario.js'
+import GerenciarExpositor from '../components/GerenciarExpositor.jsx'
 
 const senhaSugerida = () => `uset${Math.floor(1000 + Math.random() * 9000)}`
 
@@ -102,6 +103,7 @@ export default function Clientes() {
   const [clientes, setClientes] = useState(null)
   const [modelos, setModelos] = useState([])
   const [erro, setErro] = useState(null)
+  const [gerenciando, setGerenciando] = useState(null)
 
   const carregar = async () => {
     try {
@@ -154,31 +156,48 @@ export default function Clientes() {
             </div>
           )}
 
-          {clientes?.map((c, i) => (
-            <div key={c.id} className="card card-pad fade-up" style={{ animationDelay: `${i * 40}ms` }}>
-              <div className="row" style={{ justifyContent: 'space-between', gap: 14 }}>
-                <div className="col" style={{ gap: 4, minWidth: 0 }}>
-                  <div className="row" style={{ gap: 9 }}>
-                    <h3 style={{ fontSize: 15 }}>{c.nome || c.email}</h3>
-                    {c.precisaTrocarSenha && (
-                      <span className="tag" style={{ color: 'var(--warn)', borderColor: 'currentColor' }}>
-                        <i className="tag-dot" />senha provisória
-                      </span>
-                    )}
+          {clientes?.map((c, i) => {
+            const inativo = c.ativo === false
+            return (
+              <div key={c.id} className="card card-pad fade-up"
+                style={{ animationDelay: `${i * 40}ms`, opacity: inativo ? .6 : 1 }}>
+                <div className="row" style={{ justifyContent: 'space-between', gap: 14 }}>
+                  <div className="col" style={{ gap: 4, minWidth: 0 }}>
+                    <div className="row" style={{ gap: 9, flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: 15 }}>{c.nome || c.email}</h3>
+                      {inativo && (
+                        <span className="tag" style={{ color: 'var(--danger)', borderColor: 'currentColor' }}>
+                          <i className="tag-dot" />desativado
+                        </span>
+                      )}
+                      {!inativo && c.precisaTrocarSenha && (
+                        <span className="tag" style={{ color: 'var(--warn)', borderColor: 'currentColor' }}>
+                          <i className="tag-dot" />senha provisória
+                        </span>
+                      )}
+                    </div>
+                    <div className="dim" style={{ fontSize: 12.5 }}>
+                      {c.email}
+                      {c.feira ? ` · ${c.feira}` : ''}
+                      {` · ${nomeModelo(c.modeloId)}`}
+                    </div>
                   </div>
-                  <div className="dim" style={{ fontSize: 12.5 }}>
-                    {c.email}
-                    {c.feira ? ` · ${c.feira}` : ''}
-                    {` · ${nomeModelo(c.modeloId)}`}
-                  </div>
+                  <button className="btn btn-sm" style={{ flex: 'none' }} onClick={() => setGerenciando(c)}>
+                    Gerenciar
+                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <Formulario modelos={modelos} aoCriar={carregar} />
       </div>
+
+      {gerenciando && (
+        <GerenciarExpositor cliente={gerenciando} modelos={modelos}
+          aoMudar={carregar} aoFechar={() => setGerenciando(null)} />
+      )}
     </div>
   )
 }
