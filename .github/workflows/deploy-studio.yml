@@ -119,5 +119,5 @@ jobs:
             echo "::warning::Regras do Storage NÃO publicadas. $FALTA"
           fi
           if [ "${{ steps.functions.outcome }}" != "success" ]; then
-            echo "::warning::Cloud Functions não publicadas. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Se o log disser que o projeto está no plano Spark, é preciso mudar para o Blaze em console.firebase.google.com → Configurações → Uso e faturamento."
+            echo "::warning::Cloud Functions não publicadas por completo. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Se o log disser 'Failed to set invoker', as funções foram criadas mas ninguém pode chamá-las: o papel Editor não permite alterar políticas de IAM. Conceda também Cloud Run Admin à conta de serviço em console.cloud.google.com/iam-admin/iam e rode o workflow de novo."
           fi
