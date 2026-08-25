@@ -68,6 +68,15 @@ jobs:
           --project personalizacao-stand
           --non-interactive
 
+      # A CLI carrega functions/index.js na própria máquina para descobrir quais
+      # gatilhos existem. Sem as dependências instaladas aqui, esse require
+      # falha em "Cannot find module 'firebase-functions/v2/https'" antes mesmo
+      # de tentar publicar — o build no servidor não chega a acontecer.
+      - name: Instalar dependências das functions
+        working-directory: studio/functions
+        continue-on-error: true
+        run: npm ci
+
       # Functions exigem o plano Blaze. Num projeto no plano gratuito este passo
       # falha, e isso não pode derrubar o resto — o app foi feito para funcionar
       # sem elas.
@@ -99,5 +108,5 @@ jobs:
             echo "::warning::Regras do Storage NÃO publicadas. $FALTA"
           fi
           if [ "${{ steps.functions.outcome }}" != "success" ]; then
-            echo "::warning::Cloud Functions não publicadas. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Causa mais comum: projeto no plano gratuito (Spark); Functions exigem o Blaze."
+            echo "::warning::Cloud Functions não publicadas. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Veja o log do passo: se falou em plano de faturamento, o projeto precisa estar no Blaze; se falou em módulo não encontrado, o passo de instalar dependências não rodou."
           fi
