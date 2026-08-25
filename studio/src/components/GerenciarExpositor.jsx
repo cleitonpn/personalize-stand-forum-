@@ -2,18 +2,19 @@ import { useState } from 'react'
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { db, auth } from '../lib/firebase.js'
+import { excluirExpositorTotal, definirSenhaProvisoria, SEM_FUNCTIONS } from '../lib/funcoes.js'
 
 /**
  * Gestão de um expositor.
  *
- * Um limite do Firebase molda esta tela: pelo navegador não dá para apagar a
- * conta de OUTRO usuário no Auth — deleteUser só age sobre quem está logado.
- * Isso exigiria uma Cloud Function com o Admin SDK.
+ * Excluir de verdade — perfil E login — depende de Cloud Function, porque pelo
+ * navegador deleteUser só age sobre quem está logado. As Functions exigem o
+ * plano Blaze, então esta tela funciona nos dois cenários: com elas publicadas
+ * a exclusão é completa; sem elas, cai no caminho que roda no navegador (apaga
+ * o perfil e bloqueia o acesso) e avisa que o login permanece no Authentication.
  *
- * Então "desativar" é a operação completa e reversível: bloqueia o acesso na
- * hora, sem depender de backend. "Excluir" remove o perfil, o que também
- * bloqueia o acesso, mas o registro no Auth permanece — e a tela diz isso em
- * vez de fingir que sumiu.
+ * "Desativar" continua sendo o caminho recomendado: reversível, imediato e sem
+ * depender de backend nenhum.
  */
 export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar }) {
   const [f, setF] = useState({
@@ -25,6 +26,8 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
   const [erro, setErro] = useState(null)
   const [ocupado, setOcupado] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
+  const [novaSenha, setNovaSenha] = useState('')
+  const [resto, setResto] = useState(null)
 
   const campo = (k) => ({ value: f[k], onChange: (e) => setF((v) => ({ ...v, [k]: e.target.value })) })
   const ativo = cliente.ativo !== false
@@ -57,9 +60,27 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
     },
     `Link de redefinição enviado para ${cliente.email}.`)
 
+  const definirSenha = () => executar(
+    async () => {
+      await definirSenhaProvisoria(cliente.id, novaSenha)
+      setNovaSenha('')
+    },
+    'Nova senha provisória definida. Passe-a ao expositor.')
+
   const excluir = () => executar(
-    () => deleteDoc(doc(db, 'usuarios', cliente.id)),
-    'Perfil excluído. O acesso está bloqueado.')
+    async () => {
+      setResto(null)
+      try {
+        // caminho completo: apaga perfil e login, liberando o e-mail
+        await excluirExpositorTotal(cliente.id)
+      } catch (ex) {
+        if (ex.code !== SEM_FUNCTIONS) throw ex
+        // sem Functions publicadas: o que dá para fazer pelo navegador
+        await deleteDoc(doc(db, 'usuarios', cliente.id))
+        setResto('O login continua no Firebase Authentication — remova-o pelo Console para liberar o e-mail.')
+      }
+    },
+    'Expositor excluído.')
 
   return (
     <div style={{
@@ -106,6 +127,10 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
           <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 'var(--r)', fontSize: 12.5,
             background: 'rgba(244,63,94,.1)', border: '1px solid rgba(244,63,94,.3)', color: '#fda4af' }}>{erro}</div>
         )}
+        {resto && (
+          <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 'var(--r)', fontSize: 12,
+            background: 'rgba(245,165,36,.08)', border: '1px solid rgba(245,165,36,.3)', color: 'var(--warn)' }}>{resto}</div>
+        )}
 
         <button className="btn btn-primary" onClick={salvar} disabled={ocupado}
           style={{ width: '100%', marginTop: 16, padding: 11 }}>
@@ -119,6 +144,12 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
           <button className="btn" onClick={redefinir} disabled={ocupado}>
             Enviar link de nova senha
           </button>
+          <div className="row" style={{ gap: 7 }}>
+            <input className="input" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)}
+              placeholder="Definir senha provisória" style={{ padding: '8px 11px', fontSize: 12.5 }} />
+            <button className="btn btn-sm" style={{ flex: 'none' }} disabled={ocupado || novaSenha.length < 6}
+              onClick={definirSenha}>Definir</button>
+          </div>
           <button className="btn" onClick={alternarAtivo} disabled={ocupado}>
             {ativo ? 'Desativar acesso' : 'Reativar acesso'}
           </button>
@@ -145,9 +176,9 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
               enviadas continuam na sua lista.
             </p>
             <p className="dim" style={{ margin: '0 0 12px', fontSize: 11.5, lineHeight: 1.6 }}>
-              O login em si permanece no Firebase Authentication — apagá-lo de vez
-              exige removê-lo pelo Console, e enquanto ele existir esse e-mail não
-              pode ser cadastrado de novo.
+              Com as Cloud Functions publicadas o login também é apagado e o
+              e-mail fica livre para novo cadastro. Sem elas, apagamos o perfil
+              e avisamos o que resta fazer no Console.
             </p>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => setConfirmando(false)}>Cancelar</button>

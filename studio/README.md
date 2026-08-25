@@ -51,6 +51,25 @@ Publique as regras antes de usar:
 npx firebase deploy --only firestore:rules,storage --project personalizacao-stand
 ```
 
+## Cloud Functions (opcional)
+
+Duas operações não existem no navegador porque exigem o Admin SDK:
+
+- **excluir o login** de um expositor — `deleteUser` no cliente só age sobre
+  quem está logado, então sem função o e-mail fica preso e não pode ser
+  cadastrado de novo;
+- **definir uma senha provisória** direto, para quando o e-mail de redefinição
+  não chega (caixa corporativa costuma barrar).
+
+O app funciona sem elas: a exclusão apaga o perfil, o acesso é bloqueado, e a
+tela avisa o que resta fazer no Console. Publicar exige o **plano Blaze** do
+Firebase (o uso aqui cabe na cota gratuita, mas o plano pede cartão).
+
+```bash
+cd studio/functions && npm install
+cd .. && npx firebase deploy --only functions --project personalizacao-stand
+```
+
 ## Deploy
 
 Automático pelo workflow `.github/workflows/deploy-studio.yml` (usa o secret
