@@ -12,7 +12,7 @@ import PainelObjetos from '../components/PainelObjetos.jsx'
 import PainelPrecos from '../components/PainelPrecos.jsx'
 import PainelComplementos from '../components/PainelComplementos.jsx'
 import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO } from '../lib/glb/precos.js'
-import { detectarObjetos, numerar } from '../lib/glb/objetos.js'
+import { detectarObjetos, numerar, assinaturaDeteccao, nomearPorSuperficies } from '../lib/glb/objetos.js'
 import { novoGrupo, opcoesAtivas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
@@ -206,6 +206,8 @@ export default function Editor() {
   const [supFoco, setSupFoco] = useState(null)
   const [objetos, setObjetos] = useState(null)
   const [objFoco, setObjFoco] = useState(null)
+  // papéis vigentes quando os objetos foram detectados, para saber se envelheceram
+  const [assinaturaObj, setAssinaturaObj] = useState(null)
   const [precos, setPrecos] = useState(PRECOS_PADRAO)
   const [precosObjeto, setPrecosObjeto] = useState(PRECOS_OBJETO_PADRAO)
   const [removidos, setRemovidos] = useState({})
@@ -243,7 +245,19 @@ export default function Editor() {
     if (!analise || superficies) return
     setSuperficies(modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, papeis))
     setObjetos(modelo?.objetos?.length ? modelo.objetos : numerar(detectarObjetos(analise, papeis)))
+    setAssinaturaObj(modelo?.assinaturaObjetos ?? assinaturaDeteccao(papeis))
   }, [analise, superficies, modelo, papeis])
+
+  // Detecta de novo com os papéis de agora. O que o admin ajustou peça a peça
+  // (nome, permissões, incluso) se perde, então é ação explícita dele — não algo
+  // que acontece sozinho a cada troca de papel.
+  const redetectarObjetos = () => {
+    if (!analise) return
+    const novos = numerar(detectarObjetos(analise, papeis))
+    setObjetos(nomearPorSuperficies(novos, superficies || []))
+    setAssinaturaObj(assinaturaDeteccao(papeis))
+    setObjFoco(null); setSalvo(false)
+  }
 
   const indice = useMemo(() => (superficies ? indicePorPeca(superficies) : null), [superficies])
 
@@ -273,6 +287,7 @@ export default function Editor() {
         superficies: superficies || [],
         objetos: objetos || [],
         complementos: grupos || [],
+        assinaturaObjetos: assinaturaObj,
         precos, precosObjeto,
         status: Object.keys(papeis).length ? 'mapeado' : 'novo',
       })
@@ -487,7 +502,9 @@ export default function Editor() {
                 objetos
                   ? <PainelObjetos objetos={objetos}
                       setObjetos={(v) => { setObjetos(v); setSalvo(false) }}
-                      objFoco={objFoco} setObjFoco={setObjFoco} />
+                      objFoco={objFoco} setObjFoco={setObjFoco}
+                      aoRedetectar={redetectarObjetos}
+                      desatualizado={assinaturaObj !== null && assinaturaObj !== assinaturaDeteccao(papeis)} />
                   : <div className="row"><span className="spinner" /><span className="muted">Detectando objetos…</span></div>
               ) : aba === 'superficies' || aba === 'personalizar' ? (
                 !superficies

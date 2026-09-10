@@ -12,20 +12,29 @@
   --brand-grad:      linear-gradient(100deg, var(--brand-blue) 0%, #1d8bd8 45%, var(--brand-green) 100%);
   --brand-grad-soft: linear-gradient(100deg, rgba(37,99,235,.16) 0%, rgba(22,224,163,.16) 100%);
 
-  /* --- superfícies (escuro por padrão: é o clima do produto) ---------- */
-  --bg:         #070a14;
-  --bg-deep:    #04060d;
-  --surface:    #0d1220;
-  --surface-2:  #131a2c;
-  --surface-3:  #1a2338;
-  --line:       #1e2740;
-  --line-lit:   #2b3a5c;
-  --line-soft:  rgba(255, 255, 255, .06);
+  /* --- superfícies -----------------------------------------------------
+     O painel continua escuro, que é o clima do produto, mas vários tons acima
+     do que era: quem passa o dia mapeando estava forçando a vista. O 3D vai no
+     caminho oposto, claro, porque lá o assunto é o estande — ver a peça é a
+     tarefa, não o clima. */
+  --bg:         #101624;
+  --bg-deep:    #0b111c;
+  --surface:    #182032;
+  --surface-2:  #1c2437;
+  --surface-3:  #26314a;
+  --line:       #2b3651;
+  --line-lit:   #3f5075;
+  --line-soft:  rgba(255, 255, 255, .09);
 
   /* --- texto ---------------------------------------------------------- */
-  --text:       #e8edf9;
-  --text-mid:   #9aa7c2;
-  --text-dim:   #64708c;
+  --text:       #f3f6fd;
+  --text-mid:   #b7c3da;
+  --text-dim:   #8a99b8;
+
+  /* --- 3D: estúdio claro, para o estande aparecer -------------------- */
+  --cena-fundo:  #e9edf4;
+  --cena-grade:  #c3cddd;
+  --cena-secao:  #9dabc4;
 
   /* --- semânticos ----------------------------------------------------- */
   --ok:      #16e0a3;

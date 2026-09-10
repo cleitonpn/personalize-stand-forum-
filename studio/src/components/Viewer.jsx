@@ -9,6 +9,7 @@ import * as THREE from 'three'
 import { PAPEIS } from '../lib/glb/roles.js'
 import { chaveDaPeca } from '../lib/glb/analyze.js'
 import GizmoObjeto from './GizmoObjeto.jsx'
+import { uvPlanar, encaixar } from '../lib/glb/arte.js'
 
 /**
  * Loader com os decodificadores de compressão registrados.
@@ -299,6 +300,30 @@ function IrParaVista({ vista, alvo, recorte, aoConcluir }) {
 }
 
 /**
+ * Material derivado do original, em vez de um material novo em folha.
+ *
+ * Construir um MeshStandardMaterial do zero jogava fora o `side` do arquivo — e
+ * TODO material que vem do SketchUp é DoubleSide. Uma face de carpete cujo lado
+ * visível aponta para baixo virava invisível por cima, então trocar a cor do
+ * piso não mudava nada na tela. Clonar preserva lado, transparência e o que mais
+ * o projetista definiu; só sobrescrevemos o que a personalização manda.
+ */
+function derivar(orig, props) {
+  const base = Array.isArray(orig) ? orig[0] : orig
+  const m = base?.isMaterial ? base.clone() : new THREE.MeshStandardMaterial()
+  if (!base?.isMaterial) m.side = THREE.DoubleSide
+  // mapas do projeto original não sobrevivem à personalização: eles foram feitos
+  // para as UVs originais, e a arte reprojeta as UVs
+  m.map = null; m.normalMap = null; m.roughnessMap = null
+  m.metalnessMap = null; m.aoMap = null; m.emissiveMap = null
+  m.emissive?.set('#000000')
+  Object.assign(m, props)
+  if (props?.color != null) m.color = new THREE.Color(props.color)
+  if (props?.emissive != null) m.emissive = new THREE.Color(props.emissive)
+  return m
+}
+
+/**
  * Aplica realce por material: o que está selecionado recebe a cor do papel,
  * o resto perde saturação. Guarda o material original para restaurar depois.
  */
@@ -314,6 +339,8 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
     if (!cena) return
     const criados = []
     const texturas = []
+    // geometria → UV original, para devolver o arquivo ao estado em que veio
+    const geometrias = new Map()
 
     cena.traverse((o) => {
       if (!o.isMesh) return
@@ -344,15 +371,14 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
 
       let usar = orig
       if (modo === 'papeis' && papel && papel !== 'ignorar') {
-        const m = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(PAPEIS[papel]?.hex || '#888'),
-          roughness: 0.65, metalness: 0.05,
-          transparent: true, opacity: 0.95,
+        const m = derivar(orig, {
+          color: PAPEIS[papel]?.hex || '#888',
+          roughness: 0.65, metalness: 0.05, transparent: true, opacity: 0.95,
         })
         criados.push(m); usar = m
       } else if (modo === 'papeis' && papel === 'ignorar') {
-        const m = new THREE.MeshStandardMaterial({
-          color: '#151a26', roughness: 0.9, transparent: true, opacity: 0.12, depthWrite: false,
+        const m = derivar(orig, {
+          color: '#8894ac', roughness: 0.9, transparent: true, opacity: 0.14, depthWrite: false,
         })
         criados.push(m); usar = m
       }
@@ -360,17 +386,28 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       // acabamento escolhido pelo expositor, por superfície
       const acab = sup && acabamentos?.[sup.id]
       if (acab && (acab.cor || acab.arte)) {
-        const m = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(acab.cor || '#ffffff'),
-          roughness: acab.brilho != null ? 1 - acab.brilho : 0.7,
+        const m = derivar(orig, {
+          color: acab.cor || '#f2f2ee',
+          roughness: acab.brilho != null ? 1 - acab.brilho : 0.75,
           metalness: 0.02,
         })
         if (acab.arte) {
-          const tex = new THREE.TextureLoader().load(acab.arte)
+          const escala = new THREE.Vector3()
+          o.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion(), escala)
+          const plano = uvPlanar(o.geometry, escala)
+          if (plano) {
+            if (!geometrias.has(o.geometry)) geometrias.set(o.geometry, o.geometry.getAttribute('uv') || null)
+            o.geometry.setAttribute('uv', plano.attr)
+          }
+          const tex = new THREE.TextureLoader().load(acab.arte, (t) => {
+            if (plano) encaixar(t, plano.proporcao)
+          })
           tex.colorSpace = THREE.SRGBColorSpace
           tex.flipY = false
+          tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
           // a arte manda na cor: sem isso o tom da napa tinge a imagem
-          m.map = tex; m.color.set('#ffffff')
+          m.map = tex
+          m.transparent = true          // logo em PNG mostra a cor por baixo
           texturas.push(tex)
         }
         criados.push(m); usar = m
@@ -378,14 +415,14 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
 
       if (materialFoco) {
         if (nome === materialFoco) {
-          const m = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#22d3ee'), emissive: new THREE.Color('#0891b2'),
+          const m = derivar(orig, {
+            color: '#22d3ee', emissive: '#0891b2',
             emissiveIntensity: 0.7, roughness: 0.4, toneMapped: false,
           })
           criados.push(m); usar = m
         } else {
-          const m = new THREE.MeshStandardMaterial({
-            color: '#1a2130', roughness: 0.95, transparent: true, opacity: 0.16, depthWrite: false,
+          const m = derivar(orig, {
+            color: '#aab6cc', roughness: 0.95, transparent: true, opacity: 0.2, depthWrite: false,
           })
           criados.push(m); usar = m
         }
@@ -394,8 +431,8 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       // realce do objeto selecionado — o que vai se mover
       if (pecasDoObj) {
         if (pecasDoObj.has(o.userData._chave)) {
-          const m = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#f59e0b'), emissive: new THREE.Color('#b45309'),
+          const m = derivar(orig, {
+            color: '#f59e0b', emissive: '#b45309',
             emissiveIntensity: 0.8, roughness: 0.4, toneMapped: false,
           })
           criados.push(m); usar = m
@@ -403,24 +440,32 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           // No mapeamento, apagar o resto ajuda a conferir a detecção. Na tela do
           // expositor atrapalha: quem está posicionando uma banqueta precisa ver
           // o balcão e as paredes para saber ONDE está pondo. Lá só a peça acende.
-          const m = new THREE.MeshStandardMaterial({
-            color: '#1a2130', roughness: 0.95, transparent: true, opacity: 0.2, depthWrite: false,
+          const m = derivar(orig, {
+            color: '#aab6cc', roughness: 0.95, transparent: true, opacity: 0.22, depthWrite: false,
           })
           criados.push(m); usar = m
         }
       }
 
-      // realce da superfície selecionada, por cima de tudo
+      // Realce da superfície apontada. Não pode SUBSTITUIR o acabamento: o
+      // cartão fica embaixo do cursor na hora de clicar a cor, então pintar a
+      // peça de verde escondia justamente o resultado da escolha — clicava-se
+      // vermelho e via-se verde. Com acabamento aplicado o realce só acende por
+      // cima; sem acabamento, aí sim pinta de verde para localizar a peça.
       if (supFoco) {
         if (sup?.id === supFoco) {
-          const m = new THREE.MeshStandardMaterial({
-            color: new THREE.Color('#16e0a3'), emissive: new THREE.Color('#0b7a5c'),
-            emissiveIntensity: 0.75, roughness: 0.4, toneMapped: false,
-          })
+          const m = acab && (acab.cor || acab.arte)
+            ? Object.assign(usar.clone(), {
+                emissive: new THREE.Color('#0b7a5c'), emissiveIntensity: 0.45,
+              })
+            : derivar(orig, {
+                color: '#16e0a3', emissive: '#0b7a5c',
+                emissiveIntensity: 0.75, roughness: 0.4, toneMapped: false,
+              })
           criados.push(m); usar = m
-        } else if (!acab?.arte) {
-          const m = new THREE.MeshStandardMaterial({
-            color: '#1a2130', roughness: 0.95, transparent: true, opacity: 0.18, depthWrite: false,
+        } else if (!acab?.arte && !acab?.cor) {
+          const m = derivar(orig, {
+            color: '#aab6cc', roughness: 0.95, transparent: true, opacity: 0.22, depthWrite: false,
           })
           criados.push(m); usar = m
         }
@@ -435,6 +480,10 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
         if (o.userData._matOrig) o.material = o.userData._matOrig
         if (o.userData._visOrig !== undefined) o.visible = o.userData._visOrig
       })
+      for (const [geo, uvOrig] of geometrias) {
+        if (uvOrig) geo.setAttribute('uv', uvOrig)
+        else geo.deleteAttribute('uv')
+      }
       criados.forEach((m) => m.dispose())
       texturas.forEach((t) => t.dispose())
     }
@@ -582,24 +631,30 @@ export default function Viewer({
       }}
       style={{ height: altura, width: '100%', background: 'transparent' }}
     >
-      <color attach="background" args={['#070a14']} />
-      <hemisphereLight args={['#dce6ff', '#0a0e18', 0.85]} />
-      <directionalLight position={[9, 14, 7]} intensity={1.5} />
-      <directionalLight position={[-8, 6, -6]} intensity={0.5} color="#bcd4ff" />
+      {/* Estúdio claro. O estande é quase todo preto, cinza e madeira escura —
+          sobre fundo escuro ele simplesmente some, e era preciso forçar a vista
+          para enxergar o que se está configurando. Sobre fundo claro a peça
+          aparece, que é a única coisa que importa nesta tela. */}
+      <color attach="background" args={['#e9edf4']} />
+      <hemisphereLight args={['#ffffff', '#b9c4d6', 2.1]} />
+      <directionalLight position={[9, 14, 7]} intensity={2.2} />
+      <directionalLight position={[-8, 7, -6]} intensity={0.9} color="#eaf1ff" />
+      <directionalLight position={[0, 6, 12]} intensity={0.7} color="#ffffff" />
 
       {/* Ambiente montado com Lightformers locais. Um preset do drei baixaria um
           HDR de CDN externo — quebra offline e em rede restrita. */}
       <Environment resolution={256} frames={1} background={false}>
-        <Lightformer form="rect" intensity={3} color="#ffffff" position={[0, 8, 8]} scale={[16, 6, 1]} />
-        <Lightformer form="rect" intensity={1.4} color="#cfe0ff" position={[-10, 4, 4]} rotation={[0, Math.PI / 3, 0]} scale={[8, 10, 1]} />
-        <Lightformer form="rect" intensity={1.4} color="#e6f0ff" position={[10, 4, 4]} rotation={[0, -Math.PI / 3, 0]} scale={[8, 10, 1]} />
-        <Lightformer form="rect" intensity={0.8} color="#ffffff" position={[0, 5, -10]} scale={[12, 8, 1]} />
+        <Lightformer form="rect" intensity={4} color="#ffffff" position={[0, 8, 8]} scale={[16, 6, 1]} />
+        <Lightformer form="rect" intensity={2.2} color="#e8f0ff" position={[-10, 4, 4]} rotation={[0, Math.PI / 3, 0]} scale={[8, 10, 1]} />
+        <Lightformer form="rect" intensity={2.2} color="#f2f7ff" position={[10, 4, 4]} rotation={[0, -Math.PI / 3, 0]} scale={[8, 10, 1]} />
+        <Lightformer form="rect" intensity={1.6} color="#ffffff" position={[0, 5, -10]} scale={[12, 8, 1]} />
+        <Lightformer form="rect" intensity={1.2} color="#ffffff" position={[0, -6, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[20, 20, 1]} />
       </Environment>
 
       <Grid
-        args={[60, 60]} cellSize={1} cellThickness={0.5} cellColor="#1b2440"
-        sectionSize={5} sectionThickness={1} sectionColor="#2b3a5c"
-        infiniteGrid fadeDistance={70} fadeStrength={1.6} followCamera={false}
+        args={[60, 60]} cellSize={1} cellThickness={0.6} cellColor="#c3cddd"
+        sectionSize={5} sectionThickness={1.1} sectionColor="#9dabc4"
+        infiniteGrid fadeDistance={70} fadeStrength={1.4} followCamera={false}
       />
 
       {cena && <primitive object={cena} />}

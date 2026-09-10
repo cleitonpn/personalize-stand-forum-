@@ -31,7 +31,7 @@ const FOLGA = 0.06
 // — as 2.710 peças do arquivo de 45m² colapsam num objeto só.
 //
 // Piso, parede, vidro, metal e luz são o casco: ficam de fora e não se movem.
-const PAPEIS_MOVEIS = ['mobiliario', 'adesivo', 'madeira']
+export const PAPEIS_MOVEIS = ['mobiliario', 'adesivo', 'madeira']
 
 const encostam = (a, b, folga = FOLGA) =>
   a.bbox.min[0] - folga <= b.bbox.max[0] && a.bbox.max[0] + folga >= b.bbox.min[0] &&
@@ -121,9 +121,13 @@ function montarObjeto(membros, papeis) {
 
   const largura = max[0] - min[0], altura = max[1] - min[1], profundidade = max[2] - min[2]
 
-  // Só é móvel o que assenta no chão. Painéis gráficos também são "madeira",
-  // mas ficam presos na parede, lá em cima — e não devem sair do lugar.
+  // Só é móvel o que assenta no chão E tem porte de móvel. O apoio no chão
+  // sozinho não basta: a parede de marcenaria do arquivo real mede 9,80 × 2,90 m
+  // e nasce no piso, então entrava na lista do cliente como se fosse uma cadeira
+  // — dava para arrastar a parede do estande. Cadeira, banqueta, mesa e balcão
+  // ficam folgadamente abaixo destes limites; parede e testeira, não.
   const assentaNoChao = min[1] < 0.35
+    && largura <= 3.2 && profundidade <= 3.2 && altura <= 2.2
 
   return {
     id: novoId(),
@@ -178,4 +182,47 @@ export function indiceObjetoPorPeca(objetos) {
   const idx = new Map()
   for (const o of objetos) for (const c of o.pecas) idx.set(c, o)
   return idx
+}
+
+/**
+ * Assinatura dos papéis que influenciam a detecção.
+ *
+ * Objeto é detectado uma vez e guardado. Quando o admin depois reclassifica um
+ * material — marca as cadeiras como mobiliário, por exemplo — a lista salva não
+ * muda sozinha, e ele fica olhando para um resultado que não corresponde mais ao
+ * que configurou. Comparar esta assinatura revela isso, em vez de deixar o
+ * desencontro silencioso.
+ */
+export function assinaturaDeteccao(papeis) {
+  return Object.entries(papeis || {})
+    .filter(([, p]) => PAPEIS_MOVEIS.includes(p))
+    .map(([m, p]) => `${m}:${p}`)
+    .sort()
+    .join('|')
+}
+
+/**
+ * Adota o nome que o admin deu à superfície, quando ela descreve o objeto.
+ *
+ * "Mobiliário 7" não diz nada a quem precisa achar a TV na lista. Se uma
+ * superfície nomeada à mão cobre a maior parte das peças do objeto, é ela que o
+ * admin já chamou de alguma coisa — e esse nome vale mais que o genérico.
+ * O limite de 60% evita herdar o nome de uma superfície que só encosta nele.
+ */
+export function nomearPorSuperficies(objetos, superficies) {
+  const nomeadas = (superficies || []).filter((s) => s.nomeManual && s.pecas?.length)
+  if (!nomeadas.length) return objetos
+
+  const renomeados = objetos.map((o) => {
+    const meu = new Set(o.pecas)
+    let melhor = null, melhorFatia = 0
+    for (const s of nomeadas) {
+      let dentro = 0
+      for (const c of s.pecas) if (meu.has(c)) dentro++
+      const fatia = dentro / meu.size
+      if (fatia > melhorFatia) { melhorFatia = fatia; melhor = s }
+    }
+    return melhorFatia >= 0.6 ? { ...o, nome: melhor.nome } : o
+  })
+  return numerar(renomeados.map((o) => ({ ...o, nome: o.nome.replace(/\s+\d+$/, '') })))
 }
