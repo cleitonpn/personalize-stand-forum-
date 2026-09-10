@@ -623,7 +623,7 @@ export default function Viewer({
       shadows={false}
       dpr={[1, 1.75]}
       camera={{ position: [8, 6, 10], fov: 45 }}
-      gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+      gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.95 }}
       onCreated={({ gl }) => {
         // usado pela proposta em PDF para registrar o estande como ficou.
         // preserveDrawingBuffer acima é o que permite ler o canvas depois.
@@ -636,19 +636,21 @@ export default function Viewer({
           para enxergar o que se está configurando. Sobre fundo claro a peça
           aparece, que é a única coisa que importa nesta tela. */}
       <color attach="background" args={['#e9edf4']} />
-      <hemisphereLight args={['#ffffff', '#b9c4d6', 2.1]} />
-      <directionalLight position={[9, 14, 7]} intensity={2.2} />
-      <directionalLight position={[-8, 7, -6]} intensity={0.9} color="#eaf1ff" />
-      <directionalLight position={[0, 6, 12]} intensity={0.7} color="#ffffff" />
+      {/* A exposição é a do arquivo original — quem estava errado era só o fundo.
+          Ao clarear o fundo eu também subi a luz, e aí estourou: o branco da
+          testeira e do vidro virou papel em branco. Fundo claro não pede mais
+          luz, pede o mesmo modelo sobre um fundo que não o engole. */}
+      <hemisphereLight args={['#ffffff', '#c2cddd', 0.9]} />
+      <directionalLight position={[9, 14, 7]} intensity={1.5} />
+      <directionalLight position={[-8, 7, -6]} intensity={0.5} color="#dfe9ff" />
 
       {/* Ambiente montado com Lightformers locais. Um preset do drei baixaria um
           HDR de CDN externo — quebra offline e em rede restrita. */}
       <Environment resolution={256} frames={1} background={false}>
-        <Lightformer form="rect" intensity={4} color="#ffffff" position={[0, 8, 8]} scale={[16, 6, 1]} />
-        <Lightformer form="rect" intensity={2.2} color="#e8f0ff" position={[-10, 4, 4]} rotation={[0, Math.PI / 3, 0]} scale={[8, 10, 1]} />
-        <Lightformer form="rect" intensity={2.2} color="#f2f7ff" position={[10, 4, 4]} rotation={[0, -Math.PI / 3, 0]} scale={[8, 10, 1]} />
-        <Lightformer form="rect" intensity={1.6} color="#ffffff" position={[0, 5, -10]} scale={[12, 8, 1]} />
-        <Lightformer form="rect" intensity={1.2} color="#ffffff" position={[0, -6, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[20, 20, 1]} />
+        <Lightformer form="rect" intensity={3} color="#ffffff" position={[0, 8, 8]} scale={[16, 6, 1]} />
+        <Lightformer form="rect" intensity={1.4} color="#cfe0ff" position={[-10, 4, 4]} rotation={[0, Math.PI / 3, 0]} scale={[8, 10, 1]} />
+        <Lightformer form="rect" intensity={1.4} color="#e6f0ff" position={[10, 4, 4]} rotation={[0, -Math.PI / 3, 0]} scale={[8, 10, 1]} />
+        <Lightformer form="rect" intensity={0.8} color="#ffffff" position={[0, 5, -10]} scale={[12, 8, 1]} />
       </Environment>
 
       <Grid
