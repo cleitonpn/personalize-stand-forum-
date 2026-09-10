@@ -106,6 +106,9 @@ export function unir(sups, nome) {
     podeArte: sups.some((s) => s.podeArte),
     // união de coisas diferentes é decisão do admin: não re-semear depois
     permsManuais: sups.some((s) => s.permsManuais),
+    // Marca que este grupo foi feito à mão. É o que autoriza a detecção de
+    // objetos a tratar o conjunto como uma peça só — ver objetos.js.
+    agrupada: true,
     pecas: [...new Set(sups.flatMap((s) => s.pecas))],
     origem: sups.map((s) => s.origem).join(','),
   }

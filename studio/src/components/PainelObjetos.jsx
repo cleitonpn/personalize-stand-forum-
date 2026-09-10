@@ -13,7 +13,7 @@ const GRAUS = (r) => Math.round((r * 180) / Math.PI)
  * Quem decide o que o expositor pode fazer é o admin, aqui — a detecção só
  * propõe um ponto de partida.
  */
-export default function PainelObjetos({ objetos, setObjetos, objFoco, setObjFoco, aoRedetectar, desatualizado }) {
+export default function PainelObjetos({ objetos, setObjetos, objFoco, setObjFoco, aoRedetectar }) {
   const [soMoveis, setSoMoveis] = useState(false)
   const [renomeando, setRenomeando] = useState(null)
   const [rascunho, setRascunho] = useState('')
@@ -42,29 +42,11 @@ export default function PainelObjetos({ objetos, setObjetos, objFoco, setObjFoco
       <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6 }}>
         Objeto é o que <b>se move junto</b> — detectado por contato entre peças.
         O balcão é um objeto com duas superfícies (marcenaria e adesivo): move
-        inteiro, mas cada parte recebe seu acabamento. Tudo que vem no projeto
-        entra como <b>incluso</b> e não é cobrado; desmarque para cobrar à parte.
+        inteiro, mas cada parte recebe seu acabamento. O que você <b>uniu na aba
+        Superfícies anda junto aqui</b> — esta lista se refaz sozinha quando você
+        reagrupa lá, preservando os ajustes abaixo. Tudo que vem no projeto entra
+        como <b>incluso</b> e não é cobrado; desmarque para cobrar à parte.
       </p>
-
-      {desatualizado && (
-        <div style={{ padding: '11px 13px', borderRadius: 'var(--r)',
-          background: 'rgba(245,165,36,.1)', border: '1px solid rgba(245,165,36,.35)' }}>
-          <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--warn)', marginBottom: 4 }}>
-            Os papéis mudaram depois desta detecção
-          </div>
-          <p className="muted" style={{ margin: '0 0 9px', fontSize: 11.5, lineHeight: 1.6 }}>
-            A lista abaixo foi montada com a classificação antiga, então o que você
-            marcou como mobiliário depois disso ainda não virou objeto — e não
-            aparece para o cliente. Detectar de novo refaz a lista.
-          </p>
-          <button className="btn btn-sm btn-primary" style={{ width: '100%' }} onClick={aoRedetectar}>
-            ⟳ Detectar objetos de novo
-          </button>
-          <p className="dim" style={{ margin: '8px 0 0', fontSize: 11, lineHeight: 1.55 }}>
-            Os ajustes feitos item a item aqui (nome, permissões, incluso) voltam ao padrão.
-          </p>
-        </div>
-      )}
 
       <div className="row" style={{ justifyContent: 'space-between', gap: 10 }}>
         <span className="dim" style={{ fontSize: 12 }}>
@@ -75,10 +57,10 @@ export default function PainelObjetos({ objetos, setObjetos, objFoco, setObjFoco
             style={{ fontSize: 11.5, padding: '4px 10px' }}>
             Só os móveis
           </button>
-          {aoRedetectar && !desatualizado && (
+          {aoRedetectar && (
             <button className="chip" onClick={aoRedetectar} style={{ fontSize: 11.5, padding: '4px 10px' }}
-              title="Refaz a detecção com os papéis atuais. Os ajustes item a item voltam ao padrão.">
-              ⟳ Detectar de novo
+              title="Recomeça do zero, descartando os ajustes feitos item a item aqui.">
+              ⟳ Recomeçar
             </button>
           )}
         </div>
@@ -105,9 +87,9 @@ export default function PainelObjetos({ objetos, setObjetos, objFoco, setObjFoco
                   <input className="input" autoFocus value={rascunho}
                     style={{ padding: '5px 9px', fontSize: 12.5 }}
                     onChange={(e) => setRascunho(e.target.value)}
-                    onBlur={() => { mexer(o.id, { nome: rascunho.trim() || o.nome }); setRenomeando(null) }}
+                    onBlur={() => { mexer(o.id, { nome: rascunho.trim() || o.nome, nomeManual: !!rascunho.trim() }); setRenomeando(null) }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') { mexer(o.id, { nome: rascunho.trim() || o.nome }); setRenomeando(null) }
+                      if (e.key === 'Enter') { mexer(o.id, { nome: rascunho.trim() || o.nome, nomeManual: !!rascunho.trim() }); setRenomeando(null) }
                       if (e.key === 'Escape') setRenomeando(null)
                     }} />
                 ) : (

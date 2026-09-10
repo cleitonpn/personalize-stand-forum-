@@ -12,7 +12,7 @@ import PainelObjetos from '../components/PainelObjetos.jsx'
 import PainelPrecos from '../components/PainelPrecos.jsx'
 import PainelComplementos from '../components/PainelComplementos.jsx'
 import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO } from '../lib/glb/precos.js'
-import { detectarObjetos, numerar, assinaturaDeteccao, nomearPorSuperficies } from '../lib/glb/objetos.js'
+import { detectarObjetos, numerar, assinaturaDeteccao, nomearPorSuperficies, preservarAjustes } from '../lib/glb/objetos.js'
 import { novoGrupo, opcoesAtivas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
@@ -243,21 +243,38 @@ export default function Editor() {
   // por uma mudança de papel.
   useEffect(() => {
     if (!analise || superficies) return
-    setSuperficies(modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, papeis))
-    setObjetos(modelo?.objetos?.length ? modelo.objetos : numerar(detectarObjetos(analise, papeis)))
-    setAssinaturaObj(modelo?.assinaturaObjetos ?? assinaturaDeteccao(papeis))
+    const sups = modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, papeis)
+    setSuperficies(sups)
+    setObjetos(modelo?.objetos?.length
+      ? modelo.objetos
+      : numerar(detectarObjetos(analise, papeis, { superficies: sups })))
+    setAssinaturaObj(modelo?.assinaturaObjetos ?? assinaturaDeteccao(papeis, sups))
   }, [analise, superficies, modelo, papeis])
 
-  // Detecta de novo com os papéis de agora. O que o admin ajustou peça a peça
-  // (nome, permissões, incluso) se perde, então é ação explícita dele — não algo
-  // que acontece sozinho a cada troca de papel.
-  const redetectarObjetos = () => {
-    if (!analise) return
-    const novos = numerar(detectarObjetos(analise, papeis))
-    setObjetos(nomearPorSuperficies(novos, superficies || []))
-    setAssinaturaObj(assinaturaDeteccao(papeis))
+  /**
+   * Refaz os objetos a partir do estado atual das superfícies e dos papéis.
+   * Os ajustes do admin viajam junto, casados por peças em comum.
+   */
+  const refazerObjetos = (limpar) => {
+    if (!analise || !superficies) return
+    const novos = numerar(detectarObjetos(analise, papeis, { superficies }))
+    setObjetos((antigos) => nomearPorSuperficies(
+      limpar ? novos : preservarAjustes(novos, antigos || []), superficies))
+    setAssinaturaObj(assinaturaDeteccao(papeis, superficies))
     setObjFoco(null); setSalvo(false)
   }
+
+  // As três telas são o mesmo mapeamento visto de ângulos diferentes: unir
+  // peças numa superfície é dizer que aquilo é uma coisa só, e o que se move
+  // tem que saber disso na hora. Deixar para um botão significava que o admin
+  // agrupava tudo, ia para a tela do cliente e via as peças soltas de novo.
+  useEffect(() => {
+    if (!analise || !superficies || assinaturaObj === null) return
+    const atual = assinaturaDeteccao(papeis, superficies)
+    if (atual === assinaturaObj) return
+    refazerObjetos(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [papeis, superficies, analise, assinaturaObj])
 
   const indice = useMemo(() => (superficies ? indicePorPeca(superficies) : null), [superficies])
 
@@ -503,8 +520,7 @@ export default function Editor() {
                   ? <PainelObjetos objetos={objetos}
                       setObjetos={(v) => { setObjetos(v); setSalvo(false) }}
                       objFoco={objFoco} setObjFoco={setObjFoco}
-                      aoRedetectar={redetectarObjetos}
-                      desatualizado={assinaturaObj !== null && assinaturaObj !== assinaturaDeteccao(papeis)} />
+                      aoRedetectar={() => refazerObjetos(true)} />
                   : <div className="row"><span className="spinner" /><span className="muted">Detectando objetos…</span></div>
               ) : aba === 'superficies' || aba === 'personalizar' ? (
                 !superficies

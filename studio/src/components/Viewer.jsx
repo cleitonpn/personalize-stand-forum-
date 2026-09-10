@@ -577,6 +577,23 @@ function useTransformes(cena, objetos) {
   }, [objetos])
 }
 
+/**
+ * Exposição da cena, sob controle de quem está olhando.
+ *
+ * Quanto de luz é "certo" depende do projeto: um estande de bagum preto e um de
+ * laminado branco pedem exposições diferentes, e eu não tenho como acertar os
+ * dois com um número fixo. Fica no navegador de quem usa, lembrado entre
+ * sessões, em vez de virar uma sequência de tentativas minhas.
+ */
+function Exposicao({ valor }) {
+  const { gl, invalidate } = useThree()
+  useEffect(() => {
+    gl.toneMappingExposure = valor
+    invalidate()
+  }, [gl, valor, invalidate])
+  return null
+}
+
 /** Caixa que mostra a área do estande escolhida no recorte. */
 function CaixaRecorte({ recorte, alturaMax = 5 }) {
   if (!recorte) return null
@@ -606,6 +623,15 @@ export default function Viewer({
   useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos, realceSuave })
   useTransformes(cena, objetos)
   const pecasExtras = usePecasExtras(extras)
+
+  const [exposicao, setExposicao] = useState(() => {
+    const salvo = Number(localStorage.getItem('psf.exposicao'))
+    return salvo > 0 ? salvo : 0.75
+  })
+  const mudarExposicao = (v) => {
+    setExposicao(v)
+    try { localStorage.setItem('psf.exposicao', String(v)) } catch { /* modo privado */ }
+  }
   // objeto sob manipulação direta — só existe na tela do expositor
   const alvoGizmo = useMemo(
     () => (objSel ? (objetos || []).find((o) => o.id === objSel && (o.podeMover || o.podeGirar)) : null),
@@ -619,6 +645,7 @@ export default function Viewer({
   )
 
   return (
+    <div style={{ position: 'relative', height: altura, width: '100%' }}>
     <Canvas
       shadows={false}
       dpr={[1, 1.75]}
@@ -629,7 +656,7 @@ export default function Viewer({
         // preserveDrawingBuffer acima é o que permite ler o canvas depois.
         window.__psfShot = () => { try { return gl.domElement.toDataURL('image/png') } catch { return null } }
       }}
-      style={{ height: altura, width: '100%', background: 'transparent' }}
+      style={{ height: '100%', width: '100%', background: 'transparent' }}
     >
       {/* Estúdio claro. O estande é quase todo preto, cinza e madeira escura —
           sobre fundo escuro ele simplesmente some, e era preciso forçar a vista
@@ -678,7 +705,25 @@ export default function Viewer({
       <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados]} />
       <IrParaVista vista={vista} alvo={cena} recorte={recorte} aoConcluir={aoAplicarVista} />
 
+      <Exposicao valor={exposicao} />
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />
     </Canvas>
+
+    {/* controle de brilho, canto inferior direito do 3D */}
+    <div style={{
+      position: 'absolute', right: 14, bottom: 14, display: 'flex', alignItems: 'center', gap: 9,
+      padding: '7px 12px', borderRadius: 99, background: 'rgba(12,18,30,.82)',
+      backdropFilter: 'blur(10px)', border: '1px solid var(--line)',
+    }}>
+      <span style={{ fontSize: 13, opacity: .8 }} title="Brilho da cena">☀</span>
+      <input type="range" min="0.35" max="1.4" step="0.05" value={exposicao}
+        onChange={(e) => mudarExposicao(Number(e.target.value))}
+        title="Brilho da cena"
+        style={{ width: 96, accentColor: 'var(--brand-green)', cursor: 'pointer' }} />
+      <span className="dim mono" style={{ fontSize: 11, minWidth: 26, textAlign: 'right' }}>
+        {Math.round(exposicao * 100)}
+      </span>
+    </div>
+    </div>
   )
 }

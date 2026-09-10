@@ -12,6 +12,21 @@
 //  A detecção é por CONTATO, que é o critério fisicamente honesto: peças que se
 //  encostam são a mesma coisa. Os pés encostam no assento; o adesivo encosta na
 //  marcenaria; cadeiras vizinhas não se encostam.
+//
+//  Mas o contato não manda sozinho: o AGRUPAMENTO À MÃO do admin vem antes.
+//  Quando ele junta pernas, tampo e parafusos numa superfície "conjunto bistrô",
+//  já respondeu que aquilo é uma coisa só — e a detecção não pode desmanchar
+//  isso porque duas peças ficaram a sete centímetros uma da outra.
+//
+//  Vale só para a superfície UNIDA à mão (agrupada), nunca para a que nasce de
+//  um material. Toda peça pertence a alguma superfície desde o início, e tratar
+//  todas como atômicas significaria "mesmo material, mesmo objeto": as 328 peças
+//  de metal preto do arquivo real viram um objeto só, arrastam o estande inteiro
+//  por contato, e a detecção deixa de existir.
+//
+//  O papel também sai da superfície quando ela existe. Classificar na aba
+//  Superfícies e ver a aba Objetos ignorar aquilo é o mesmo trabalho feito duas
+//  vezes, com resultados diferentes.
 // ============================================================================
 
 import { PAPEIS } from './roles.js'
@@ -43,11 +58,21 @@ const encostam = (a, b, folga = FOLGA) =>
  * Usa uma grade espacial para não comparar todas as peças com todas — no
  * arquivo de 45m² são 2.710 peças, e o par a par seria desperdício.
  */
-export function detectarObjetos(analise, papeis, { folga = FOLGA } = {}) {
-  const elegiveis = analise.pecas.filter((p) => {
-    const papel = papeis[p.materialNome]
-    return PAPEIS_MOVEIS.includes(papel) && p.tris > 0 && isFinite(p.bbox.centro[0])
-  })
+export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } = {}) {
+  // peça → superfície: o papel vem de qualquer uma, mas só a AGRUPADA à mão
+  // mantém o conjunto inteiro junto
+  const supDaPeca = new Map()
+  const grupoDaPeca = new Map()
+  for (const sup of superficies || []) {
+    for (const c of sup.pecas) {
+      supDaPeca.set(c, sup)
+      if (sup.agrupada) grupoDaPeca.set(c, sup)
+    }
+  }
+  const papelDaPeca = (p) => supDaPeca.get(p.chave)?.papel ?? papeis[p.materialNome]
+
+  const elegiveis = analise.pecas.filter((p) =>
+    PAPEIS_MOVEIS.includes(papelDaPeca(p)) && p.tris > 0 && isFinite(p.bbox.centro[0]))
   if (!elegiveis.length) return []
 
   // grade indexada pelo canto mínimo de cada peça
@@ -63,11 +88,18 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA } = {}) {
     return out
   }
 
+  // índice das peças por superfície, para arrastar o grupo inteiro junto
+  const porSup = new Map()
   elegiveis.forEach((p, idx) => {
     p._i = idx
     for (const c of celulasDe(p)) {
       if (!grade.has(c)) grade.set(c, [])
       grade.get(c).push(idx)
+    }
+    const grupo = grupoDaPeca.get(p.chave)
+    if (grupo) {
+      if (!porSup.has(grupo.id)) porSup.set(grupo.id, [])
+      porSup.get(grupo.id).push(idx)
     }
   })
 
@@ -82,6 +114,17 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA } = {}) {
       const i = fila.pop()
       const a = elegiveis[i]
       membros.push(a)
+
+      // O que o admin juntou numa superfície anda junto, encostando ou não.
+      // O projetista manda a cadeira em pernas, tampo e parafusos soltos; sem
+      // isto o cliente arrastava o tampo e deixava as pernas para trás.
+      const grupo = grupoDaPeca.get(a.chave)
+      if (grupo) {
+        for (const j of (porSup.get(grupo.id) || [])) {
+          if (!visto[j]) { visto[j] = 1; fila.push(j) }
+        }
+      }
+
       const candidatos = new Set()
       for (const c of celulasDe(a)) for (const j of (grade.get(c) || [])) candidatos.add(j)
       for (const j of candidatos) {
@@ -93,11 +136,11 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA } = {}) {
   }
 
   return grupos
-    .map((membros) => montarObjeto(membros, papeis))
+    .map((membros) => montarObjeto(membros, papeis, papelDaPeca))
     .sort((a, b) => (a.centro[0] - b.centro[0]) || (a.centro[2] - b.centro[2]))
 }
 
-function montarObjeto(membros, papeis) {
+function montarObjeto(membros, papeis, papelDaPeca) {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity]
   let tris = 0
   const porMaterial = new Map()
@@ -114,7 +157,7 @@ function montarObjeto(membros, papeis) {
   // o papel dominante (por número de peças) define o tipo do objeto
   const contagem = {}
   for (const p of membros) {
-    const papel = papeis[p.materialNome] || 'mobiliario'
+    const papel = (papelDaPeca ? papelDaPeca(p) : papeis[p.materialNome]) || 'mobiliario'
     contagem[papel] = (contagem[papel] || 0) + 1
   }
   const dominante = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0][0]
@@ -193,12 +236,50 @@ export function indiceObjetoPorPeca(objetos) {
  * que configurou. Comparar esta assinatura revela isso, em vez de deixar o
  * desencontro silencioso.
  */
-export function assinaturaDeteccao(papeis) {
-  return Object.entries(papeis || {})
+export function assinaturaDeteccao(papeis, superficies) {
+  const dosMateriais = Object.entries(papeis || {})
     .filter(([, p]) => PAPEIS_MOVEIS.includes(p))
     .map(([m, p]) => `${m}:${p}`)
-    .sort()
-    .join('|')
+    .sort().join('|')
+  // o id da superfície muda quando ela é unida ou separada, então a assinatura
+  // acusa reagrupamento — que é justamente o que precisa refazer os objetos
+  const dasSuperficies = (superficies || [])
+    .filter((s) => PAPEIS_MOVEIS.includes(s.papel))
+    .map((s) => `${s.id}${s.agrupada ? '*' : ''}#${s.pecas.length}`)
+    .sort().join('|')
+  return `${dosMateriais}//${dasSuperficies}`
+}
+
+/**
+ * Carrega para a nova detecção o que o admin já tinha ajustado.
+ *
+ * Sem isto, refazer a lista apagaria permissões, nome e "incluso" toda vez que
+ * uma superfície fosse reagrupada — e reagrupar é o trabalho normal de quem está
+ * mapeando. O casamento é por peças em comum, o único vínculo estável: o id do
+ * objeto nasce na detecção e não sobrevive a ela.
+ */
+export function preservarAjustes(novos, antigos) {
+  if (!antigos?.length) return novos
+  return novos.map((n) => {
+    const meu = new Set(n.pecas)
+    let melhor = null, melhorFatia = 0
+    for (const a of antigos) {
+      let dentro = 0
+      for (const c of a.pecas || []) if (meu.has(c)) dentro++
+      const fatia = dentro / Math.max(meu.size, (a.pecas || []).length, 1)
+      if (fatia > melhorFatia) { melhorFatia = fatia; melhor = a }
+    }
+    if (!melhor || melhorFatia < 0.5) return n
+    return {
+      ...n,
+      nome: melhor.nomeManual ? melhor.nome : n.nome,
+      nomeManual: melhor.nomeManual || undefined,
+      podeMover: melhor.podeMover,
+      podeGirar: melhor.podeGirar,
+      incluso: melhor.incluso,
+      transform: melhor.transform || n.transform,
+    }
+  })
 }
 
 /**
@@ -222,6 +303,7 @@ export function nomearPorSuperficies(objetos, superficies) {
       const fatia = dentro / meu.size
       if (fatia > melhorFatia) { melhorFatia = fatia; melhor = s }
     }
+    if (o.nomeManual) return o
     return melhorFatia >= 0.6 ? { ...o, nome: melhor.nome } : o
   })
   return numerar(renomeados.map((o) => ({ ...o, nome: o.nome.replace(/\s+\d+$/, '') })))
