@@ -31,10 +31,15 @@
   --text-mid:   #b7c3da;
   --text-dim:   #8a99b8;
 
-  /* --- 3D: estúdio claro, para o estande aparecer -------------------- */
-  --cena-fundo:  #e9edf4;
-  --cena-grade:  #c3cddd;
-  --cena-secao:  #9dabc4;
+  /* --- 3D: ciclorama, não parede branca -------------------------------
+     Fundo chapado claro resolvia a leitura e estragava o resto: ficava um
+     branco estourado ao lado de uma interface escura. Um degradê de estúdio
+     resolve as duas coisas — claro o bastante atrás do estande para a peça
+     escura aparecer, escurecendo nas bordas para casar com o painel. */
+  --cena-fundo:  radial-gradient(125% 105% at 50% 62%,
+                   #8d9ab6 0%, #5d6b8b 38%, #303b57 72%, #161d2e 100%);
+  --cena-grade:  #7a88a6;
+  --cena-secao:  #98a5c0;
 
   /* --- semânticos ----------------------------------------------------- */
   --ok:      #16e0a3;

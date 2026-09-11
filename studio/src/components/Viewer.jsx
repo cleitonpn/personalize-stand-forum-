@@ -392,9 +392,7 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           metalness: 0.02,
         })
         if (acab.arte) {
-          const escala = new THREE.Vector3()
-          o.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion(), escala)
-          const plano = uvPlanar(o.geometry, escala)
+          const plano = uvPlanar(o.geometry, o.matrixWorld)
           if (plano) {
             if (!geometrias.has(o.geometry)) geometrias.set(o.geometry, o.geometry.getAttribute('uv') || null)
             o.geometry.setAttribute('uv', plano.attr)
@@ -645,16 +643,31 @@ export default function Viewer({
   )
 
   return (
-    <div style={{ position: 'relative', height: altura, width: '100%' }}>
+    <div style={{ position: 'relative', height: altura, width: '100%', background: 'var(--cena-fundo)' }}>
     <Canvas
       shadows={false}
       dpr={[1, 1.75]}
       camera={{ position: [8, 6, 10], fov: 45 }}
-      gl={{ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.95 }}
+      gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.95 }}
       onCreated={({ gl }) => {
-        // usado pela proposta em PDF para registrar o estande como ficou.
+        // Usado pela proposta em PDF para registrar o estande como ficou.
         // preserveDrawingBuffer acima é o que permite ler o canvas depois.
-        window.__psfShot = () => { try { return gl.domElement.toDataURL('image/png') } catch { return null } }
+        //
+        // O canvas agora é transparente (o fundo é o degradê em CSS), então a
+        // imagem crua sairia com fundo vazio na proposta. Compõe sobre um tom
+        // sólido antes de entregar.
+        window.__psfShot = () => {
+          try {
+            const fonte = gl.domElement
+            const alvo = document.createElement('canvas')
+            alvo.width = fonte.width; alvo.height = fonte.height
+            const ctx = alvo.getContext('2d')
+            ctx.fillStyle = '#5d6b8b'
+            ctx.fillRect(0, 0, alvo.width, alvo.height)
+            ctx.drawImage(fonte, 0, 0)
+            return alvo.toDataURL('image/png')
+          } catch { return null }
+        }
       }}
       style={{ height: '100%', width: '100%', background: 'transparent' }}
     >
@@ -681,9 +694,9 @@ export default function Viewer({
       </Environment>
 
       <Grid
-        args={[60, 60]} cellSize={1} cellThickness={0.6} cellColor="#c3cddd"
-        sectionSize={5} sectionThickness={1.1} sectionColor="#9dabc4"
-        infiniteGrid fadeDistance={70} fadeStrength={1.4} followCamera={false}
+        args={[60, 60]} cellSize={1} cellThickness={0.55} cellColor="#7a88a6"
+        sectionSize={5} sectionThickness={1} sectionColor="#98a5c0"
+        infiniteGrid fadeDistance={60} fadeStrength={1.8} followCamera={false}
       />
 
       {cena && <primitive object={cena} />}
