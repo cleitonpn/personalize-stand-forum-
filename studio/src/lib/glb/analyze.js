@@ -50,6 +50,12 @@ export function coletarPecas(root) {
     const mat = mats[0]
 
     const materialNome = mat?.name || '(sem material)'
+    const local = geo.boundingBox.getSize(new THREE.Vector3()).toArray()
+    const eixos = [0, 1, 2].map(i => new THREE.Vector3().setFromMatrixColumn(o.matrixWorld, i))
+    const dimensoesLocais = local.map((n, i) => n * eixos[i].length())
+    const menor = dimensoesLocais.indexOf(Math.min(...dimensoesLocais))
+    const normalPlano = new THREE.Vector3(menor === 0 ? 1 : 0, menor === 1 ? 1 : 0, menor === 2 ? 1 : 0)
+      .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(o.matrixWorld)).toArray()
     pecas.push({
       uuid: o.uuid,
       chave: chaveDaPeca(materialNome, centro.toArray()),
@@ -57,6 +63,7 @@ export function coletarPecas(root) {
       materialNome,
       materialUuid: mat?.uuid || 'none',
       tris,
+      dimensoesLocais, normalPlano,
       bbox: {
         min: bb.min.toArray(), max: bb.max.toArray(),
         largura: size.x, altura: size.y, profundidade: size.z,

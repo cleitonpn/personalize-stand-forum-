@@ -30,6 +30,7 @@
 // ============================================================================
 
 import { PAPEIS } from './roles.js'
+import { tipoDaPeca } from './elementos.js'
 
 let seq = 0
 const novoId = () => `obj-${Date.now().toString(36)}-${seq++}`
@@ -72,7 +73,9 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } 
   const papelDaPeca = (p) => supDaPeca.get(p.chave)?.papel ?? papeis[p.materialNome]
 
   const elegiveis = analise.pecas.filter((p) =>
-    PAPEIS_MOVEIS.includes(papelDaPeca(p)) && p.tris > 0 && isFinite(p.bbox.centro[0]))
+    PAPEIS_MOVEIS.includes(papelDaPeca(p))
+    && (grupoDaPeca.has(p.chave) || (supDaPeca.get(p.chave)?.tipoElemento || tipoDaPeca(p, papelDaPeca(p))) !== 'parede')
+    && p.tris > 0 && isFinite(p.bbox.centro[0]))
   if (!elegiveis.length) return []
 
   // grade indexada pelo canto mínimo de cada peça
@@ -200,6 +203,10 @@ function nomear(papel, porMaterial, largura, altura) {
 
   if (achar(/balc[ãa]o|goldmax|adesivo/i) && altura < 1.6) return 'Balcão'
   if (achar(/tiffany|eames/i)) return altura > 0.95 ? 'Banqueta' : 'Cadeira'
+  if (achar(/banqueta/i)) return 'Banqueta'
+  if (achar(/cadeira|chair/i)) return 'Cadeira'
+  if (achar(/mesa|table/i)) return 'Mesa'
+  if (achar(/sof[áa]|sofa/i)) return 'Sofá'
   if (papel === 'vidro') return 'Vidro'
   if (papel === 'piso') return 'Piso'
   if (papel === 'bagum' || papel === 'lona') return largura > 2.4 ? 'Painel de parede' : 'Painel'
@@ -245,7 +252,7 @@ export function assinaturaDeteccao(papeis, superficies) {
   // acusa reagrupamento — que é justamente o que precisa refazer os objetos
   const dasSuperficies = (superficies || [])
     .filter((s) => PAPEIS_MOVEIS.includes(s.papel))
-    .map((s) => `${s.id}${s.agrupada ? '*' : ''}#${s.pecas.length}`)
+    .map((s) => `${s.id}:${s.papel}:${s.tipoElemento || ''}${s.agrupada ? '*' : ''}#${s.pecas.slice().sort().join(',')}`)
     .sort().join('|')
   return `${dosMateriais}//${dasSuperficies}`
 }
@@ -273,7 +280,9 @@ export function preservarAjustes(novos, antigos) {
     return {
       ...n,
       nome: melhor.nomeManual ? melhor.nome : n.nome,
-      nomeManual: melhor.nomeManual || undefined,
+      nomeManual: !!melhor.nomeManual,
+      revisado: !!melhor.revisado,
+      tipoPreco: melhor.tipoPreco || melhor.nome.replace(/\s+\d+$/, ''),
       podeMover: melhor.podeMover,
       podeGirar: melhor.podeGirar,
       incluso: melhor.incluso,

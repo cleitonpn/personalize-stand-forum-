@@ -88,7 +88,7 @@ export function areaDaSuperficie(sup, analise, recorte) {
 }
 
 /** Nome base do objeto, sem a numeração: "Cadeira 3" → "Cadeira". */
-export const tipoDoObjeto = (o) => (o.nome || '').replace(/\s+\d+$/, '')
+export const tipoDoObjeto = (o) => o.tipoPreco || (o.nome || '').replace(/\s+\d+$/, '')
 
 /**
  * Monta o orçamento a partir do que o expositor escolheu.

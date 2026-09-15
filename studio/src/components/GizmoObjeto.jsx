@@ -24,6 +24,7 @@ export default function GizmoObjeto({ obj, limites, aoTransformar }) {
   const { controls } = useThree()
   const [modo, setModo] = useState(null)      // 'mover' | 'girar'
   const inicio = useRef(null)
+  useEffect(() => () => { if (controls) controls.enabled = true; document.body.style.cursor = 'auto' }, [controls])
 
   const t = obj.transform || { dx: 0, dz: 0, rotY: 0 }
   const x = obj.apoio[0] + (t.dx || 0)
@@ -46,6 +47,7 @@ export default function GizmoObjeto({ obj, limites, aoTransformar }) {
 
   const comecar = (m) => (e) => {
     e.stopPropagation()
+    if ((m === 'mover' && !obj.podeMover) || (m === 'girar' && !obj.podeGirar)) return
     // desliga a órbita: senão arrastar a peça gira a câmera junto
     if (controls) controls.enabled = false
     inicio.current = {
@@ -111,31 +113,31 @@ export default function GizmoObjeto({ obj, limites, aoTransformar }) {
       )}
 
       {/* anel de giro */}
-      <mesh position={[x, y + ALTURA_MARCA, z]} rotation={[-Math.PI / 2, 0, 0]}
+      {obj.podeGirar && <mesh position={[x, y + ALTURA_MARCA, z]} rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={comecar('girar')}
         onPointerOver={cursor('grab')} onPointerOut={semCursor}>
         <ringGeometry args={[raio, raio + 0.07, 56]} />
         <meshBasicMaterial color="#22d3ee" transparent opacity={modo === 'girar' ? 0.95 : 0.6}
           side={THREE.DoubleSide} depthTest={false} toneMapped={false} />
-      </mesh>
+      </mesh>}
 
       <group position={[x, y, z]} rotation={[0, t.rotY || 0, 0]}>
         {/* pegada: a área que se arrasta para mover */}
-        <mesh position={[0, ALTURA_MARCA, 0]} rotation={[-Math.PI / 2, 0, 0]}
+        {obj.podeMover && <mesh position={[0, ALTURA_MARCA, 0]} rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={comecar('mover')}
           onPointerOver={cursor('move')} onPointerOut={semCursor}>
           <planeGeometry args={[Math.max(obj.largura, 0.2), Math.max(obj.profundidade, 0.2)]} />
           <meshBasicMaterial color="#16e0a3" transparent opacity={modo === 'mover' ? 0.4 : 0.24}
             depthTest={false} toneMapped={false} />
-        </mesh>
+        </mesh>}
 
         {/* punho do anel: mostra para onde a frente da peça está virada */}
-        <mesh position={[0, ALTURA_MARCA + 0.005, raio + 0.035]} rotation={[-Math.PI / 2, 0, 0]}
+        {obj.podeGirar && <mesh position={[0, ALTURA_MARCA + 0.005, raio + 0.035]} rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={comecar('girar')}
           onPointerOver={cursor('grab')} onPointerOut={semCursor}>
           <circleGeometry args={[0.12, 24]} />
           <meshBasicMaterial color="#22d3ee" depthTest={false} toneMapped={false} />
-        </mesh>
+        </mesh>}
       </group>
     </>
   )

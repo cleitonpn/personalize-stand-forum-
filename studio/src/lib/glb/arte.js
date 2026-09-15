@@ -25,7 +25,8 @@ import * as THREE from 'three'
  * de cabeça para baixo em toda peça exportada assim.
  */
 export function uvPlanar(geo, matrizMundo) {
-  if (geo.userData._uvPlanar) return geo.userData._uvPlanar
+  const assinatura = (matrizMundo || new THREE.Matrix4()).elements.join(',')
+  if (geo.userData._uvPlanar?.assinatura === assinatura) return geo.userData._uvPlanar
 
   if (!geo.boundingBox) geo.computeBoundingBox()
   const bb = geo.boundingBox
@@ -72,11 +73,61 @@ export function uvPlanar(geo, matrizMundo) {
   }
 
   geo.userData._uvPlanar = {
+    assinatura,
     attr: new THREE.BufferAttribute(uv, 2),
     // proporção medida em metros de mundo, não em unidades locais
     proporcao: (du * escala[eu].comprimento) / ((dv * escala[ev].comprimento) || 1),
   }
   return geo.userData._uvPlanar
+}
+
+/** Uma única imagem cobre os painéis coplanares do mesmo elemento. */
+export function uvDoElemento(malhas) {
+  if (!malhas.length) return new Map()
+  const primeira = malhas[0]
+  const tam = primeira.geometry.boundingBox.getSize(new THREE.Vector3()).toArray()
+  const eixo = tam.indexOf(Math.min(...tam))
+  const normal = new THREE.Vector3(eixo === 0 ? 1 : 0, eixo === 1 ? 1 : 0, eixo === 2 ? 1 : 0)
+    .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(primeira.matrixWorld))
+  const v = Math.abs(normal.y) < 0.5 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, -1)
+  const u = v.clone().cross(normal).normalize()
+  v.copy(normal).cross(u).normalize()
+  const limites = [Infinity, Infinity, -Infinity, -Infinity]
+  const ponto = new THREE.Vector3()
+  const dados = malhas.map(m => {
+    const pos = m.geometry.getAttribute('position')
+    const pontos = new Float32Array(pos.count * 2)
+    for (let i = 0; i < pos.count; i++) {
+      ponto.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld)
+      const x = ponto.dot(u), y = ponto.dot(v)
+      pontos[2 * i] = x; pontos[2 * i + 1] = y
+      limites[0] = Math.min(limites[0], x); limites[1] = Math.min(limites[1], y)
+      limites[2] = Math.max(limites[2], x); limites[3] = Math.max(limites[3], y)
+    }
+    return [m, pontos]
+  })
+  const largura = limites[2] - limites[0] || 1, altura = limites[3] - limites[1] || 1
+  return new Map(dados.map(([m, pontos]) => {
+    for (let i = 0; i < pontos.length; i += 2) {
+      pontos[i] = (pontos[i] - limites[0]) / largura
+      pontos[i + 1] = 1 - (pontos[i + 1] - limites[1]) / altura
+    }
+    return [m, { attr: new THREE.BufferAttribute(pontos, 2), proporcao: largura / altura }]
+  }))
+}
+
+/** Prévia raster com margens reais e fundo opaco para logos transparentes. */
+export function comporArte(imagem, proporcao, cor = '#f2f2ee') {
+  const canvas = document.createElement('canvas')
+  const ratio = Math.max(0.02, Math.min(50, proporcao || 1))
+  canvas.width = Math.round(ratio >= 1 ? 2048 : 2048 * ratio)
+  canvas.height = Math.round(ratio >= 1 ? 2048 / ratio : 2048)
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = cor; ctx.fillRect(0, 0, canvas.width, canvas.height)
+  const escala = Math.min(canvas.width / imagem.width, canvas.height / imagem.height)
+  const w = imagem.width * escala, h = imagem.height * escala
+  ctx.drawImage(imagem, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h)
+  return canvas
 }
 
 /**

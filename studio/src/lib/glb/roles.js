@@ -144,6 +144,12 @@ export function sugerirPapel(mat) {
   if (t.altura < 0.45 && t.largura > 1.5 && t.profundidade > 1.5 && mat.bbox.min[1] > 2.4) {
     return { papel: 'metal', motivo: 'plano horizontal acima de 2,4 m — estrutura de teto' }
   }
+  // Um perfil tem duas dimensões pequenas; uma parede tem apenas uma.
+  // Bordas verticais não podem virar paredes só porque são altas.
+  const dimensoes = [t.largura, t.altura, t.profundidade].sort((a, b) => a - b)
+  if (dimensoes[1] < 0.12 && dimensoes[2] > 0.5) {
+    return { papel: 'metal', motivo: 'peça alongada com duas dimensões abaixo de 12 cm — provável perfil ou borda estrutural' }
+  }
   // Painel em pé e fino: é parede.
   if (t.altura > 1.2 && espessura < 0.4) {
     return {
