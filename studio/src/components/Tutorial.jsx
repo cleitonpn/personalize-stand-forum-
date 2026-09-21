@@ -1,41 +1,9 @@
 import { useState } from 'react'
 
 const PASSOS = [
-  {
-    icone: '🎨',
-    titulo: 'Escolha as cores',
-    texto: 'Cada superfície liberada tem uma cartela de cores. Clique numa cor e o estande muda na hora, no 3D ao lado.',
-  },
-  {
-    icone: '🖼',
-    titulo: 'Aplique sua arte',
-    texto: 'Onde houver o botão de arte, envie a imagem da sua campanha. Ela é aplicada direto na lona ou no adesivo.',
-  },
-  {
-    icone: '🪑',
-    titulo: 'Mova os móveis',
-    texto: 'Em "Mover móveis", escolha uma cadeira ou um balcão: a vista sobe para cima e a peça ganha uma marca verde no chão. Arraste a marca para levar a peça e o anel azul para girar. Mudar de lugar não altera o valor.',
-  },
-  {
-    icone: '🧩',
-    titulo: 'Troque peças de lugar',
-    texto: 'Alguns pontos do estande têm opções prontas — um painel de LED, o depósito noutra posição. Clique numa opção e a peça entra no 3D; clique na primeira para voltar ao projeto original.',
-  },
-  {
-    icone: '🖱',
-    titulo: 'Gire e aproxime',
-    texto: 'Arraste com o botão esquerdo para girar o estande. Use a rolagem do mouse para aproximar e afastar.',
-  },
-  {
-    icone: '💰',
-    titulo: 'Acompanhe o valor',
-    texto: 'Cada escolha soma no total, calculado pela metragem real de cada parede. O mobiliário do projeto já está incluso.',
-  },
-  {
-    icone: '📄',
-    titulo: 'Envie a proposta',
-    texto: 'Quando estiver satisfeito, clique em Gravar. A equipe da USET recebe sua personalização e você baixa o PDF.',
-  },
+  { icone: '☝', titulo: 'Escolha uma parte do estande', texto: 'Clique em uma parede, no piso ou em um móvel. Você também pode escolher pela lista. As opções daquela parte aparecem no painel.' },
+  { icone: '🎨', titulo: 'Experimente suas escolhas', texto: 'Escolha uma cor ou envie sua imagem. Nos móveis liberados, use Ajustar posição. Desfazer e Refazer ajudam a experimentar; as alterações ficam salvas neste navegador.' },
+  { icone: '✓', titulo: 'Confira e envie', texto: 'Veja o total e clique em Enviar personalização para encaminhar suas escolhas à USET. Depois você pode salvar a proposta em PDF.' },
 ]
 
 export default function Tutorial({ aoFechar }) {

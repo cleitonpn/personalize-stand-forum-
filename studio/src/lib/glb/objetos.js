@@ -30,6 +30,7 @@
 // ============================================================================
 
 import { PAPEIS } from './roles.js'
+import { tipoDaPeca } from './elementos.js'
 
 let seq = 0
 const novoId = () => `obj-${Date.now().toString(36)}-${seq++}`
@@ -66,13 +67,15 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } 
   for (const sup of superficies || []) {
     for (const c of sup.pecas) {
       supDaPeca.set(c, sup)
-      if (sup.agrupada) grupoDaPeca.set(c, sup)
+      if (sup.grupoManual || sup.agrupada) grupoDaPeca.set(c, { ...sup, id: sup.grupoManual || sup.id })
     }
   }
   const papelDaPeca = (p) => supDaPeca.get(p.chave)?.papel ?? papeis[p.materialNome]
 
   const elegiveis = analise.pecas.filter((p) =>
-    PAPEIS_MOVEIS.includes(papelDaPeca(p)) && p.tris > 0 && isFinite(p.bbox.centro[0]))
+    PAPEIS_MOVEIS.includes(papelDaPeca(p))
+    && !['parede', 'logo'].includes(supDaPeca.get(p.chave)?.tipoElemento || (grupoDaPeca.has(p.chave) ? 'movel' : tipoDaPeca(p, papelDaPeca(p))))
+    && p.tris > 0 && isFinite(p.bbox.centro[0]))
   if (!elegiveis.length) return []
 
   // grade indexada pelo canto mínimo de cada peça
@@ -96,7 +99,7 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } 
       if (!grade.has(c)) grade.set(c, [])
       grade.get(c).push(idx)
     }
-    const grupo = grupoDaPeca.get(p.chave)
+    const grupo = grupoDaPeca.get(p.chave) || (p.componenteOrigem ? { id: p.componenteOrigem } : null)
     if (grupo) {
       if (!porSup.has(grupo.id)) porSup.set(grupo.id, [])
       porSup.get(grupo.id).push(idx)
@@ -118,7 +121,7 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } 
       // O que o admin juntou numa superfície anda junto, encostando ou não.
       // O projetista manda a cadeira em pernas, tampo e parafusos soltos; sem
       // isto o cliente arrastava o tampo e deixava as pernas para trás.
-      const grupo = grupoDaPeca.get(a.chave)
+      const grupo = grupoDaPeca.get(a.chave) || (a.componenteOrigem ? { id: a.componenteOrigem } : null)
       if (grupo) {
         for (const j of (porSup.get(grupo.id) || [])) {
           if (!visto[j]) { visto[j] = 1; fila.push(j) }
@@ -129,7 +132,11 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } 
       for (const c of celulasDe(a)) for (const j of (grade.get(c) || [])) candidatos.add(j)
       for (const j of candidatos) {
         if (visto[j]) continue
-        if (encostam(a, elegiveis[j], folga)) { visto[j] = 1; fila.push(j) }
+        const b = elegiveis[j]
+        const ma = grupoDaPeca.get(a.chave)?.id, mb = grupoDaPeca.get(b.chave)?.id
+        if ((ma || mb) && ma !== mb) continue
+        if (!ma && !mb && (a.componenteOrigem || b.componenteOrigem) && a.componenteOrigem !== b.componenteOrigem) continue
+        if (encostam(a, b, folga)) { visto[j] = 1; fila.push(j) }
       }
     }
     grupos.push(membros)
@@ -174,7 +181,7 @@ function montarObjeto(membros, papeis, papelDaPeca) {
 
   return {
     id: novoId(),
-    nome: nomear(dominante, porMaterial, largura, altura),
+    nome: nomear(dominante, porMaterial, largura, altura, membros.map(p => p.nomeComponente || '').join(' ')),
     tipo: dominante,
     pecas: membros.map((p) => p.chave),
     // superfícies internas: um objeto, vários acabamentos independentes
@@ -194,12 +201,19 @@ function montarObjeto(membros, papeis, papelDaPeca) {
   }
 }
 
-function nomear(papel, porMaterial, largura, altura) {
+function nomear(papel, porMaterial, largura, altura, componente = '') {
+  if (/balc[ãa]o/i.test(componente)) return 'Balcão'
+  if (/banqueta/i.test(componente)) return 'Banqueta'
+  if (/mesa|table/i.test(componente)) return 'Mesa'
   const mats = [...porMaterial.keys()]
   const achar = (re) => mats.find((m) => re.test(m))
 
   if (achar(/balc[ãa]o|goldmax|adesivo/i) && altura < 1.6) return 'Balcão'
   if (achar(/tiffany|eames/i)) return altura > 0.95 ? 'Banqueta' : 'Cadeira'
+  if (achar(/banqueta/i)) return 'Banqueta'
+  if (achar(/cadeira|chair/i)) return 'Cadeira'
+  if (achar(/mesa|table/i)) return 'Mesa'
+  if (achar(/sof[áa]|sofa/i)) return 'Sofá'
   if (papel === 'vidro') return 'Vidro'
   if (papel === 'piso') return 'Piso'
   if (papel === 'bagum' || papel === 'lona') return largura > 2.4 ? 'Painel de parede' : 'Painel'
@@ -245,7 +259,7 @@ export function assinaturaDeteccao(papeis, superficies) {
   // acusa reagrupamento — que é justamente o que precisa refazer os objetos
   const dasSuperficies = (superficies || [])
     .filter((s) => PAPEIS_MOVEIS.includes(s.papel))
-    .map((s) => `${s.id}${s.agrupada ? '*' : ''}#${s.pecas.length}`)
+    .map((s) => `${s.id}:${s.papel}:${s.tipoElemento || ''}:${s.grupoManual || ''}${s.agrupada ? '*' : ''}#${s.pecas.slice().sort().join(',')}`)
     .sort().join('|')
   return `${dosMateriais}//${dasSuperficies}`
 }
@@ -273,7 +287,9 @@ export function preservarAjustes(novos, antigos) {
     return {
       ...n,
       nome: melhor.nomeManual ? melhor.nome : n.nome,
-      nomeManual: melhor.nomeManual || undefined,
+      nomeManual: !!melhor.nomeManual,
+      revisado: !!melhor.revisado,
+      tipoPreco: melhor.tipoPreco || melhor.nome.replace(/\s+\d+$/, ''),
       podeMover: melhor.podeMover,
       podeGirar: melhor.podeGirar,
       incluso: melhor.incluso,

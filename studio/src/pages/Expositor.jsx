@@ -12,17 +12,23 @@ import Tutorial from '../components/Tutorial.jsx'
 import { gerarPropostaHTML } from '../lib/proposta.js'
 import { opcoesAtivas, superficiesEscondidas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
 import { limitesDoEstande } from '../lib/glb/nomes.js'
+import { limitarTransformacao } from '../lib/glb/elementos.js'
+import { useHistorico } from '../lib/useHistorico.js'
 
 export default function Expositor() {
   const { user, perfil } = useAuth()
   const [modelo, setModelo] = useState(null)
   const [erro, setErro] = useState(null)
-  const [acabamentos, setAcabamentos] = useState({})
-  const [escolhas, setEscolhas] = useState({})
+  const historico = useHistorico({ acabamentos: {}, escolhas: {}, objetos: [] })
+  const { acabamentos, escolhas, objetos, restaurar } = historico
+  const setAcabamentos = v => historico.mudar('acabamentos', v)
+  const setEscolhas = v => historico.mudar('escolhas', v)
+  const setObjetos = v => historico.mudar('objetos', v)
+  const [rascunhoStatus, setRascunhoStatus] = useState('')
+  const [enviandoArte, setEnviandoArte] = useState(false)
   const [supFoco, setSupFoco] = useState(null)
   const [objFoco, setObjFoco] = useState(null)
   const [objSel, setObjSel] = useState(null)
-  const [objetos, setObjetos] = useState(null)
   const [tutorial, setTutorial] = useState(false)
   const [gravando, setGravando] = useState(false)
   const [gravado, setGravado] = useState(null)
@@ -37,13 +43,35 @@ export default function Expositor() {
         if (!snap.exists()) { setErro('O projeto vinculado à sua conta não foi encontrado.'); return }
         const d = snap.data()
         setModelo({ id: snap.id, ...d })
-        setObjetos(d.objetos || [])
-        // tutorial aparece uma vez por expositor
-        const visto = localStorage.getItem(`psf.tutorial.${user.uid}`)
-        if (!visto) setTutorial(true)
+        let rascunho = null
+        try {
+          const salvo = JSON.parse(localStorage.getItem(`psf.rascunho.${user.uid}.${snap.id}`) || 'null')
+          if (salvo?.versao === (d.atualizadoEm?.seconds || 0)) rascunho = salvo
+        } catch { /* armazenamento indisponível não bloqueia o projeto */ }
+        const os = (d.objetos || []).map(o => ({ ...o, transform: rascunho?.transformes?.[o.id] || o.transform }))
+        restaurar({ acabamentos: rascunho?.acabamentos || {}, escolhas: rascunho?.escolhas || {}, objetos: os })
+        setRascunhoStatus(rascunho ? 'Suas escolhas foram recuperadas neste navegador.' : '')
       } catch (ex) { setErro(ex.message) }
     })()
-  }, [perfil, user])
+  }, [perfil, user, restaurar])
+
+  useEffect(() => {
+    if (!modelo || !user) return
+    setGravado(null)
+    setRascunhoStatus('Salvando neste navegador…')
+    const salvar = () => {
+      try {
+        localStorage.setItem(`psf.rascunho.${user.uid}.${modelo.id}`, JSON.stringify({
+          versao: modelo.atualizadoEm?.seconds || 0, acabamentos, escolhas,
+          transformes: Object.fromEntries(objetos.map(o => [o.id, o.transform || { dx: 0, dz: 0, rotY: 0 }])),
+        }))
+        setRascunhoStatus('Alterações salvas neste navegador')
+      } catch { setRascunhoStatus('Não foi possível salvar neste navegador. Mantenha esta aba aberta.') }
+    }
+    const timer = setTimeout(salvar, 500)
+    window.addEventListener('pagehide', salvar)
+    return () => { clearTimeout(timer); window.removeEventListener('pagehide', salvar) }
+  }, [modelo, user, acabamentos, escolhas, objetos])
 
   const { cena, erro: erroGlb, progresso, carregando } = useGLB(modelo?.arquivo?.url)
   const analise = useMemo(() => (cena ? analisar(cena) : null), [cena])
@@ -71,8 +99,8 @@ export default function Expositor() {
     if (id) setVista('cima')
   }
 
-  const transformarObjeto = (id, patch) => setObjetos((os) => os.map((o) => (o.id === id
-    ? { ...o, transform: { dx: 0, dz: 0, rotY: 0, ...o.transform, ...patch } }
+  const transformarObjeto = (id, patch) => !gravando && setObjetos((os) => os.map((o) => (o.id === id
+    ? { ...o, transform: limitarTransformacao(o, patch, limitesDoEstande(analise, modelo?.recorte)) }
     : o)))
 
   const limitesGizmo = useMemo(
@@ -82,10 +110,11 @@ export default function Expositor() {
 
   const fecharTutorial = () => {
     setTutorial(false)
-    localStorage.setItem(`psf.tutorial.${user.uid}`, '1')
+    try { localStorage.setItem(`psf.tutorial.${user.uid}`, '1') } catch { /* opcional */ }
   }
 
   const gravar = async () => {
+    if (enviandoArte || gravando) return
     setGravando(true)
     try {
       // A imagem do 3D entra na proposta como registro do que foi escolhido.
@@ -110,7 +139,7 @@ export default function Expositor() {
         total: orcamento.total,
         criadoEm: serverTimestamp(),
       })
-      setGravado({ id: ref.id, imagem })
+      setGravado({ id: ref.id, imagem, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(o => ({ grupo: o.grupoNome, opcao: o.nome })) })
     } catch (ex) {
       alert(`Não foi possível gravar: ${ex.message}`)
     } finally {
@@ -124,9 +153,9 @@ export default function Expositor() {
       email: user.email,
       feira: perfil?.feira,
       modelo: modelo?.nome,
-      itens: orcamento.itens,
-      total: orcamento.total,
-      complementos: ativas.map((o) => ({ grupo: o.grupoNome, opcao: o.nome })),
+      itens: gravado?.itens || orcamento.itens,
+      total: gravado?.total ?? orcamento.total,
+      complementos: gravado?.complementos || ativas.map((o) => ({ grupo: o.grupoNome, opcao: o.nome })),
       imagem: gravado?.imagem || window.__psfShot?.() || null,
     })
     const w = window.open('', '_blank')
@@ -145,10 +174,10 @@ export default function Expositor() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 420px', height: 'calc(100vh - 62px)' }}>
+    <div className="studio-workspace">
       {tutorial && <Tutorial aoFechar={fecharTutorial} />}
 
-      <div style={{ position: 'relative', borderRight: '1px solid var(--line)' }}>
+      <div className="studio-cena">
         {(carregando || !cena) && !erroGlb && (
           <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', zIndex: 5 }}>
             <div className="col" style={{ alignItems: 'center', gap: 12, width: 240 }}>
@@ -172,7 +201,8 @@ export default function Expositor() {
           indice={indice} acabamentos={acabamentos} supFoco={supFoco} objetos={objetos}
           extras={extras} escondidos={escondidos} objFoco={objFoco}
           objSel={objSel} aoTransformarObjeto={transformarObjeto} limitesGizmo={limitesGizmo}
-          realceSuave
+          realceSuave mostrarGrade={!!objSel} somentePersonalizaveis
+          aoSelecionar={(s, o) => { setSupFoco(s); setObjFoco(o); setObjSel(null) }}
           vista={vista} aoAplicarVista={() => setVista(null)} />
 
         {/* vistas prontas: girar com o mouse não é óbvio para quem não usa 3D */}
@@ -189,19 +219,24 @@ export default function Expositor() {
         </button>
 
         <div className="dim" style={{
-          position: 'absolute', bottom: 16, right: 16, fontSize: 11.5,
+          position: 'absolute', bottom: 64, left: 14, fontSize: 11.5,
           background: 'rgba(7,10,20,.7)', backdropFilter: 'blur(8px)',
           padding: '6px 11px', borderRadius: 99, border: '1px solid var(--line)',
         }}>
           {objSel
             ? 'Arraste a marca verde para mover · o anel azul para girar'
-            : 'Arraste para girar · role para aproximar'}
+            : 'Clique para personalizar · arraste para girar'}
         </div>
       </div>
 
-      <aside style={{ overflowY: 'auto', background: 'var(--bg-deep)', display: 'flex', flexDirection: 'column' }}>
+      <aside className="studio-painel">
         <div style={{ padding: '18px 18px 0' }}>
           <h1 style={{ fontSize: 19, marginBottom: 3 }}>Seu estande</h1>
+          <div className="filtros-elementos" style={{ margin: '12px 0' }}>
+            <button className="btn btn-sm" disabled={!historico.podeDesfazer || gravando} onClick={historico.desfazer}>↶ Desfazer</button>
+            <button className="btn btn-sm" disabled={!historico.podeRefazer || gravando} onClick={historico.refazer}>↷ Refazer</button>
+          </div>
+          <small className="dim" role="status">{rascunhoStatus}</small>
           <div className="dim" style={{ fontSize: 12.5 }}>
             {modelo?.nome}{perfil?.feira ? ` · ${perfil.feira}` : ''}
           </div>
@@ -209,14 +244,15 @@ export default function Expositor() {
 
         <div style={{ padding: 18, flex: 1 }}>
           {analise ? (
-            <PainelExpositor
+            <fieldset disabled={gravando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><PainelExpositor
+              aoEnviarArte={setEnviandoArte}
               analise={analise} superficies={superficies}
               acabamentos={acabamentos} setAcabamentos={setAcabamentos}
               supFoco={supFoco} setSupFoco={setSupFoco}
               complementos={complementos} escolhas={escolhas} setEscolhas={setEscolhas}
               objetos={objetos} setObjetos={setObjetos} objFoco={objFoco} setObjFoco={setObjFoco}
               objSel={objSel} setObjSel={escolherObjeto}
-              recorte={modelo?.recorte} precos={precos} orcamento={orcamento} />
+              recorte={modelo?.recorte} precos={precos} orcamento={orcamento} /></fieldset>
           ) : null}
         </div>
 
@@ -249,10 +285,10 @@ export default function Expositor() {
                   escolha que a produção precisa receber — então também libera o
                   envio, não só o que gera valor. */}
               <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
-                disabled={gravando || (!orcamento.itens.length && !ativas.length)} onClick={gravar}>
-                {gravando ? <><span className="spinner" /> Enviando…</> : 'Gravar e gerar proposta'}
+                disabled={gravando || enviandoArte || !analise || (!orcamento.itens.length && !ativas.length && !objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY))} onClick={gravar}>
+                {gravando ? <><span className="spinner" /> Enviando…</> : 'Enviar personalização'}
               </button>
-              {!orcamento.itens.length && !ativas.length && (
+              {!orcamento.itens.length && !ativas.length && !objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY) && (
                 <div className="dim" style={{ fontSize: 11.5, marginTop: 8, textAlign: 'center' }}>
                   Faça ao menos uma personalização para enviar.
                 </div>

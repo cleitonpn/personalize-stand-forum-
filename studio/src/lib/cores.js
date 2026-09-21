@@ -1,0 +1,18 @@
+export const CORES = [
+  { id: 'preto', nome: 'Preto', hex: '#141414' },
+  { id: 'branco', nome: 'Branco', hex: '#f2f2ee' },
+  { id: 'cinza', nome: 'Cinza', hex: '#8b8f96' },
+  { id: 'azul', nome: 'Azul', hex: '#1d4ed8' },
+  { id: 'celeste', nome: 'Azul claro', hex: '#38bdf8' },
+  { id: 'verde', nome: 'Verde', hex: '#16a34a' },
+  { id: 'limao', nome: 'Limão', hex: '#a3e635' },
+  { id: 'amarelo', nome: 'Amarelo', hex: '#facc15' },
+  { id: 'laranja', nome: 'Laranja', hex: '#f97316' },
+  { id: 'vermelho', nome: 'Vermelho', hex: '#dc2626' },
+  { id: 'vinho', nome: 'Vinho', hex: '#881337' },
+  { id: 'roxo', nome: 'Roxo', hex: '#7c3aed' },
+  { id: 'rosa', nome: 'Rosa', hex: '#ec4899' },
+  { id: 'areia', nome: 'Areia', hex: '#e0d5bf' },
+  { id: 'madeira', nome: 'Madeira clara', hex: '#b98a52' },
+  { id: 'nogueira', nome: 'Madeira escura', hex: '#6b4423' },
+]

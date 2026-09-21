@@ -33,6 +33,21 @@ export function coletarPecas(root) {
   const pecas = []
   root.updateWorldMatrix(true, true)
 
+  // Mede a hierarquia antes de o viewer reorganizar as malhas para movimento.
+  const caixas = new Map(), caminhos = new Map()
+  function medirNo(o, caminho) {
+    caminhos.set(o, caminho)
+    const b = new THREE.Box3()
+    if (o.isMesh && o.geometry) {
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+      b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld)
+    }
+    o.children.forEach((filho, i) => b.union(medirNo(filho, `${caminho}/${i}`)))
+    caixas.set(o, b)
+    return b
+  }
+  medirNo(root, 'glb')
+
   root.traverse((o) => {
     if (!o.isMesh || !o.geometry) return
     const geo = o.geometry
@@ -50,13 +65,27 @@ export function coletarPecas(root) {
     const mat = mats[0]
 
     const materialNome = mat?.name || '(sem material)'
+    const local = geo.boundingBox.getSize(new THREE.Vector3()).toArray()
+    const eixos = [0, 1, 2].map(i => new THREE.Vector3().setFromMatrixColumn(o.matrixWorld, i))
+    const dimensoesLocais = local.map((n, i) => n * eixos[i].length())
+    const menor = dimensoesLocais.indexOf(Math.min(...dimensoesLocais))
+    const normalPlano = new THREE.Vector3(menor === 0 ? 1 : 0, menor === 1 ? 1 : 0, menor === 2 ? 1 : 0)
+      .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(o.matrixWorld)).toArray()
+    let componenteOrigem = null, nomeComponente = ''
+    for (let pai = o.parent; pai && pai !== root; pai = pai.parent) {
+      const b = caixas.get(pai), d = b.getSize(new THREE.Vector3())
+      if (b.min.y < 0.35 && d.y > 0.2 && d.y <= 2.2 && d.x <= 3.2 && d.z <= 3.2) componenteOrigem = caminhos.get(pai)
+      if (/balc[ãa]o|banqueta|cadeira|eames|tiffany|mesa|table|logo|logotipo|televis|samsung|monitor|smart.*tv/i.test(pai.name)) nomeComponente = pai.name
+    }
     pecas.push({
+      componenteOrigem, nomeComponente,
       uuid: o.uuid,
       chave: chaveDaPeca(materialNome, centro.toArray()),
       nome: o.name || '',
       materialNome,
       materialUuid: mat?.uuid || 'none',
       tris,
+      dimensoesLocais, normalPlano,
       bbox: {
         min: bb.min.toArray(), max: bb.max.toArray(),
         largura: size.x, altura: size.y, profundidade: size.z,

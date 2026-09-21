@@ -9,7 +9,9 @@ import * as THREE from 'three'
 import { PAPEIS } from '../lib/glb/roles.js'
 import { chaveDaPeca } from '../lib/glb/analyze.js'
 import GizmoObjeto from './GizmoObjeto.jsx'
-import { uvPlanar, encaixar } from '../lib/glb/arte.js'
+import SelecaoElemento from './SelecaoElemento.jsx'
+import { dentro } from '../lib/glb/elementos.js'
+import { uvPlanar, uvDoElemento, comporArte } from '../lib/glb/arte.js'
 
 /**
  * Loader com os decodificadores de compressão registrados.
@@ -225,8 +227,10 @@ function Enquadrar({ alvo, deps }) {
     if (caixa.isEmpty()) return
     const centro = caixa.getCenter(new THREE.Vector3())
     const tam = caixa.getSize(new THREE.Vector3())
-    const raio = Math.max(tam.x, tam.y, tam.z) * 0.6 || 5
-    const dist = raio / Math.tan((camera.fov * Math.PI) / 360) * 1.5
+    const raio = tam.length() / 2 || 5
+    const vertical = THREE.MathUtils.degToRad(camera.fov)
+    const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * camera.aspect)
+    const dist = raio / Math.sin(Math.min(vertical, horizontal) / 2) * 0.93
 
     camera.position.set(centro.x + dist * 0.7, centro.y + dist * 0.55, centro.z + dist * 0.8)
     camera.near = Math.max(0.05, dist / 500); camera.far = dist * 12
@@ -275,8 +279,9 @@ function IrParaVista({ vista, alvo, recorte, aoConcluir }) {
 
     const c = caixa.getCenter(new THREE.Vector3())
     const t = caixa.getSize(new THREE.Vector3())
-    const raio = Math.max(t.x, t.y, t.z)
-    const d = raio / Math.tan((camera.fov * Math.PI) / 360) * 0.95
+    const vertical = THREE.MathUtils.degToRad(camera.fov)
+    const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * camera.aspect)
+    const d = (t.length() / 2) / Math.sin(Math.min(vertical, horizontal) / 2) * 1.06
 
     const pos = {
       perspectiva: [c.x + d * 0.62, c.y + d * 0.5, c.z + d * 0.72],
@@ -327,7 +332,7 @@ function derivar(orig, props) {
  * Aplica realce por material: o que está selecionado recebe a cor do papel,
  * o resto perde saturação. Guarda o material original para restaurar depois.
  */
-function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos, realceSuave }) {
+function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos, realceSuave, recorte }) {
   // peças do objeto em foco, para acender só ele
   const pecasDoObj = useMemo(() => {
     if (!objFoco || !objetos) return null
@@ -339,8 +344,29 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
     if (!cena) return
     const criados = []
     const texturas = []
+    const cacheTexturas = new Map()
+    const originais = new Map()
+    let vivo = true
     // geometria → UV original, para devolver o arquivo ao estado em que veio
     const geometrias = new Map()
+    cena.updateWorldMatrix(true, true)
+    const gruposArte = new Map()
+    cena.traverse(o => {
+      if (!o.isMesh || !o.geometry?.attributes.position) return
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
+      if (!o.userData._chave) {
+        const m = o.userData._matOrig || o.material
+        const nome = (Array.isArray(m) ? m[0] : m)?.name || '(sem material)'
+        o.userData._chave = chaveDaPeca(nome, new THREE.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld).getCenter(new THREE.Vector3()).toArray())
+      }
+      const sup = indice?.get(o.userData._chave)
+      const arte = sup && acabamentos?.[sup.id]?.arte
+      if (!arte || !sup.elementoId || !['parede', 'piso'].includes(sup.tipoElemento)) return
+      const k = `${sup.elementoId}:${arte}`
+      if (!gruposArte.has(k)) gruposArte.set(k, [])
+      gruposArte.get(k).push(o)
+    })
+    const planos = new Map([...gruposArte.values()].flatMap(ms => [...uvDoElemento(ms)]))
 
     cena.traverse((o) => {
       if (!o.isMesh) return
@@ -359,6 +385,9 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
         o.userData._chave = chaveDaPeca(nome, c.toArray())
       }
       const sup = indice?.get(o.userData._chave)
+      if (!o.userData._centroOrig) {
+        o.userData._centroOrig = new THREE.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld).getCenter(new THREE.Vector3()).toArray()
+      }
 
       // O que foi marcado para descarte sai de cena de vez. Deixar semi-
       // transparente não resolve: a cúpula do Enscape envolve o estande inteiro
@@ -366,8 +395,8 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       //
       // Peça substituída por um complemento some pelo mesmo caminho: escolher o
       // depósito na ponta esquerda tem que tirar o do centro, senão ficam dois.
-      const trocada = escondidos?.has(o.userData._chave)
-      o.visible = (trocada || (papel === 'ignorar' && !mostrarIgnorados)) ? false : o.userData._visOrig
+      const trocada = escondidos?.has(o.userData._chave) || (sup?.podeRemover && acabamentos?.[sup.id]?.removido)
+      o.visible = (trocada || ((sup?.papel || papel) === 'ignorar' && !mostrarIgnorados) || (recorte && !dentro(o.userData._centroOrig, recorte))) ? false : o.userData._visOrig
 
       let usar = orig
       if (modo === 'papeis' && papel && papel !== 'ignorar') {
@@ -392,21 +421,25 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           metalness: 0.02,
         })
         if (acab.arte) {
-          const plano = uvPlanar(o.geometry, o.matrixWorld)
-          if (plano) {
-            if (!geometrias.has(o.geometry)) geometrias.set(o.geometry, o.geometry.getAttribute('uv') || null)
-            o.geometry.setAttribute('uv', plano.attr)
+          // Isola a geometria: duas instâncias podem compartilhar malha, mas
+          // ter UVs diferentes conforme sua posição dentro da parede.
+          originais.set(o, o.geometry)
+          o.geometry = o.geometry.clone()
+          const plano = planos.get(o) || uvPlanar(o.geometry, o.matrixWorld)
+          if (plano) o.geometry.setAttribute('uv', plano.attr)
+          const key = `${acab.arte}|${plano?.proporcao || 1}|${acab.cor || '#f2f2ee'}`
+          let tex = cacheTexturas.get(key)
+          if (!tex) {
+            tex = new THREE.TextureLoader().load(acab.arte, t => {
+              if (!vivo) return
+              t.image = comporArte(t.image, plano?.proporcao || 1, acab.cor || '#f2f2ee')
+              t.needsUpdate = true
+            })
+            tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false
+            tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+            cacheTexturas.set(key, tex); texturas.push(tex)
           }
-          const tex = new THREE.TextureLoader().load(acab.arte, (t) => {
-            if (plano) encaixar(t, plano.proporcao)
-          })
-          tex.colorSpace = THREE.SRGBColorSpace
-          tex.flipY = false
-          tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
-          // a arte manda na cor: sem isso o tom da napa tinge a imagem
-          m.map = tex
-          m.transparent = true          // logo em PNG mostra a cor por baixo
-          texturas.push(tex)
+          m.color.set('#ffffff'); m.map = tex; m.transparent = false
         }
         criados.push(m); usar = m
       }
@@ -473,6 +506,8 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
     })
 
     return () => {
+      vivo = false
+      for (const [malha, original] of originais) { malha.geometry.dispose(); malha.geometry = original }
       cena.traverse((o) => {
         if (!o.isMesh) return
         if (o.userData._matOrig) o.material = o.userData._matOrig
@@ -485,7 +520,7 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       criados.forEach((m) => m.dispose())
       texturas.forEach((t) => t.dispose())
     }
-  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, pecasDoObj, escondidos, realceSuave])
+  }, [cena, materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, pecasDoObj, escondidos, realceSuave, recorte])
 }
 
 /**
@@ -617,8 +652,9 @@ export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
+  aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco,
 }) {
-  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco, objetos, objFoco, escondidos, realceSuave })
+  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco: realceSuave ? null : supFoco, objetos, objFoco: realceSuave ? null : objFoco, escondidos, realceSuave, recorte })
   useTransformes(cena, objetos)
   const pecasExtras = usePecasExtras(extras)
 
@@ -675,7 +711,7 @@ export default function Viewer({
           sobre fundo escuro ele simplesmente some, e era preciso forçar a vista
           para enxergar o que se está configurando. Sobre fundo claro a peça
           aparece, que é a única coisa que importa nesta tela. */}
-      <color attach="background" args={['#e9edf4']} />
+      {/* O canvas transparente revela o degradê do estúdio. */}
       {/* A exposição é a do arquivo original — quem estava errado era só o fundo.
           Ao clarear o fundo eu também subi a luz, e aí estourou: o branco da
           testeira e do vidro virou papel em branco. Fundo claro não pede mais
@@ -693,13 +729,28 @@ export default function Viewer({
         <Lightformer form="rect" intensity={0.8} color="#ffffff" position={[0, 5, -10]} scale={[12, 8, 1]} />
       </Environment>
 
-      <Grid
+      {mostrarGrade && <Grid
         args={[60, 60]} cellSize={1} cellThickness={0.55} cellColor="#7a88a6"
         sectionSize={5} sectionThickness={1} sectionColor="#98a5c0"
-        infiniteGrid fadeDistance={60} fadeStrength={1.8} followCamera={false}
-      />
+        infiniteGrid fadeDistance={18} fadeStrength={2} followCamera={false}
+      />}
 
-      {cena && <primitive object={cena} />}
+      {cena && <primitive object={cena} onClick={e => {
+        if (!aoSelecionar || e.delta > 4 || objSel) return
+        const hit = e.intersections.find(h => {
+          for (let p = h.object; p; p = p.parent) if (!p.visible) return false
+          return h.object.isMesh
+        })
+        if (!hit) return
+        e.stopPropagation()
+        const k = hit.object.userData._chave
+        const sup = indice?.get(k)
+        const obj = (objetos || []).find(o => o.pecas.includes(k))
+        if (somentePersonalizaveis && obj && (obj.podeMover || obj.podeGirar)) { aoSelecionar(null, obj.id); return }
+        if (somentePersonalizaveis && !sup?.podeCor && !sup?.podeArte && !sup?.podeRemover) return
+        aoSelecionar(sup?.id || null, sup ? null : obj?.id || null)
+      }} />}
+      {cena && realceSuave && <SelecaoElemento cena={cena} indice={indice} supFoco={supFoco} objetos={objetos} objFoco={objFoco} partesFoco={partesFoco} />}
 
       {/* Peças opcionais escolhidas. Ficam fora do realce e das transformações
           de propósito: são o objeto real que a montadora vai montar, com o
@@ -715,7 +766,7 @@ export default function Viewer({
           aoTransformar={(patch) => aoTransformarObjeto(alvoGizmo.id, patch)} />
       )}
 
-      <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados]} />
+      <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados, JSON.stringify(recorte)]} />
       <IrParaVista vista={vista} alvo={cena} recorte={recorte} aoConcluir={aoAplicarVista} />
 
       <Exposicao valor={exposicao} />

@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import Viewer, { useGLB } from '../components/Viewer.jsx'
 import { analisar } from '../lib/glb/analyze.js'
 import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
 import { superficiesPadrao, indicePorPeca } from '../lib/glb/superficies.js'
-import PainelPersonalizar from '../components/PainelPersonalizar.jsx'
+import PainelExpositor from '../components/PainelExpositor.jsx'
+import PainelElementos from '../components/PainelElementos.jsx'
+import { organizarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
+import { limitesDoEstande } from '../lib/glb/nomes.js'
 import PainelSuperficies, { aplicarPapel } from '../components/PainelSuperficies.jsx'
 import PainelObjetos from '../components/PainelObjetos.jsx'
 import PainelPrecos from '../components/PainelPrecos.jsx'
 import PainelComplementos from '../components/PainelComplementos.jsx'
-import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO } from '../lib/glb/precos.js'
+import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO, calcularOrcamento, fmtBRL } from '../lib/glb/precos.js'
 import { detectarObjetos, numerar, assinaturaDeteccao, nomearPorSuperficies, preservarAjustes } from '../lib/glb/objetos.js'
-import { novoGrupo, opcoesAtivas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
+import { novoGrupo, opcoesAtivas, chavesEscondidas, pecasParaCena, superficiesEscondidas } from '../lib/glb/complementos.js'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
 // nem o do Google Cloud expõem isso na interface. Roda no Cloud Shell, que é um
@@ -215,7 +218,13 @@ export default function Editor() {
   // Prévia usa exatamente a mesma estrutura de escolha do expositor — assim o
   // admin confere o que ele vai ver, e não uma aproximação.
   const [previa, setPrevia] = useState({})
-  const [aba, setAba] = useState('materiais')
+  const [partesFoco, setPartesFoco] = useState(null)
+  const [aba, setAba] = useState('elementos')
+  const [avancado, setAvancado] = useState(false)
+  const [antesOrganizacao, setAntesOrganizacao] = useState(null)
+  const [objetosPrevia, setObjetosPrevia] = useState([])
+  const [objSel, setObjSel] = useState(null)
+  const [vista, setVista] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
 
@@ -243,12 +252,15 @@ export default function Editor() {
   // por uma mudança de papel.
   useEffect(() => {
     if (!analise || superficies) return
-    const sups = modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, papeis)
+    const efetivos = { ...Object.fromEntries(analise.materiais.map(m => [m.nome, m.papelSugerido])), ...papeis }
+    const base = modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, efetivos)
+    const os = modelo?.objetos?.length ? modelo.objetos : numerar(detectarObjetos(analise, efetivos, { superficies: base }))
+    const sups = modelo?.superficies?.length ? base : organizarElementos(analise, base, os)
+    setPapeis(efetivos)
     setSuperficies(sups)
-    setObjetos(modelo?.objetos?.length
-      ? modelo.objetos
-      : numerar(detectarObjetos(analise, papeis, { superficies: sups })))
-    setAssinaturaObj(modelo?.assinaturaObjetos ?? assinaturaDeteccao(papeis, sups))
+    setObjetos(os)
+    setObjetosPrevia(structuredClone(os))
+    setAssinaturaObj(modelo?.assinaturaObjetos ?? assinaturaDeteccao(efetivos, sups))
   }, [analise, superficies, modelo, papeis])
 
   /**
@@ -300,7 +312,7 @@ export default function Editor() {
     setSalvando(true)
     try {
       await updateDoc(doc(db, 'modelos', id), {
-        papeis, recorte,
+        papeis, recorte, atualizadoEm: serverTimestamp(),
         superficies: superficies || [],
         objetos: objetos || [],
         complementos: grupos || [],
@@ -329,9 +341,9 @@ export default function Editor() {
   const nIgnorados = Object.values(papeis).filter((p) => p === 'ignorar').length
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 400px', height: 'calc(100vh - 62px)' }}>
+    <div className="studio-workspace">
       {/* ---------------- viewer ---------------- */}
-      <div style={{ position: 'relative', borderRight: '1px solid var(--line)' }}>
+      <div className="studio-cena">
         {(carregando || !cena) && !erroGlb && (
           <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', zIndex: 5 }}>
             <div className="col" style={{ alignItems: 'center', gap: 12, width: 240 }}>
@@ -411,20 +423,26 @@ export default function Editor() {
           </div>
         )}
 
-        <Viewer cena={cena} materialFoco={foco} papeis={papeis} modo={modo} recorte={recorte}
-          mostrarIgnorados={mostrarIgnorados} mostrarRecorte
-          indice={indice} acabamentos={acabamentos}
-          supFoco={(aba === 'personalizar' || aba === 'superficies') ? supFoco : null}
-          objetos={objetos} objFoco={aba === 'objetos' ? objFoco : null}
-          extras={extras} escondidos={escondidos} />
+        <Viewer cena={cena} materialFoco={avancado ? foco : null} papeis={papeis} modo={avancado ? modo : 'original'} recorte={recorte}
+          mostrarIgnorados={avancado && mostrarIgnorados} mostrarRecorte={aba === 'recorte'} mostrarGrade={aba === 'recorte' || !!objSel}
+          indice={indice} acabamentos={aba === 'personalizar' ? acabamentos : {}}
+          partesFoco={partesFoco} supFoco={supFoco} objetos={aba === 'personalizar' ? objetosPrevia : objetos} objFoco={objFoco}
+          extras={aba === 'personalizar' ? extras : []} escondidos={aba === 'personalizar' ? escondidos : null} realceSuave
+          aoSelecionar={(sid, oid) => { setSupFoco(sid); setObjFoco(oid); setObjSel(null) }}
+          somentePersonalizaveis={aba === 'personalizar'}
+          objSel={aba === 'personalizar' ? objSel : null}
+          limitesGizmo={analise ? limitesDoEstande(analise, recorte) : null}
+          aoTransformarObjeto={(id, patch) => setObjetosPrevia(os => os.map(o => o.id === id ? { ...o, transform: limitarTransformacao(o, patch, limitesDoEstande(analise, recorte)) } : o))}
+          vista={vista} aoAplicarVista={() => setVista(null)} />
 
         {/* controles flutuantes */}
         <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-          {[['original', 'Original'], ['papeis', 'Por papel']].map(([k, r]) => (
-            <button key={k} className={`chip ${modo === k ? 'sel' : ''}`} onClick={() => setModo(k)}
-              style={{ backdropFilter: 'blur(10px)' }}>{r}</button>
+          <button className="chip" onClick={() => setVista('perspectiva')}>Visão geral</button>
+          <button className="chip" onClick={() => setVista('cima')}>Vista de cima</button>
+          {avancado && [['original', 'Original'], ['papeis', 'Por material']].map(([k, r]) => (
+            <button key={k} className={`chip ${modo === k ? 'sel' : ''}`} onClick={() => setModo(k)}>{r}</button>
           ))}
-          {nIgnorados > 0 && (
+          {avancado && nIgnorados > 0 && (
             <button className={`chip ${mostrarIgnorados ? 'sel' : ''}`}
               onClick={() => setMostrarIgnorados((v) => !v)}
               style={{ backdropFilter: 'blur(10px)' }}
@@ -447,7 +465,7 @@ export default function Editor() {
       </div>
 
       {/* ---------------- painel ---------------- */}
-      <aside style={{ overflowY: 'auto', background: 'var(--bg-deep)' }}>
+      <aside className="studio-painel">
         <div style={{ padding: '18px 18px 0' }}>
           <Link className="dim" to="/modelos" style={{ fontSize: 12.5 }}>← Modelos</Link>
           <h1 style={{ fontSize: 19, margin: '8px 0 3px' }}>{modelo?.nome || '…'}</h1>
@@ -458,51 +476,34 @@ export default function Editor() {
 
         {analise && (
           <>
-            <div style={{ padding: '16px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
-              <Metrica rotulo="Materiais" valor={totalMat} sub={`${mapeados} mapeados`} />
-              <Metrica rotulo="Peças" valor={mil(analise.resumo.pecasTotal)} />
-              <Metrica rotulo="Triângulos" valor={mil(analise.resumo.trisTotal)}
-                sub={analise.resumo.trisTotal > 1.5e6 ? 'pesado para celular' : 'ok'}
-                alerta={analise.resumo.trisTotal > 1.5e6} />
-              <Metrica rotulo="Cena" valor={`${n1(analise.resumo.cena.largura)}×${n1(analise.resumo.cena.profundidade)}`} sub="metros" />
+            <nav className="etapas-studio" aria-label="Preparação do estande">
+              <button className={`btn ${aba === 'elementos' ? 'btn-primary' : ''}`} onClick={() => { setAba('elementos'); setAvancado(false); setObjSel(null) }}>1 · Revisar elementos</button>
+              <button className={`btn ${aba === 'personalizar' ? 'btn-primary' : ''}`} onClick={() => {
+                setObjetosPrevia(structuredClone(objetos || [])); setAba('personalizar'); setAvancado(false); setSupFoco(null); setObjFoco(null); setObjSel(null)
+              }}>2 · Ver como expositor</button>
+            </nav>
+            <div className="ajustes-avancados">
+              <button className="btn btn-sm btn-ghost" aria-expanded={avancado} onClick={() => {
+                setAvancado(!avancado); setAba(avancado ? 'elementos' : 'recorte'); setSupFoco(null); setObjFoco(null); setObjSel(null)
+              }}>{avancado ? 'Fechar ajustes avançados' : 'Área, preços e ajustes avançados'}</button>
+              {avancado && <>
+                <label className="field"><span className="sr-only">Ferramenta avançada</span><select className="select" value={aba} onChange={e => setAba(e.target.value)}>
+                  {[['recorte', 'Área do estande'], ['precos', 'Preços'], ['complementos', 'Adicionais'], ['superficies', 'Separar ou juntar partes'], ['objetos', 'Agrupamento de móveis'], ['materiais', 'Materiais do arquivo']].map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
+                </select></label>
+                <p className="dim">{totalMat} materiais · {mil(analise.resumo.pecasTotal)} peças · {mil(analise.resumo.trisTotal)} triângulos</p>
+                {analise.duplicatas.total > 0 && <p className="dim">{analise.duplicatas.total} cópias sobrepostas identificadas no arquivo.</p>}
+              </>}
             </div>
-
-            {analise.duplicatas.total > 0 && (
-              <div style={{ margin: '0 18px 16px', padding: '11px 13px', borderRadius: 'var(--r)',
-                background: 'rgba(245,165,36,.08)', border: '1px solid rgba(245,165,36,.28)' }}>
-                <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--warn)', marginBottom: 3 }}>
-                  {mil(analise.duplicatas.total)} peças sobrepostas
-                </div>
-                <div className="muted" style={{ fontSize: 11.5 }}>
-                  Cópias exatamente no mesmo lugar ({mil(analise.duplicatas.tris)} triângulos). Causam
-                  z-fighting — serão descartadas na publicação.
-                </div>
-              </div>
-            )}
-
-            {/* Abas fixas no topo: se rolarem junto com a lista de materiais,
-                não há como trocar de aba sem voltar ao começo do painel. */}
-            <div className="row" style={{
-              gap: 6, padding: '12px 18px 14px', flexWrap: 'wrap',
-              position: 'sticky', top: 0, zIndex: 6,
-              background: 'rgba(4,6,13,.94)', backdropFilter: 'blur(10px)',
-              borderBottom: '1px solid var(--line)',
-            }}>
-              {[
-                ['materiais', `Materiais (${totalMat})`],
-                ['superficies', `Superfícies${superficies ? ` (${superficies.length})` : ''}`],
-                ['objetos', `Objetos${objetos ? ` (${objetos.length})` : ''}`],
-                ['complementos', `Complementos${grupos.length ? ` (${grupos.length})` : ''}`],
-                ['precos', 'Preços'],
-                ['recorte', 'Área do estande'],
-                ['personalizar', 'Prévia'],
-              ].map(([k, r]) => (
-                <button key={k} className={`chip ${aba === k ? 'sel' : ''}`} onClick={() => setAba(k)}>{r}</button>
-              ))}
-            </div>
-
             <div style={{ padding: 18 }}>
-              {aba === 'precos' ? (
+              {aba === 'elementos' ? (
+                superficies && objetos && <PainelElementos analise={analise} superficies={superficies} objetos={objetos} recorte={recorte}
+                  setSuperficies={v => { setSuperficies(v); setSalvo(false) }} setObjetos={v => { setObjetos(v); setSalvo(false) }}
+                  supFoco={supFoco} objFoco={objFoco} aoSelecionar={(s, o) => { setSupFoco(s); setObjFoco(o) }}
+                  aoFocarPartes={setPartesFoco} complementos={grupos} setComplementos={setGrupos}
+                  acabamentos={acabamentos} setAcabamentos={setAcabamentos} aoAgrupar={ss => setAssinaturaObj(assinaturaDeteccao(papeis, ss))}
+                  aoOrganizar={() => { setAntesOrganizacao(superficies); setSuperficies(organizarElementos(analise, superficies, objetos, grupos)); setSupFoco(null); setSalvo(false) }}
+                  aoDesfazer={antesOrganizacao ? () => { setSuperficies(antesOrganizacao); setAntesOrganizacao(null); setSalvo(false) } : null} />
+              ) : aba === 'precos' ? (
                 superficies && objetos
                   ? <PainelPrecos analise={analise} superficies={superficies} objetos={objetos}
                       recorte={recorte}
@@ -534,12 +535,13 @@ export default function Editor() {
                           const g = novoGrupo({ nome: `Opções — ${sup.nome}`, ancora: sup.id })
                           setGrupos((gg) => [...gg, g]); setSalvo(false); setAba('complementos')
                         }} />
-                    : <PainelPersonalizar
-                        analise={analise} superficies={superficies}
-                        acabamentos={acabamentos} setAcabamentos={setAcabamentos}
-                        supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetos}
-                        precos={precos} precosObjeto={precosObjeto} recorte={recorte}
-                        removidos={removidos} setRemovidos={setRemovidos} />
+                    : <PainelExpositor
+                        analise={analise} superficies={superficies} acabamentos={acabamentos} setAcabamentos={setAcabamentos}
+                        supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetosPrevia} setObjetos={setObjetosPrevia}
+                        objFoco={objFoco} setObjFoco={setObjFoco} objSel={objSel} setObjSel={id => { setObjSel(id); if (id) setVista('cima') }}
+                        complementos={grupos} escolhas={previa} setEscolhas={setPrevia} recorte={recorte}
+                        orcamento={calcularOrcamento({ analise, superficies, objetos: objetosPrevia, acabamentos, precos, precosObjeto, recorte,
+                          complementos: { ativas, escondidas: superficiesEscondidas(ativas) } })} />
               ) : aba === 'materiais' ? (
                 <div className="col" style={{ gap: 9 }}>
                   {mapeados < totalMat && (
@@ -567,12 +569,12 @@ export default function Editor() {
         }}>
           {personalizaveis.length > 0 && (
             <div className="dim" style={{ fontSize: 11.5, marginBottom: 10 }}>
-              {personalizaveis.length} {personalizaveis.length === 1 ? 'superfície personalizável' : 'superfícies personalizáveis'} definidas
+              {personalizaveis.length} {personalizaveis.length === 1 ? 'acabamento liberado' : 'acabamentos liberados'} definidas
             </div>
           )}
           <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
             disabled={salvando || !analise} onClick={salvar}>
-            {salvando ? <><span className="spinner" /> Salvando…</> : salvo ? '✓ Salvo' : 'Salvar mapeamento'}
+            {salvando ? <><span className="spinner" /> Salvando…</> : salvo ? '✓ Salvo' : 'Salvar configuração'}
           </button>
         </div>
       </aside>
