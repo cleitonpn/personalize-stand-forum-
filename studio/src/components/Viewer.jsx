@@ -395,7 +395,7 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       //
       // Peça substituída por um complemento some pelo mesmo caminho: escolher o
       // depósito na ponta esquerda tem que tirar o do centro, senão ficam dois.
-      const trocada = escondidos?.has(o.userData._chave)
+      const trocada = escondidos?.has(o.userData._chave) || (sup?.podeRemover && acabamentos?.[sup.id]?.removido)
       o.visible = (trocada || ((sup?.papel || papel) === 'ignorar' && !mostrarIgnorados) || (recorte && !dentro(o.userData._centroOrig, recorte))) ? false : o.userData._visOrig
 
       let usar = orig
@@ -652,7 +652,7 @@ export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
-  aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false,
+  aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco,
 }) {
   useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco: realceSuave ? null : supFoco, objetos, objFoco: realceSuave ? null : objFoco, escondidos, realceSuave, recorte })
   useTransformes(cena, objetos)
@@ -747,10 +747,10 @@ export default function Viewer({
         const sup = indice?.get(k)
         const obj = (objetos || []).find(o => o.pecas.includes(k))
         if (somentePersonalizaveis && obj && (obj.podeMover || obj.podeGirar)) { aoSelecionar(null, obj.id); return }
-        if (somentePersonalizaveis && !sup?.podeCor && !sup?.podeArte) return
+        if (somentePersonalizaveis && !sup?.podeCor && !sup?.podeArte && !sup?.podeRemover) return
         aoSelecionar(sup?.id || null, sup ? null : obj?.id || null)
       }} />}
-      {cena && realceSuave && <SelecaoElemento cena={cena} indice={indice} supFoco={supFoco} objetos={objetos} objFoco={objFoco} />}
+      {cena && realceSuave && <SelecaoElemento cena={cena} indice={indice} supFoco={supFoco} objetos={objetos} objFoco={objFoco} partesFoco={partesFoco} />}
 
       {/* Peças opcionais escolhidas. Ficam fora do realce e das transformações
           de propósito: são o objeto real que a montadora vai montar, com o

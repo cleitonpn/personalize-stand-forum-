@@ -26,13 +26,13 @@ test('paredes afastadas com o mesmo material viram elementos distintos', () => {
   assert.notEqual(resultado[0].elementoId, resultado[1].elementoId)
   assert.equal(resultado[0].id, sups[0].id)
 })
-test('painéis adjacentes de materiais diferentes formam uma parede, preservando regras de acabamento', () => {
+test('painéis adjacentes permanecem independentes, preservando regras de acabamento', () => {
   const { analise, sups } = cenaDe([{ pos: [-1, 1.5, 0] }, { pos: [1, 1.5, 0], material: 'Madeira' }])
   const resultado = organizarElementos(analise, sups)
   assert.equal(resultado.length, 2)
-  assert.equal(resultado[0].elementoId, resultado[1].elementoId)
+  assert.notEqual(resultado[0].elementoId, resultado[1].elementoId)
   assert.deepEqual(new Set(resultado.map(s => s.papel)), new Set(['bagum', 'madeira']))
-  assert.equal(listarElementos(resultado, [], analise).length, 1)
+  assert.equal(listarElementos(resultado, [], analise).length, 2)
 })
 test('uma quina não une paredes perpendiculares', () => {
   const { analise, sups } = cenaDe([{ pos: [-1, 1.5, 0] }, { pos: [0, 1.5, 1], rot: Math.PI / 2 }])

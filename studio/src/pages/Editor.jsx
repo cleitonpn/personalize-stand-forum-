@@ -218,6 +218,7 @@ export default function Editor() {
   // Prévia usa exatamente a mesma estrutura de escolha do expositor — assim o
   // admin confere o que ele vai ver, e não uma aproximação.
   const [previa, setPrevia] = useState({})
+  const [partesFoco, setPartesFoco] = useState(null)
   const [aba, setAba] = useState('elementos')
   const [avancado, setAvancado] = useState(false)
   const [antesOrganizacao, setAntesOrganizacao] = useState(null)
@@ -425,7 +426,7 @@ export default function Editor() {
         <Viewer cena={cena} materialFoco={avancado ? foco : null} papeis={papeis} modo={avancado ? modo : 'original'} recorte={recorte}
           mostrarIgnorados={avancado && mostrarIgnorados} mostrarRecorte={aba === 'recorte'} mostrarGrade={aba === 'recorte' || !!objSel}
           indice={indice} acabamentos={aba === 'personalizar' ? acabamentos : {}}
-          supFoco={supFoco} objetos={aba === 'personalizar' ? objetosPrevia : objetos} objFoco={objFoco}
+          partesFoco={partesFoco} supFoco={supFoco} objetos={aba === 'personalizar' ? objetosPrevia : objetos} objFoco={objFoco}
           extras={aba === 'personalizar' ? extras : []} escondidos={aba === 'personalizar' ? escondidos : null} realceSuave
           aoSelecionar={(sid, oid) => { setSupFoco(sid); setObjFoco(oid); setObjSel(null) }}
           somentePersonalizaveis={aba === 'personalizar'}
@@ -498,7 +499,8 @@ export default function Editor() {
                 superficies && objetos && <PainelElementos analise={analise} superficies={superficies} objetos={objetos} recorte={recorte}
                   setSuperficies={v => { setSuperficies(v); setSalvo(false) }} setObjetos={v => { setObjetos(v); setSalvo(false) }}
                   supFoco={supFoco} objFoco={objFoco} aoSelecionar={(s, o) => { setSupFoco(s); setObjFoco(o) }}
-                  aoAvancado={() => { setAvancado(true); setAba('superficies') }}
+                  aoFocarPartes={setPartesFoco} complementos={grupos} setComplementos={setGrupos}
+                  acabamentos={acabamentos} setAcabamentos={setAcabamentos} aoAgrupar={ss => setAssinaturaObj(assinaturaDeteccao(papeis, ss))}
                   aoOrganizar={() => { setAntesOrganizacao(superficies); setSuperficies(organizarElementos(analise, superficies, objetos, grupos)); setSupFoco(null); setSalvo(false) }}
                   aoDesfazer={antesOrganizacao ? () => { setSuperficies(antesOrganizacao); setAntesOrganizacao(null); setSalvo(false) } : null} />
               ) : aba === 'precos' ? (

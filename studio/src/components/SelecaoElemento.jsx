@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 // Marca o limite do elemento sem alterar sua cor, textura ou iluminação.
-export default function SelecaoElemento({ cena, indice, supFoco, objetos, objFoco }) {
+export default function SelecaoElemento({ cena, indice, supFoco, objetos, objFoco, partesFoco }) {
   const helper = useMemo(() => {
     const h = new THREE.Box3Helper(new THREE.Box3(), '#51d6c1')
     h.material.depthTest = false; h.material.transparent = true; h.material.opacity = 0.8
@@ -15,11 +15,12 @@ export default function SelecaoElemento({ cena, indice, supFoco, objetos, objFoc
     let grupo = null
     for (const s of indice?.values() || []) if (s.id === supFoco) { grupo = s.elementoId || s.id; break }
     const chaves = new Set((objetos || []).find(o => o.id === objFoco)?.pecas || [])
+    if (partesFoco != null) { chaves.clear(); partesFoco.forEach(k => chaves.add(k)); grupo = null }
     if (grupo) for (const [k, s] of indice) if ((s.elementoId || s.id) === grupo) chaves.add(k)
     const meshes = []
     cena?.traverse(o => { if (o.isMesh && chaves.has(o.userData._chave)) meshes.push(o) })
     return meshes
-  }, [cena, indice, supFoco, objetos, objFoco])
+  }, [cena, indice, supFoco, objetos, objFoco, partesFoco])
   const temporaria = useMemo(() => new THREE.Box3(), [])
   useFrame(() => {
     helper.box.makeEmpty()

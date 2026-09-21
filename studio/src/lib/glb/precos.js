@@ -110,6 +110,10 @@ export function calcularOrcamento({
   for (const s of superficies || []) {
     if (escondidas?.has(s.id)) continue
     const acab = acabamentos?.[s.id]
+    if (s.podeRemover && acab?.removido) {
+      itens.push({ id: s.id, grupo: 'superficie', nome: s.nomeManual ? s.nome : s.tipoElemento === 'logo' ? 'Logo / placa' : s.nome, detalhe: 'removido do estande', unidade: 'peca', quantidade: 1, valorUnitario: 0, total: 0 })
+      continue
+    }
     if (!acab || (!acab.cor && !acab.arte)) continue
     const regra = precos?.[s.papel]
     if (!regra) continue

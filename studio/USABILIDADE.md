@@ -5,7 +5,9 @@ A interface principal agora trabalha com paredes, testeiras, piso e móveis. Mat
 ## O que mudou
 
 - Administração em duas etapas: revisar elementos e ver como expositor.
-- Identificação por forma, orientação e proximidade, reunindo camadas e painéis do mesmo elemento. Perfis fixos deixam de exigir uma revisão por malha.
+- Identificação por forma, orientação e componentes de origem do GLB. Camadas sobrepostas podem acompanhar a parede; painéis adjacentes permanecem separados. Perfis fixos deixam de exigir uma revisão por malha.
+- Logos/placas têm seleção própria, cor, envio de arte e remoção reversível, conforme permissões do administrador.
+- “Separar ou juntar partes” abre um editor funcional com destaque no 3D, divisão pelos componentes originais ou por malhas, união manual e desfazer. As decisões manuais prevalecem na próxima detecção. Dividir um móvel preserva seu posicionamento; para unir móveis deslocados é necessário restaurar primeiro a posição original.
 - Confirmação individual ou da lista filtrada, busca, nomes editáveis e permissões de cor, arte, movimento e giro.
 - Modelos já mapeados mantêm suas decisões. Atualizar sugestões preserva nomes, tipos e permissões manuais, conjuntos confirmados e superfícies usadas por adicionais.
 - Expositor seleciona no 3D ou na lista, escolhe um acabamento, envia imagem e restaura o original. A prévia do administrador usa o mesmo painel.
@@ -24,8 +26,9 @@ Para verificar apenas geometria: `node scripts/analisar-glb-local.mjs "caminho/a
 
 ## Validação com arquivos reais fornecidos
 
-- **ECBR 45M².glb:** 814 malhas, 23 materiais, 29 conjuntos sugeridos: 15 paredes/testeiras, 1 piso, 9 conjuntos de mobiliário e 4 de estrutura. Esses números são sugestões de agrupamento, não uma contagem certificada de peças físicas.
-- **Sala de reunião.glb:** 47 malhas, 4 materiais e 5 conjuntos sugeridos. As bordas estreitas antes confundidas com paredes passaram a ser reconhecidas como perfis.
+- **ECBR 45M².glb:** 814 malhas, 23 materiais, 40 conjuntos sugeridos: 18 paredes/testeiras, 1 logo/placa, 1 piso, 16 conjuntos de mobiliário e 4 de estrutura. As oito banquetas e o balcão são independentes; os três painéis do fundo permanecem separados. Esses números são sugestões de agrupamento, não uma contagem certificada de peças físicas.
+- Regressão específica: `node scripts/validar-ecbr-local.mjs "caminho/ECBR 45M².glb"`. Verifica balcão, banquetas, três painéis, permissões do logo e união/separação reversível. O arquivo não é incluído no repositório.
+- **Sala de reunião.glb:** 47 malhas, 4 materiais e 6 conjuntos sugeridos. As bordas estreitas antes confundidas com paredes passaram a ser reconhecidas como perfis.
 - ECBR aberto no navegador, cor e imagem aplicadas à testeira da direita. O teste revelou camadas com materiais diferentes encobrindo o acabamento; elas agora acompanham o elemento. A regra de preço original do material é mantida.
 - Prévia verificada em largura de 390 px, sem transbordamento horizontal; controle de remoção da imagem acessível.
 - Os dois GLBs foram testados separadamente. O encaixe da sala como adicional no ECBR não foi homologado.
@@ -40,4 +43,4 @@ A leitura/escrita autenticada no Firebase, o upload ao Storage e o envio de prop
 
 ## Verificação do código
 
-`npm test` cobre separação de paredes, união de painéis, quinas, paredes inclinadas, preservação manual e de adicionais, móveis legados, recorte, permissões, limites de giro, UV compartilhada, perfis e camadas de testeiras. `npm run build` verifica a compilação de produção. O workflow `check-studio.yml` executa ambos em pull requests.
+`npm test` cobre separação de paredes, união manual de painéis, componentes do GLB, logo removível, posição após separar móveis girados, preservação manual e de adicionais, móveis legados, recorte, permissões, limites de giro, UV compartilhada, perfis e camadas de testeiras. `npm run build` verifica a compilação de produção. O workflow `check-studio.yml` executa ambos em pull requests.

@@ -3,7 +3,7 @@
 import { nomeAmigavel } from './nomes.js'
 
 export const TIPOS_ELEMENTO = {
-  parede: 'Parede', piso: 'Piso', movel: 'Móvel', estrutura: 'Estrutura', outro: 'Outro elemento',
+  logo: 'Logo / placa', parede: 'Parede', piso: 'Piso', movel: 'Móvel', estrutura: 'Estrutura', outro: 'Outro elemento',
 }
 const hash = (s) => {
   let n = 2166136261
@@ -14,6 +14,10 @@ export function tipoDaPeca(p, papel) {
   if (papel === 'piso') return 'piso'
   if (['metal', 'vidro', 'luz', 'ignorar'].includes(papel)) return 'estrutura'
   const d = p.dimensoesLocais || [p.bbox.largura, p.bbox.altura, p.bbox.profundidade]
+  const equipamento = /samsung|televis|monitor|smart.*tv/i.test(p.nomeComponente || '')
+  if (!equipamento && ['mobiliario', 'adesivo'].includes(papel)
+    && Math.min(...d) < 0.06 && p.bbox.min?.[1] > 0.35 && p.bbox.max?.[1] < 2.8
+    && p.bbox.altura > 0.25 && Math.max(p.bbox.largura, p.bbox.profundidade) > 0.5) return 'logo'
   const fino = Math.min(...d) < 0.4
   const face = d.slice().sort((a, b) => a - b)[1] > 0.5
   const vertical = p.normalPlano ? Math.abs(p.normalPlano[1]) < 0.25 : p.bbox.altura > Math.min(p.bbox.largura, p.bbox.profundidade) * 3
@@ -30,7 +34,12 @@ function mesmoPlano(a, b) {
   const dot = a.normalPlano.reduce((n, v, k) => n + v * b.normalPlano[k], 0)
   if (Math.abs(dot) < 0.995) return false
   const distancia = Math.abs(a.normalPlano.reduce((n, v, k) => n + v * (b.bbox.centro[k] - a.bbox.centro[k]), 0))
-  return distancia <= 0.08 && perto(a, b)
+  if (distancia > 0.08 || !perto(a, b)) return false
+  // Encostar pelas bordas não transforma painéis independentes numa parede só.
+  const normal = a.normalPlano.map(Math.abs)
+  const eixo = normal.indexOf(Math.max(...normal))
+  const planos = [0, 1, 2].filter(k => k !== eixo)
+  return planos.every(k => Math.min(a.bbox.max[k], b.bbox.max[k]) - Math.max(a.bbox.min[k], b.bbox.min[k]) > 0.02)
 }
 
 /** Sugestões geométricas, nunca um remapeamento silencioso de decisões manuais.
@@ -50,7 +59,7 @@ export function organizarElementos(analise, superficies, objetos = [], complemen
   const objetosVistos = new Map()
   pecas.forEach((p, i) => {
     const s = porPeca.get(p.chave)
-    if (s.agrupada || s.nomeManual || s.tipoManual || s.permsManuais || s.revisado || protegidas.has(s.id)) return
+    if (s.grupoManual || s.agrupada || s.nomeManual || s.tipoManual || s.permsManuais || s.revisado || protegidas.has(s.id)) return
     const obj = porObjeto.get(p.chave)
     if (tipos[i] === 'movel' && obj) {
       if (objetosVistos.has(obj.id)) unir(i, objetosVistos.get(obj.id))
@@ -95,7 +104,7 @@ export function organizarElementos(analise, superficies, objetos = [], complemen
   return superficies.flatMap(s => {
     const ps = s.pecas.map(k => porChave.get(k)).filter(Boolean)
     const tipo = s.tipoElemento || (ps.length ? tipoDaPeca(ps[0], s.papel) : 'outro')
-    if (s.agrupada || s.nomeManual || s.tipoManual || s.permsManuais || s.revisado || protegidas.has(s.id)) {
+    if (s.grupoManual || s.agrupada || s.nomeManual || s.tipoManual || s.permsManuais || s.revisado || protegidas.has(s.id)) {
       return [{ ...s, tipoElemento: tipo, elementoId: s.elementoId || s.id }]
     }
     // Estruturas fixas não exigem uma confirmação para cada parafuso ou perfil.
@@ -115,6 +124,7 @@ export function organizarElementos(analise, superficies, objetos = [], complemen
       // Camada anônima sobre a mesma parede acompanha seu acabamento.
       // O papel original continua disponível para a regra de preço do projeto.
       ...(s.papel === 'mobiliario' && g.tipo === 'parede' ? permissoesGrupo.get(g.id) : {}),
+      ...(g.tipo === 'logo' ? { papel: 'adesivo', podeCor: true, podeArte: true, podeRemover: true } : {}),
       revisado: false,
       motivoElemento: ['parede', 'piso'].includes(g.tipo)
         ? 'Identificado pela forma, orientação e continuidade das peças.'
@@ -140,6 +150,7 @@ export function listarElementos(superficies = [], objetos = [], analise, recorte
     const chaves = new Set(e.superficies.flatMap(x => x.pecas))
     e.tipo = s.tipoElemento || tipoDaPeca(porPeca.get(s.pecas[0]) || { bbox: { largura: 0, altura: 0, profundidade: 0 } }, s.papel)
     e.nome = e.superficies.find(x => x.nomeManual)?.nome || (analise ? nomeAmigavel({ ...s, papel: e.tipo === 'parede' ? 'bagum' : s.papel, pecas: [...chaves] }, analise, recorte) : s.nome)
+    if (e.tipo === 'logo' && !e.superficies.some(x => x.nomeManual)) e.nome = 'Logo / placa'
     const ps = [...chaves].map(k => porPeca.get(k)).filter(Boolean)
     if (!e.superficies.some(x => x.nomeManual) && e.tipo === 'parede' && ps.length
       && ps.every(p => p.bbox.min[1] > 2.2 && p.bbox.altura < 1.5)) {
@@ -160,7 +171,7 @@ export function listarElementos(superficies = [], objetos = [], analise, recorte
     for (const e of donos) e.objetos = e.objetos.filter(x => x.id !== o.id)
     lista.push({ id: `obj:${o.id}`, nome: o.nome, tipo: 'movel', superficies: [], objetos: [o], revisado: !!o.revisado })
   }
-  const ordem = { parede: 0, piso: 1, movel: 2, estrutura: 3, outro: 4 }
+  const ordem = { logo: -1, parede: 0, piso: 1, movel: 2, estrutura: 3, outro: 4 }
   lista.sort((a, b) => ordem[a.tipo] - ordem[b.tipo] || a.nome.localeCompare(b.nome, 'pt-BR'))
   const contagem = new Map()
   for (const e of lista) contagem.set(e.nome, (contagem.get(e.nome) || 0) + 1)

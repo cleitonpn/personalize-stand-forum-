@@ -18,7 +18,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
   const destinosArte = useRef([])
   const escondidas = useMemo(() => superficiesEscondidas(opcoesAtivas(complementos, escolhas)), [complementos, escolhas])
   const lista = useMemo(() => listarElementos(superficies, objetos || [], analise, recorte), [superficies, objetos, analise, recorte])
-  const disponiveis = lista.filter(e => e.superficies.some(s => !escondidas.has(s.id) && (s.podeCor || s.podeArte))
+  const disponiveis = lista.filter(e => e.superficies.some(s => !escondidas.has(s.id) && (s.podeCor || s.podeArte || s.podeRemover))
     || e.objetos.some(o => (o.podeMover || o.podeGirar) && !o.pecas.every(k => superficies.some(s => escondidas.has(s.id) && s.pecas.includes(k))))
     || complementos.some(g => e.superficies.some(s => s.id === g.ancora)))
   const atual = disponiveis.find(e => e.superficies.some(s => s.id === supFoco) || e.objetos.some(o => o.id === objFoco))
@@ -45,7 +45,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
     <div className="orientacao"><strong>Deixe o estande do seu jeito</strong>
       <p>Clique em uma parte do estande ou escolha abaixo. Você verá apenas as opções disponíveis.</p></div>
     <div className="filtros-elementos" aria-label="O que personalizar">
-      {[['todos', 'Tudo'], ['parede', 'Paredes'], ['piso', 'Piso'], ['movel', 'Móveis'], ['adicionais', 'Adicionais']].map(([id, nome]) =>
+      {[['todos', 'Tudo'], ['parede', 'Paredes'], ['logo', 'Logos'], ['piso', 'Piso'], ['movel', 'Móveis'], ['adicionais', 'Adicionais']].map(([id, nome]) =>
         <button className={`chip ${filtro === id ? 'sel' : ''}`} aria-pressed={filtro === id} key={id} onClick={() => { setFiltro(id); voltar() }}>{nome}</button>)}
     </div>
     {enviando && <p className="orientacao" role="status">Enviando sua arte… Você pode continuar escolhendo as cores.</p>}
@@ -58,17 +58,21 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
           const sups = atual.superficies.filter(s => !escondidas.has(s.id))
           const cores = sups.filter(s => s.podeCor).map(s => s.id)
           const artes = sups.filter(s => s.podeArte).map(s => s.id)
+          const removiveis = sups.filter(s => s.podeRemover).map(s => s.id)
+          const removido = removiveis.length > 0 && removiveis.every(id => acabamentos[id]?.removido)
           const modificado = sups.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte)
           const valor = (orcamento?.itens || []).filter(i => atual.superficies.some(s => s.id === i.id)).reduce((n, i) => n + i.total, 0)
           return <>
-            {cores.length > 0 && <div><div className="label">Escolha uma cor</div>
+            {removiveis.length > 0 && <button className="btn" onClick={() => aplicar(removiveis, { removido: !removido })}>{removido ? 'Restaurar no estande' : atual.tipo === 'logo' ? 'Remover logo do estande' : 'Remover do estande'}</button>}
+            {removido && <p className="orientacao" role="status">Removido desta personalização. Você pode restaurar quando quiser.</p>}
+            {!removido && cores.length > 0 && <div><div className="label">Escolha uma cor</div>
               <div className="cartela-cores">{CORES.map(c => {
                 const marcado = cores.every(id => acabamentos[id]?.corId === c.id)
                 return <button key={c.id} className={`amostra ${marcado ? 'ativa' : ''}`} aria-pressed={marcado}
                   aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id })}>
                   <span style={{ background: c.hex }} /><small>{c.nome}</small></button>
               })}</div></div>}
-            {artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">Sua arte</div>
+            {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">Sua arte</div>
               <button className="btn" disabled={enviando} onClick={() => { destinosArte.current = artes; arquivo.current?.click() }}>
                 {enviando ? 'Enviando…' : artes.some(id => acabamentos[id]?.arte) ? 'Trocar imagem' : 'Enviar imagem'}</button>
               {artes.some(id => acabamentos[id]?.arte) && <button className="btn btn-sm btn-ghost" onClick={() => setAcabamentos(a => {
@@ -97,7 +101,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
       {filtro !== 'adicionais' && disponiveis.filter(e => filtro === 'todos' || e.tipo === filtro).map(e =>
         <button className="elemento-card elemento-titulo" key={e.id} onClick={() => selecionar(e)}>
           <span className="elemento-icone" aria-hidden="true">{e.tipo === 'piso' ? '▦' : e.tipo === 'parede' ? '▥' : '◇'}</span>
-          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte) ? 'Personalizado' : 'Ver opções'}</small></span><span aria-hidden="true">→</span>
+          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) ? 'Personalizado' : 'Ver opções'}</small></span><span aria-hidden="true">→</span>
         </button>)}
       {(filtro === 'adicionais' ? complementos : filtro === 'todos' ? perguntasSoltas : []).map(opcoes)}
       {!disponiveis.length && !complementos.length && <p className="muted">A equipe está preparando as opções deste estande.</p>}

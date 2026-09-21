@@ -30,7 +30,7 @@ function Previa({ cena, nome, controles }) {
   const [vista, setVista] = useState(null)
   const [admin, setAdmin] = useState(true)
   const [salvo, setSalvo] = useState(false)
-  const [avancado, setAvancado] = useState(false)
+  const [partesFoco, setPartesFoco] = useState(null)
   const indice = useMemo(() => indicePorPeca(superficies), [superficies])
   const caixa = useMemo(() => caixaDe(cena), [cena])
   const limites = { x0: caixa.min[0], x1: caixa.max[0], z0: caixa.min[2], z1: caixa.max[2] }
@@ -43,7 +43,7 @@ function Previa({ cena, nome, controles }) {
       <span className="dim" style={{ fontSize: 11 }}>Prévia local · sem envio de dados</span></header>
     <div className="studio-workspace">
       <div className="studio-cena"><Viewer cena={cena} papeis={papeis} indice={indice} acabamentos={admin ? {} : acabamentos}
-        objetos={objetos} supFoco={supFoco} objFoco={objFoco} objSel={objSel} realceSuave mostrarGrade={!!objSel}
+        objetos={objetos} partesFoco={partesFoco} supFoco={supFoco} objFoco={objFoco} objSel={objSel} realceSuave mostrarGrade={!!objSel}
         aoSelecionar={selecionar} somentePersonalizaveis={!admin} vista={vista} aoAplicarVista={() => setVista(null)}
         limitesGizmo={limites} aoTransformarObjeto={(id, patch) => setObjetos(os => os.map(o => o.id === id ? { ...o, transform: limitarTransformacao(o, patch, limites) } : o))} />
         <div className="filtros-elementos" style={{ position: 'absolute', top: 14, left: 14 }}><button className="chip" onClick={() => setVista('perspectiva')}>Visão geral</button><button className="chip" onClick={() => setVista('cima')}>Vista de cima</button></div>
@@ -51,10 +51,10 @@ function Previa({ cena, nome, controles }) {
       <aside className="studio-painel"><div style={{ padding: '18px 18px 0' }}><h1 style={{ fontSize: 19 }}>{nome}</h1><small className="dim">Teste de paredes, piso e móveis</small>{controles}</div>
         <nav className="etapas-studio"><button className={`btn ${admin ? 'btn-primary' : ''}`} onClick={() => { setAdmin(true); selecionar(null, null) }}>1 · Revisar elementos</button><button className={`btn ${!admin ? 'btn-primary' : ''}`} onClick={() => { setAdmin(false); selecionar(null, null) }}>2 · Ver como expositor</button></nav>
         <div style={{ padding: 18 }}>{admin ? <PainelElementos {...{ analise, superficies, objetos, setSuperficies, setObjetos, supFoco, objFoco }} aoSelecionar={selecionar}
-          aoAvancado={() => setAvancado(true)} aoOrganizar={() => setSuperficies(organizarElementos(analise, superficies, objetos))} />
+          acabamentos={acabamentos} setAcabamentos={setAcabamentos} aoFocarPartes={setPartesFoco} aoOrganizar={() => setSuperficies(organizarElementos(analise, superficies, objetos))} />
           : <PainelExpositor {...{ analise, superficies, objetos, setObjetos, acabamentos, setAcabamentos, escolhas, setEscolhas, supFoco, setSupFoco, objFoco, setObjFoco, objSel, orcamento }}
             setObjSel={id => { setObjSel(id); if (id) setVista('cima') }} enviarArquivo={uploadLocal} />}
-          {avancado && <p className="orientacao">As ferramentas de separação e preços estão disponíveis no editor autenticado.</p>}
+
         </div>
         <div style={{ position: 'sticky', bottom: 0, padding: 18, background: 'var(--bg-deep)', borderTop: '1px solid var(--line)' }}>
           {!admin && <p>Total das personalizações <strong>{fmtBRL(orcamento.total)}</strong></p>}
