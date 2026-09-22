@@ -1,3 +1,4 @@
+import { projetarFrente } from '../lib/glb/frente.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, Grid, Environment, Lightformer } from '@react-three/drei'
@@ -351,6 +352,7 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
     const geometrias = new Map()
     cena.updateWorldMatrix(true, true)
     const gruposArte = new Map()
+    const gruposFrente = new Map()
     cena.traverse(o => {
       if (!o.isMesh || !o.geometry?.attributes.position) return
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
@@ -359,13 +361,23 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
         const nome = (Array.isArray(m) ? m[0] : m)?.name || '(sem material)'
         o.userData._chave = chaveDaPeca(nome, new THREE.Box3().copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld).getCenter(new THREE.Vector3()).toArray())
       }
+      if (!o.userData._matrizArteBase) o.userData._matrizArteBase = o.matrixWorld.clone()
       const sup = indice?.get(o.userData._chave)
+      const obj = (objetos || []).find(x => x.pecas.includes(o.userData._chave))
+      const frontal = sup?.arteFrontal ?? /balc[ãa]o|counter|reception/i.test(`${obj?.nome || ''} ${sup?.nome || ''}`)
+      if (frontal && sup) {
+        const k = sup.elementoId || obj?.id || sup.id
+        if (!gruposFrente.has(k)) gruposFrente.set(k, {malhas:[], angulo:sup.anguloFrente})
+        gruposFrente.get(k).malhas.push(o)
+      }
       const arte = sup && acabamentos?.[sup.id]?.arte
       if (!arte || !sup.elementoId || !['parede', 'piso'].includes(sup.tipoElemento)) return
       const k = `${sup.elementoId}:${arte}`
       if (!gruposArte.has(k)) gruposArte.set(k, [])
       gruposArte.get(k).push(o)
     })
+    const malhasFrontais = new Set([...gruposFrente.values()].flatMap(g=>g.malhas))
+    const frentes = new Map([...gruposFrente.values()].flatMap(g => [...projetarFrente(g.malhas, g.angulo)]))
     const planos = new Map([...gruposArte.values()].flatMap(ms => [...uvDoElemento(ms)]))
 
     cena.traverse((o) => {
@@ -420,12 +432,12 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           roughness: acab.brilho != null ? 1 - acab.brilho : 0.75,
           metalness: 0.02,
         })
-        if (acab.arte) {
+        if (acab.arte && (!malhasFrontais.has(o) || frentes.has(o))) {
           // Isola a geometria: duas instâncias podem compartilhar malha, mas
           // ter UVs diferentes conforme sua posição dentro da parede.
           originais.set(o, o.geometry)
           o.geometry = o.geometry.clone()
-          const plano = planos.get(o) || uvPlanar(o.geometry, o.matrixWorld)
+          const plano = frentes.get(o) || planos.get(o) || uvPlanar(o.geometry, o.matrixWorld)
           if (plano) o.geometry.setAttribute('uv', plano.attr)
           const key = `${acab.arte}|${plano?.proporcao || 1}|${acab.cor || '#f2f2ee'}`
           let tex = cacheTexturas.get(key)
@@ -502,7 +514,13 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
         }
       }
 
-      o.material = usar
+      if (acab?.arte && frentes.has(o)) {
+        const cor = derivar(orig, { color: acab.cor || '#f2f2ee', roughness: .75, metalness: .02 })
+        criados.push(cor)
+        o.geometry.clearGroups()
+        for (const g of frentes.get(o).grupos) o.geometry.addGroup(g.start,g.count,g.materialIndex)
+        o.material = [cor, usar]
+      } else o.material = usar
     })
 
     return () => {
@@ -652,7 +670,7 @@ export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
-  aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco,
+  aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco, complementos = [], aoPosicionar,
 }) {
   useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco: realceSuave ? null : supFoco, objetos, objFoco: realceSuave ? null : objFoco, escondidos, realceSuave, recorte })
   useTransformes(cena, objetos)
@@ -743,11 +761,12 @@ export default function Viewer({
         })
         if (!hit) return
         e.stopPropagation()
+        if (aoPosicionar) { aoPosicionar([hit.point.x, 0, hit.point.z]); return }
         const k = hit.object.userData._chave
         const sup = indice?.get(k)
         const obj = (objetos || []).find(o => o.pecas.includes(k))
         if (somentePersonalizaveis && obj && (obj.podeMover || obj.podeGirar)) { aoSelecionar(null, obj.id); return }
-        if (somentePersonalizaveis && !sup?.podeCor && !sup?.podeArte && !sup?.podeRemover) return
+        if (somentePersonalizaveis && !sup?.podeCor && !sup?.podeArte && !sup?.podeRemover && !complementos.some(g => { const ancora = [...(indice?.values() || [])].find(s => s.id === g.ancora); return ancora && sup && (ancora.id === sup.id || (ancora.elementoId && ancora.elementoId === sup.elementoId)) })) return
         aoSelecionar(sup?.id || null, sup ? null : obj?.id || null)
       }} />}
       {cena && realceSuave && <SelecaoElemento cena={cena} indice={indice} supFoco={supFoco} objetos={objetos} objFoco={objFoco} partesFoco={partesFoco} />}
@@ -756,7 +775,7 @@ export default function Viewer({
           de propósito: são o objeto real que a montadora vai montar, com o
           acabamento que o projetista deu — não uma superfície a colorir. */}
       {pecasExtras.map((p) => (
-        <primitive key={p.id} object={p.objeto} position={p.offset || [0, 0, 0]} />
+        <group key={p.id} position={p.offset || [0, 0, 0]}><primitive object={p.objeto} onClick={e => { if (aoSelecionar && p.ancora) { e.stopPropagation(); aoSelecionar(p.ancora, null) } }} /></group>
       ))}
 
       {/* a caixa do recorte é ferramenta de mapeamento — o expositor não vê */}

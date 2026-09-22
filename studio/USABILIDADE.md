@@ -16,6 +16,14 @@ A interface principal agora trabalha com paredes, testeiras, piso e móveis. Mat
 - Desfazer/refazer e rascunho local do expositor. O salvamento é por navegador, usuário e modelo; não sincroniza entre dispositivos.
 - Movimento e giro independentes, com limites considerando a peça girada. Mover na prévia do administrador não altera a posição-base salva.
 
+## Balcões e inclusões por GLB
+
+Balcões reconhecidos na importação recebem cor no conjunto e arte apenas na face frontal. Para um móvel não reconhecido ou um modelo já salvo, abra seu cartão, ative **Arte somente na frente** e **Liberar cor e arte frontal**. A direção é sugerida pela geometria; pode ser ajustada em graus. A projeção atende frentes planas, inclusive em malhas únicas e balcões rotacionados. Formas curvas ou frentes com recortes exigem revisão da prévia.
+
+**Inclusões e substituições por GLB** fica na tela principal. Também é possível partir do cartão da parede com **Incluir ou substituir por outro GLB**: a escolha aparecerá junto dessa parede para o cliente. Envie o adicional, posicione pelo clique no piso ou ajuste X/altura/Z, e escolha no 3D ou na lista os elementos a ocultar. Conclua a seleção e confira a prévia. O tamanho e a orientação originais do arquivo são preservados. O cliente pode desfazer a inclusão escolhendo **Como está no projeto**; clicar no GLB substituto vinculado reabre as opções da peça original.
+
+O laboratório local permite carregar o projeto e os adicionais sem enviar dados ao Firebase. A sala fornecida foi testada como adicional do ECBR, com posicionamento e reversão da substituição; isso não certifica o encaixe construtivo.
+
 ## Testar sem Firebase
 
 Na pasta `studio`, instalar dependências com `npm ci`, executar `npm run dev` e abrir `/dev/usabilidade.html`. A página existe somente para desenvolvimento e não integra o build normal.

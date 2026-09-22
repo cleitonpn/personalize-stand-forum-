@@ -1,3 +1,4 @@
+import { ehBalcao } from '../lib/glb/frente.js'
 import { useMemo, useState } from 'react'
 import { listarElementos, TIPOS_ELEMENTO } from '../lib/glb/elementos.js'
 import EditorAgrupamento from './EditorAgrupamento.jsx'
@@ -6,7 +7,7 @@ import { Interruptor } from './Interruptor.jsx'
 
 const icones = { logo: '▧', parede: '▥', piso: '▦', movel: '▤', estrutura: '◇', outro: '◈' }
 export default function PainelElementos({ analise, superficies, objetos, recorte,
-  setSuperficies, setObjetos, supFoco, objFoco, aoSelecionar, aoAvancado, aoOrganizar, aoDesfazer, aoFocarPartes, complementos = [], setComplementos, aoAgrupar, acabamentos = {}, setAcabamentos }) {
+  setSuperficies, setObjetos, supFoco, objFoco, aoSelecionar, aoAvancado, aoOrganizar, aoDesfazer, aoFocarPartes, complementos = [], setComplementos, aoAgrupar, acabamentos = {}, setAcabamentos, aoNovaOpcao }) {
   const [edicao, setEdicao] = useState(null)
   const [anterior, setAnterior] = useState(null)
   const [mensagem, setMensagem] = useState('')
@@ -59,6 +60,7 @@ export default function PainelElementos({ analise, superficies, objetos, recorte
     {visiveis.length > 0 && <button className="btn btn-sm" onClick={() => confirmar(visiveis)}>{visiveis.length === 1 ? 'Confirmar este elemento' : `Confirmar os ${visiveis.length} elementos desta lista`}</button>}
     {!visiveis.length && <p className="muted" role="status">Nenhum elemento neste filtro.</p>}
     {visiveis.map(e => {
+      const frontal = e.superficies[0]?.arteFrontal ?? ehBalcao(e)
       const ativo = e.superficies.some(s => s.id === supFoco) || e.objetos.some(o => o.id === objFoco)
       const personalizavel = e.superficies.some(s => s.podeCor || s.podeArte || s.podeRemover) || e.objetos.some(o => o.podeMover || o.podeGirar)
       return <article className={`elemento-card ${ativo ? 'selecionado' : ''}`} key={e.id}>
@@ -92,6 +94,13 @@ export default function PainelElementos({ analise, superficies, objetos, recorte
               <Interruptor rotulo="Girar" ligado={e.objetos.some(o => o.podeGirar)} aoMudar={() => alterarObjetos(e, { podeGirar: !e.objetos.some(o => o.podeGirar) })} />
             </>}
           </div>}
+          {e.tipo === 'movel' && <div className="col" style={{gap:8}}>
+            <Interruptor rotulo="Arte somente na frente" ligado={frontal} aoMudar={() => alterar(e, {arteFrontal:!frontal, podeCor:true, podeArte:true, permsManuais:true})} />
+            {frontal && <><p className="dim">A cor cobre o balcão inteiro. A imagem fica só na face frontal, sem atingir tampo, laterais ou fundo.</p>
+              <button className="btn btn-sm" onClick={() => alterar(e,{arteFrontal:true,podeCor:true,podeArte:true,permsManuais:true})}>Liberar cor e arte frontal</button>
+              <label className="field"><span>Direção da frente (graus)</span><input className="input" type="number" step="1" placeholder="Automática pelo modelo" value={e.superficies[0]?.anguloFrente ?? ''} onChange={ev => alterar(e,{arteFrontal:true,anguloFrente:ev.target.value === '' ? null : Number(ev.target.value)})}/></label></>}
+          </div>}
+          {aoNovaOpcao && <button className="btn" onClick={() => aoNovaOpcao(e)}>Incluir ou substituir por outro GLB</button>}
           <button className="btn btn-primary" onClick={() => confirmar([e])}>{e.revisado ? '✓ Confirmado' : 'Confirmar elemento'}</button>
           <details><summary>Corrigir agrupamento</summary>
             <p className="dim">Separe os componentes do arquivo ou escolha quais elementos devem ficar juntos.</p>

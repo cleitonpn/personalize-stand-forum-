@@ -199,7 +199,7 @@ export default function Expositor() {
 
         <Viewer cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
           indice={indice} acabamentos={acabamentos} supFoco={supFoco} objetos={objetos}
-          extras={extras} escondidos={escondidos} objFoco={objFoco}
+          complementos={modelo?.complementos || []} extras={extras} escondidos={escondidos} objFoco={objFoco}
           objSel={objSel} aoTransformarObjeto={transformarObjeto} limitesGizmo={limitesGizmo}
           realceSuave mostrarGrade={!!objSel} somentePersonalizaveis
           aoSelecionar={(s, o) => { setSupFoco(s); setObjFoco(o); setObjSel(null) }}

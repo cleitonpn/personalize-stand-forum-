@@ -69,7 +69,7 @@ export function opcoesAtivas(grupos, escolhas) {
     const id = escolhas?.[g.id]
     if (!id) continue
     const o = (g.opcoes || []).find((x) => x.id === id)
-    if (o?.arquivo?.url) out.push({ ...o, grupoId: g.id, grupoNome: g.nome })
+    if (o?.arquivo?.url) out.push({ ...o, grupoId: g.id, grupoNome: g.nome, ancora: g.ancora })
   }
   return out
 }
@@ -100,6 +100,7 @@ export function pecasParaCena(ativas) {
   return (ativas || []).map((o) => ({
     id: o.id,
     url: o.arquivo.url,
+    ancora: o.ancora || null,
     offset: o.offset || [0, 0, 0],
   }))
 }
@@ -181,4 +182,10 @@ export function resumoGrupos(grupos) {
     prontos: comArquivo.length,
     opcoes: g.reduce((s, x) => s + (x.opcoes || []).filter((o) => o.arquivo?.url).length, 0),
   }
+}
+
+/** Posiciona o centro da base no ponto escolhido, mantendo escala e orientação. */
+export function offsetNoPiso(bbox, ponto) {
+  if (!bbox) return [0,0,0]
+  return [ponto[0]-bbox.centro[0],ponto[1]-bbox.min[1],ponto[2]-bbox.centro[2]].map(v=>Math.round(v*1000)/1000 || 0)
 }

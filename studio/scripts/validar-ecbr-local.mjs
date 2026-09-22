@@ -1,3 +1,4 @@
+import { projetarFrente } from '../src/lib/glb/frente.js'
 import fs from 'node:fs'
 import assert from 'node:assert/strict'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -21,6 +22,13 @@ const lista = listarElementos(superficies,objetos,analise)
 const balcao = lista.find(e => e.nome === 'Balcão')
 assert.ok(balcao)
 assert.equal(new Set(chavesDoElemento(balcao)).size,2)
+const idsBalcao=new Set(analise.pecas.filter(p=>chavesDoElemento(balcao).includes(p.chave)).map(p=>p.uuid)), malhasBalcao=[]
+scene.traverse(m=>{if(idsBalcao.has(m.uuid))malhasBalcao.push(m)})
+const frente=projetarFrente(malhasBalcao)
+assert.equal(frente.size,2)
+assert.ok([...frente.values()].some(p=>p.grupos.some(g=>g.materialIndex===1)))
+assert.ok([...frente.values()].some(p=>p.grupos.every(g=>g.materialIndex===0)))
+assert.ok(balcao.superficies.every(s=>s.podeCor && s.podeArte && s.arteFrontal))
 const banquetas = lista.filter(e => e.objetos.some(o => analise.pecas.some(p => o.pecas.includes(p.chave) && /banqueta/i.test(p.nomeComponente))))
 assert.equal(banquetas.length,8)
 assert.ok(banquetas.every(e => !chavesDoElemento(e).some(k => chavesDoElemento(balcao).includes(k))))
