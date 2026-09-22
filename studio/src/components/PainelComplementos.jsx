@@ -1,3 +1,4 @@
+import { listarElementos } from '../lib/glb/elementos.js'
 import { useRef, useState } from 'react'
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 import { storage } from '../lib/firebase.js'
@@ -12,7 +13,7 @@ const n2 = (v) => (isFinite(v) ? v.toFixed(2) : '—')
 const fmtMB = (b) => `${((b || 0) / 1024 / 1024).toFixed(1)} MB`
 
 /* ------------------------- envio de uma peça .glb ------------------------ */
-function EnviarPeca({ analise, recorte, aoCriar }) {
+function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal }) {
   const fileRef = useRef(null)
   const [nome, setNome] = useState('')
   const [progresso, setProgresso] = useState(null)
@@ -38,6 +39,12 @@ function EnviarPeca({ analise, recorte, aoCriar }) {
       return
     }
 
+    if (enviarArquivoLocal) {
+      try { aoCriar(novaOpcao({nome:rotulo,bbox,arquivo:await enviarArquivoLocal(f)})); setNome('') }
+      catch (ex) {setErro(ex.message || 'Falha ao abrir o arquivo.')}
+      finally {setProgresso(null)}
+      return
+    }
     const caminho = `modelos/${Date.now()}_peca_${f.name.replace(/[^\w.-]/g, '_')}`
     const tarefa = uploadBytesResumable(ref(storage, caminho), f, { contentType: 'model/gltf-binary' })
     tarefa.on('state_changed',
@@ -88,17 +95,13 @@ function EnviarPeca({ analise, recorte, aoCriar }) {
 }
 
 /* ---------------------------- uma opção do grupo ------------------------- */
-function Opcao({ opc, superficies, analise, recorte, mudar, remover, previa, setPrevia }) {
+function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, previa, setPrevia, aoEscolherSubstituidos, aoPosicionar }) {
   const [abrirEsconde, setAbrirEsconde] = useState(false)
   const check = conferirAlinhamento(opc.bbox, limitesDoEstande(analise, recorte))
   const ativa = previa === opc.id
   const area = areaDaOpcao(opc.bbox)
 
-  const alternarEsconde = (id) => mudar({
-    esconde: opc.esconde.includes(id)
-      ? opc.esconde.filter((x) => x !== id)
-      : [...opc.esconde, id],
-  })
+
 
   return (
     <div style={{
@@ -134,11 +137,16 @@ function Opcao({ opc, superficies, analise, recorte, mudar, remover, previa, set
         </div>
       )}
 
+      <div className="col" style={{gap:8,marginBottom:12}}>
+        {aoPosicionar && <button className="btn btn-sm" onClick={aoPosicionar}>Posicionar no estande pelo clique</button>}
+        {aoEscolherSubstituidos && <button className="btn btn-sm" onClick={aoEscolherSubstituidos}>Escolher no 3D o que será substituído</button>}
+        <small className="dim">O tamanho original do GLB é preservado. Ajuste abaixo apenas a posição.</small>
+      </div>
       {/* ajuste de posição — só faz falta quando o export veio recentrado */}
       <div className="label" style={{ fontSize: 10, marginBottom: 5 }}>Ajuste de posição (m)</div>
       <div className="row" style={{ gap: 6, marginBottom: 10 }}>
         {['X', 'Altura', 'Z'].map((rot, i) => (
-          <input key={rot} className="input" type="number" step="0.1" title={rot}
+          <input key={rot} className="input" type="number" step="0.1" title={rot} aria-label={rot}
             value={opc.offset?.[i] ?? 0}
             onChange={(e) => {
               const v = [...(opc.offset || [0, 0, 0])]
@@ -149,27 +157,26 @@ function Opcao({ opc, superficies, analise, recorte, mudar, remover, previa, set
         ))}
       </div>
 
+      <button className="btn btn-sm" onClick={()=>mudar({offset:[0,0,0]})}>Restaurar posição do arquivo</button>
       {/* o que esta opção substitui */}
       <button className="btn btn-sm btn-ghost" style={{ width: '100%', marginBottom: 8 }}
         onClick={() => setAbrirEsconde((v) => !v)}>
         {opc.esconde.length
-          ? `Substitui ${opc.esconde.length} superfície${opc.esconde.length > 1 ? 's' : ''} ▾`
+          ? `Revisar elementos que serão substituídos ▾`
           : 'O que some quando esta opção entra? ▾'}
       </button>
       {abrirEsconde && (
         <div className="col" style={{ gap: 5, marginBottom: 10, maxHeight: 190, overflowY: 'auto' }}>
           <p className="dim" style={{ margin: '0 0 2px', fontSize: 11, lineHeight: 1.55 }}>
             Marque o que sai de cena. Um painel novo normalmente não tira nada;
-            um depósito noutra posição tira o do projeto.
+            uma sala pode retirar móveis e paredes; um LED pode substituir a parede do depósito.
           </p>
-          {superficies.map((s) => (
-            <label key={s.id} className="row" style={{ gap: 7, fontSize: 12, cursor: 'pointer' }}>
-              <input type="checkbox" checked={opc.esconde.includes(s.id)}
-                onChange={() => alternarEsconde(s.id)}
-                style={{ width: 14, height: 14, flex: 'none', cursor: 'pointer' }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.nome}</span>
-            </label>
-          ))}
+          {elementos.map(e => {
+            const ids=e.superficies.map(s=>s.id), marcado=ids.every(id=>opc.esconde.includes(id))
+            return <label key={e.id} className="row" style={{gap:7,fontSize:12}}>
+              <input type="checkbox" checked={marcado} onChange={()=>mudar({esconde:marcado?opc.esconde.filter(id=>!ids.includes(id)):[...new Set([...opc.esconde,...ids])]})}/>
+              <span>{e.nome}</span></label>
+          })}
         </div>
       )}
 
@@ -210,8 +217,9 @@ function Opcao({ opc, superficies, analise, recorte, mudar, remover, previa, set
  * conversam entre si — é isso que impede a explosão de combinações.
  */
 export default function PainelComplementos({
-  analise, recorte, superficies, grupos, setGrupos, previa, setPrevia,
+  analise, recorte, superficies, grupos, setGrupos, previa, setPrevia, objetos = [], aoEscolherSubstituidos, aoPosicionar, enviarArquivoLocal,
 }) {
+  const elementos = listarElementos(superficies, objetos, analise, recorte)
   const mudarGrupo = (id, patch) =>
     setGrupos(grupos.map((g) => (g.id === id ? { ...g, ...patch } : g)))
 
@@ -230,7 +238,7 @@ export default function PainelComplementos({
 
       <button className="btn btn-sm" style={{ width: '100%' }}
         onClick={() => setGrupos([...grupos, novoGrupo()])}>
-        + Nova pergunta
+        + Nova inclusão ou substituição
       </button>
 
       {!grupos.length && (
@@ -262,7 +270,7 @@ export default function PainelComplementos({
                 onChange={(e) => mudarGrupo(g.id, { ancora: e.target.value || null })}
                 style={{ padding: '6px 9px', fontSize: 12 }}>
                 <option value="">Lista geral</option>
-                {superficies.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                {elementos.map(e => <option key={e.id} value={e.superficies.some(s=>s.id===g.ancora)?g.ancora:e.superficies[0]?.id}>{e.nome}</option>)}
               </select>
             </div>
             <div className="field">
@@ -276,7 +284,8 @@ export default function PainelComplementos({
 
           <div className="col" style={{ gap: 9, marginBottom: 11 }}>
             {(g.opcoes || []).map((o) => (
-              <Opcao key={o.id} opc={o} superficies={superficies}
+              <Opcao key={o.id} opc={o} superficies={superficies} elementos={elementos}
+                aoEscolherSubstituidos={aoEscolherSubstituidos ? () => aoEscolherSubstituidos(g.id,o.id) : null} aoPosicionar={aoPosicionar ? () => aoPosicionar(g.id,o.id) : null}
                 analise={analise} recorte={recorte}
                 previa={previa?.[g.id]} setPrevia={(v) => setPrevia({ ...previa, [g.id]: v })}
                 mudar={(patch) => mudarOpcao(g.id, o.id, patch)}
@@ -284,8 +293,8 @@ export default function PainelComplementos({
             ))}
           </div>
 
-          <EnviarPeca analise={analise} recorte={recorte}
-            aoCriar={(opc) => mudarGrupo(g.id, { opcoes: [...(g.opcoes || []), opc] })} />
+          <EnviarPeca analise={analise} recorte={recorte} enviarArquivoLocal={enviarArquivoLocal}
+            aoCriar={(opc) => { mudarGrupo(g.id, { opcoes: [...(g.opcoes || []), opc] }); setPrevia({...previa,[g.id]:opc.id}) }} />
         </div>
       ))}
     </div>

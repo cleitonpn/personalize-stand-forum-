@@ -130,6 +130,10 @@ export function organizarElementos(analise, superficies, objetos = [], complemen
         ? 'Identificado pela forma, orientação e continuidade das peças.'
         : 'Confira se todas as partes deste elemento estão juntas.',
     }))
+  }).map(s => {
+    const obj=objetos.find(o=>s.pecas.some(k=>o.pecas.includes(k)))
+    return !s.permsManuais && /balc[ãa]o|counter|reception/i.test(obj?.nome || '')
+      ? {...s,podeCor:true,podeArte:true,arteFrontal:true} : s
   })
 }
 

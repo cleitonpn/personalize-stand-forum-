@@ -1,3 +1,4 @@
+import { ehBalcao } from '../lib/glb/frente.js'
 import { useMemo, useRef, useState } from 'react'
 import { listarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { limitesDoEstande } from '../lib/glb/nomes.js'
@@ -72,7 +73,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
                   aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id })}>
                   <span style={{ background: c.hex }} /><small>{c.nome}</small></button>
               })}</div></div>}
-            {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">Sua arte</div>
+            {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">{(atual.superficies[0]?.arteFrontal ?? ehBalcao(atual)) ? 'Sua arte — somente na frente' : 'Sua arte'}</div>
               <button className="btn" disabled={enviando} onClick={() => { destinosArte.current = artes; arquivo.current?.click() }}>
                 {enviando ? 'Enviando…' : artes.some(id => acabamentos[id]?.arte) ? 'Trocar imagem' : 'Enviar imagem'}</button>
               {artes.some(id => acabamentos[id]?.arte) && <button className="btn btn-sm btn-ghost" onClick={() => setAcabamentos(a => {

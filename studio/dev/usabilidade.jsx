@@ -1,3 +1,5 @@
+import PainelComplementos from '../src/components/PainelComplementos.jsx'
+import { offsetNoPiso, novoGrupo, opcoesAtivas, pecasParaCena, chavesEscondidas } from '../src/lib/glb/complementos.js'
 import React, { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import Viewer, { carregarGLB } from '../src/components/Viewer.jsx'
@@ -6,7 +8,7 @@ import PainelExpositor from '../src/components/PainelExpositor.jsx'
 import { analisar } from '../src/lib/glb/analyze.js'
 import { superficiesPadrao, indicePorPeca } from '../src/lib/glb/superficies.js'
 import { detectarObjetos, numerar } from '../src/lib/glb/objetos.js'
-import { organizarElementos, limitarTransformacao } from '../src/lib/glb/elementos.js'
+import { organizarElementos, limitarTransformacao, listarElementos } from '../src/lib/glb/elementos.js'
 import { calcularOrcamento, fmtBRL } from '../src/lib/glb/precos.js'
 import { caixaDe } from '../src/lib/glb/complementos.js'
 import { criarCenaExemplo } from './exemplo.js'
@@ -29,6 +31,11 @@ function Previa({ cena, nome, controles }) {
   const [objSel, setObjSel] = useState(null)
   const [vista, setVista] = useState(null)
   const [admin, setAdmin] = useState(true)
+  const [inclusoes,setInclusoes]=useState(false)
+  const [grupos,setGrupos]=useState([])
+  const [editarInclusao,setEditarInclusao]=useState(null)
+  const mudarExtra=fn=>setGrupos(gs=>gs.map(g=>g.id!==editarInclusao.gid?g:{...g,opcoes:g.opcoes.map(o=>o.id!==editarInclusao.oid?o:fn(o))}))
+  const ativas=opcoesAtivas(grupos,escolhas)
   const [salvo, setSalvo] = useState(false)
   const [partesFoco, setPartesFoco] = useState(null)
   const indice = useMemo(() => indicePorPeca(superficies), [superficies])
@@ -42,17 +49,27 @@ function Previa({ cena, nome, controles }) {
     <header className="topbar"><span className="brand-mark">U</span><strong>Stand Studio</strong><span className="spacer" />
       <span className="dim" style={{ fontSize: 11 }}>Prévia local · sem envio de dados</span></header>
     <div className="studio-workspace">
-      <div className="studio-cena"><Viewer cena={cena} papeis={papeis} indice={indice} acabamentos={admin ? {} : acabamentos}
+      <div className="studio-cena"><Viewer cena={cena} papeis={papeis} complementos={grupos} extras={pecasParaCena(ativas)} escondidos={editarInclusao?.modo==='substituir'?null:chavesEscondidas(ativas,superficies)}
+        aoPosicionar={inclusoes && editarInclusao?.modo==='posicionar'?p=>{mudarExtra(o=>({...o,offset:offsetNoPiso(o.bbox,p)}));setEditarInclusao(null)}:null} indice={indice} acabamentos={admin ? {} : acabamentos}
         objetos={objetos} partesFoco={partesFoco} supFoco={supFoco} objFoco={objFoco} objSel={objSel} realceSuave mostrarGrade={!!objSel}
-        aoSelecionar={selecionar} somentePersonalizaveis={!admin} vista={vista} aoAplicarVista={() => setVista(null)}
+        aoSelecionar={(sid,oid)=>{
+          if(inclusoes && editarInclusao?.modo==='substituir'){
+            const e=listarElementos(superficies,objetos,analise).find(e=>e.superficies.some(s=>s.id===sid)||e.objetos.some(o=>o.id===oid))
+            if(e){const ids=e.superficies.map(s=>s.id);mudarExtra(o=>({...o,esconde:ids.every(id=>o.esconde.includes(id))?o.esconde.filter(id=>!ids.includes(id)):[...new Set([...o.esconde,...ids])]}))}
+          } selecionar(sid,oid)
+        }} somentePersonalizaveis={!admin} vista={vista} aoAplicarVista={() => setVista(null)}
         limitesGizmo={limites} aoTransformarObjeto={(id, patch) => setObjetos(os => os.map(o => o.id === id ? { ...o, transform: limitarTransformacao(o, patch, limites) } : o))} />
         <div className="filtros-elementos" style={{ position: 'absolute', top: 14, left: 14 }}><button className="chip" onClick={() => setVista('perspectiva')}>Visão geral</button><button className="chip" onClick={() => setVista('cima')}>Vista de cima</button></div>
       </div>
       <aside className="studio-painel"><div style={{ padding: '18px 18px 0' }}><h1 style={{ fontSize: 19 }}>{nome}</h1><small className="dim">Teste de paredes, piso e móveis</small>{controles}</div>
-        <nav className="etapas-studio"><button className={`btn ${admin ? 'btn-primary' : ''}`} onClick={() => { setAdmin(true); selecionar(null, null) }}>1 · Revisar elementos</button><button className={`btn ${!admin ? 'btn-primary' : ''}`} onClick={() => { setAdmin(false); selecionar(null, null) }}>2 · Ver como expositor</button></nav>
-        <div style={{ padding: 18 }}>{admin ? <PainelElementos {...{ analise, superficies, objetos, setSuperficies, setObjetos, supFoco, objFoco }} aoSelecionar={selecionar}
-          acabamentos={acabamentos} setAcabamentos={setAcabamentos} aoFocarPartes={setPartesFoco} aoOrganizar={() => setSuperficies(organizarElementos(analise, superficies, objetos))} />
-          : <PainelExpositor {...{ analise, superficies, objetos, setObjetos, acabamentos, setAcabamentos, escolhas, setEscolhas, supFoco, setSupFoco, objFoco, setObjFoco, objSel, orcamento }}
+        <nav className="etapas-studio"><button className={`btn ${admin ? 'btn-primary' : ''}`} onClick={() => { setInclusoes(false); setAdmin(true); selecionar(null, null) }}>1 · Revisar elementos</button><button className={`btn ${!admin ? 'btn-primary' : ''}`} onClick={() => { setInclusoes(false); setAdmin(false); selecionar(null, null) }}>2 · Ver como expositor</button></nav>
+        <button className="btn" onClick={()=>{setInclusoes(true);setAdmin(true)}}>Inclusões e substituições por GLB</button>
+        {editarInclusao && inclusoes && <div className="orientacao"><p>{editarInclusao.modo==='posicionar'?'Clique no piso para posicionar.':'Clique nos elementos que serão substituídos.'}</p><button className="btn" onClick={()=>{setEscolhas(p=>({...p,[editarInclusao.gid]:editarInclusao.oid}));setEditarInclusao(null)}}>Concluir seleção</button></div>}
+        <div style={{ padding: 18 }}>{inclusoes ? <PainelComplementos {...{analise,superficies,objetos,grupos,setGrupos}}
+          aoPosicionar={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'posicionar'});setEscolhas(p=>({...p,[gid]:oid}))}}
+          aoEscolherSubstituidos={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'substituir'});setEscolhas(p=>({...p,[gid]:null}))}} previa={escolhas} setPrevia={setEscolhas} enviarArquivoLocal={async f=>({url:await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)}),nomeOriginal:f.name,bytes:f.size})}/> : admin ? <PainelElementos {...{ analise, superficies, objetos, setSuperficies, setObjetos, supFoco, objFoco }} aoSelecionar={selecionar}
+          acabamentos={acabamentos} setAcabamentos={setAcabamentos} complementos={grupos} setComplementos={setGrupos} aoNovaOpcao={e=>{setGrupos(gs=>[...gs,novoGrupo({nome:`Opções — ${e.nome}`,ancora:e.superficies[0]?.id})]);setInclusoes(true)}} aoFocarPartes={setPartesFoco} aoOrganizar={() => setSuperficies(organizarElementos(analise, superficies, objetos))} />
+          : <PainelExpositor complementos={grupos} {...{ analise, superficies, objetos, setObjetos, acabamentos, setAcabamentos, escolhas, setEscolhas, supFoco, setSupFoco, objFoco, setObjFoco, objSel, orcamento }}
             setObjSel={id => { setObjSel(id); if (id) setVista('cima') }} enviarArquivo={uploadLocal} />}
 
         </div>

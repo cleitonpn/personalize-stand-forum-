@@ -1,3 +1,4 @@
+import { listarElementos } from '../lib/glb/elementos.js'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
@@ -16,7 +17,7 @@ import PainelPrecos from '../components/PainelPrecos.jsx'
 import PainelComplementos from '../components/PainelComplementos.jsx'
 import { PRECOS_PADRAO, PRECOS_OBJETO_PADRAO, calcularOrcamento, fmtBRL } from '../lib/glb/precos.js'
 import { detectarObjetos, numerar, assinaturaDeteccao, nomearPorSuperficies, preservarAjustes } from '../lib/glb/objetos.js'
-import { novoGrupo, opcoesAtivas, chavesEscondidas, pecasParaCena, superficiesEscondidas } from '../lib/glb/complementos.js'
+import { offsetNoPiso, novoGrupo, opcoesAtivas, chavesEscondidas, pecasParaCena, superficiesEscondidas } from '../lib/glb/complementos.js'
 
 // Liberação de CORS do bucket. Só existe por comando — nem o Console do Firebase
 // nem o do Google Cloud expõem isso na interface. Roda no Cloud Shell, que é um
@@ -220,6 +221,7 @@ export default function Editor() {
   const [previa, setPrevia] = useState({})
   const [partesFoco, setPartesFoco] = useState(null)
   const [aba, setAba] = useState('elementos')
+  const [editarInclusao, setEditarInclusao] = useState(null)
   const [avancado, setAvancado] = useState(false)
   const [antesOrganizacao, setAntesOrganizacao] = useState(null)
   const [objetosPrevia, setObjetosPrevia] = useState([])
@@ -427,8 +429,17 @@ export default function Editor() {
           mostrarIgnorados={avancado && mostrarIgnorados} mostrarRecorte={aba === 'recorte'} mostrarGrade={aba === 'recorte' || !!objSel}
           indice={indice} acabamentos={aba === 'personalizar' ? acabamentos : {}}
           partesFoco={partesFoco} supFoco={supFoco} objetos={aba === 'personalizar' ? objetosPrevia : objetos} objFoco={objFoco}
-          extras={aba === 'personalizar' ? extras : []} escondidos={aba === 'personalizar' ? escondidos : null} realceSuave
-          aoSelecionar={(sid, oid) => { setSupFoco(sid); setObjFoco(oid); setObjSel(null) }}
+          complementos={grupos} extras={['personalizar','complementos'].includes(aba) ? extras : []} escondidos={['personalizar','complementos'].includes(aba) && !(aba === 'complementos' && editarInclusao?.modo === 'substituir') ? escondidos : null} realceSuave
+          aoPosicionar={aba === 'complementos' && editarInclusao?.modo === 'posicionar' ? ponto => {
+            setGrupos(gs=>gs.map(g=>g.id!==editarInclusao.gid?g:{...g,opcoes:g.opcoes.map(o=>o.id!==editarInclusao.oid?o:{...o,offset:offsetNoPiso(o.bbox,ponto)})}));setSalvo(false);setEditarInclusao(null)
+          } : null}
+          aoSelecionar={(sid, oid) => {
+            if(aba === 'complementos' && editarInclusao?.modo === 'substituir') {
+              const e=listarElementos(superficies,objetos,analise,recorte).find(e=>e.superficies.some(s=>s.id===sid)||e.objetos.some(o=>o.id===oid))
+              if(e){const ids=e.superficies.map(s=>s.id);setGrupos(gs=>gs.map(g=>g.id!==editarInclusao.gid?g:{...g,opcoes:g.opcoes.map(o=>o.id!==editarInclusao.oid?o:{...o,esconde:ids.every(id=>o.esconde.includes(id))?o.esconde.filter(id=>!ids.includes(id)):[...new Set([...o.esconde,...ids])]})}));setSalvo(false)}
+            }
+            setSupFoco(sid); setObjFoco(oid); setObjSel(null)
+          }}
           somentePersonalizaveis={aba === 'personalizar'}
           objSel={aba === 'personalizar' ? objSel : null}
           limitesGizmo={analise ? limitesDoEstande(analise, recorte) : null}
@@ -482,6 +493,8 @@ export default function Editor() {
                 setObjetosPrevia(structuredClone(objetos || [])); setAba('personalizar'); setAvancado(false); setSupFoco(null); setObjFoco(null); setObjSel(null)
               }}>2 · Ver como expositor</button>
             </nav>
+            <button className="btn" onClick={() => {setAba('complementos');setAvancado(false)}}>Inclusões e substituições por GLB</button>
+            {aba === 'complementos' && editarInclusao && <div className="orientacao" role="status"><p>{editarInclusao.modo === 'substituir' ? 'Clique nos elementos que devem sair. Clique novamente para desmarcar. A lista da opção mostra sua seleção.' : 'Clique no piso para posicionar o adicional. O tamanho permanece igual ao GLB.'}</p><button className="btn" onClick={()=>{setPrevia(p=>({...p,[editarInclusao.gid]:editarInclusao.oid}));setEditarInclusao(null)}}>Concluir seleção</button></div>}
             <div className="ajustes-avancados">
               <button className="btn btn-sm btn-ghost" aria-expanded={avancado} onClick={() => {
                 setAvancado(!avancado); setAba(avancado ? 'elementos' : 'recorte'); setSupFoco(null); setObjFoco(null); setObjSel(null)
@@ -499,6 +512,7 @@ export default function Editor() {
                 superficies && objetos && <PainelElementos analise={analise} superficies={superficies} objetos={objetos} recorte={recorte}
                   setSuperficies={v => { setSuperficies(v); setSalvo(false) }} setObjetos={v => { setObjetos(v); setSalvo(false) }}
                   supFoco={supFoco} objFoco={objFoco} aoSelecionar={(s, o) => { setSupFoco(s); setObjFoco(o) }}
+                  aoNovaOpcao={e=>{setGrupos(gs=>[...gs,novoGrupo({nome:`Opções — ${e.nome}`,ancora:e.superficies[0]?.id})]);setAba('complementos');setAvancado(false);setSalvo(false)}}
                   aoFocarPartes={setPartesFoco} complementos={grupos} setComplementos={setGrupos}
                   acabamentos={acabamentos} setAcabamentos={setAcabamentos} aoAgrupar={ss => setAssinaturaObj(assinaturaDeteccao(papeis, ss))}
                   aoOrganizar={() => { setAntesOrganizacao(superficies); setSuperficies(organizarElementos(analise, superficies, objetos, grupos)); setSupFoco(null); setSalvo(false) }}
@@ -512,7 +526,9 @@ export default function Editor() {
                   : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
               ) : aba === 'complementos' ? (
                 superficies
-                  ? <PainelComplementos analise={analise} recorte={recorte} superficies={superficies}
+                  ? <PainelComplementos analise={analise} recorte={recorte} superficies={superficies} objetos={objetos}
+                      aoEscolherSubstituidos={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'substituir'});setPrevia(p=>({...p,[gid]:null}))}}
+                      aoPosicionar={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'posicionar'});setPrevia(p=>({...p,[gid]:oid}))}}
                       grupos={grupos} setGrupos={(v) => { setGrupos(v); setSalvo(false) }}
                       previa={previa} setPrevia={setPrevia} />
                   : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
