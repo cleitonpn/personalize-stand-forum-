@@ -1,5 +1,5 @@
 import PainelComplementos from '../src/components/PainelComplementos.jsx'
-import { offsetNoPiso, novoGrupo, opcoesAtivas, pecasParaCena, chavesEscondidas } from '../src/lib/glb/complementos.js'
+import { offsetNoPiso, novoGrupo, opcoesAtivas, pecasParaCena, chavesEscondidas, superficiesEscondidas } from '../src/lib/glb/complementos.js'
 import React, { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import Viewer, { carregarGLB } from '../src/components/Viewer.jsx'
@@ -32,6 +32,7 @@ function Previa({ cena, nome, controles }) {
   const [vista, setVista] = useState(null)
   const [admin, setAdmin] = useState(true)
   const [inclusoes,setInclusoes]=useState(false)
+  const [tipoCatalogo,setTipoCatalogo]=useState('complemento')
   const [grupos,setGrupos]=useState([])
   const [editarInclusao,setEditarInclusao]=useState(null)
   const mudarExtra=fn=>setGrupos(gs=>gs.map(g=>g.id!==editarInclusao.gid?g:{...g,opcoes:g.opcoes.map(o=>o.id!==editarInclusao.oid?o:fn(o))}))
@@ -42,7 +43,7 @@ function Previa({ cena, nome, controles }) {
   const caixa = useMemo(() => caixaDe(cena), [cena])
   const limites = { x0: caixa.min[0], x1: caixa.max[0], z0: caixa.min[2], z1: caixa.max[2] }
   const orcamento = calcularOrcamento({ analise, superficies, objetos, acabamentos,
-    precos: { bagum: { unidade: 'm2', valor: 30 }, madeira: { unidade: 'm2', valor: 45 }, piso: { unidade: 'm2', valor: 25 } } })
+    complementos: { ativas, escondidas: superficiesEscondidas(ativas) }, precos: { bagum: { unidade: 'm2', valor: 30 }, madeira: { unidade: 'm2', valor: 45 }, piso: { unidade: 'm2', valor: 25 } } })
   const selecionar = (s, o) => { setSupFoco(s); setObjFoco(o); setObjSel(null) }
   const uploadLocal = f => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve({ arte: r.result, nomeArte: f.name }); r.onerror = reject; r.readAsDataURL(f) })
   return <>
@@ -62,10 +63,11 @@ function Previa({ cena, nome, controles }) {
         <div className="filtros-elementos" style={{ position: 'absolute', top: 14, left: 14 }}><button className="chip" onClick={() => setVista('perspectiva')}>Visão geral</button><button className="chip" onClick={() => setVista('cima')}>Vista de cima</button></div>
       </div>
       <aside className="studio-painel"><div style={{ padding: '18px 18px 0' }}><h1 style={{ fontSize: 19 }}>{nome}</h1><small className="dim">Teste de paredes, piso e móveis</small>{controles}</div>
-        <nav className="etapas-studio"><button className={`btn ${admin ? 'btn-primary' : ''}`} onClick={() => { setInclusoes(false); setAdmin(true); selecionar(null, null) }}>1 · Revisar elementos</button><button className={`btn ${!admin ? 'btn-primary' : ''}`} onClick={() => { setInclusoes(false); setAdmin(false); selecionar(null, null) }}>2 · Ver como expositor</button></nav>
-        <button className="btn" onClick={()=>{setInclusoes(true);setAdmin(true)}}>Inclusões e substituições por GLB</button>
+        <nav className="etapas-studio"><button className={`btn ${admin ? 'btn-primary' : ''}`} onClick={() => { setInclusoes(false); setAdmin(true); selecionar(null, null) }}>1 · Revisar elementos</button><button className={`btn ${!admin ? 'btn-primary' : ''}`} onClick={() => { setEscolhas(es => Object.fromEntries(Object.entries(es).filter(([id,v]) => !grupos.some(g => g.id === id && g.tipo === 'mobiliario' && typeof v === 'string')))); setEditarInclusao(null); setInclusoes(false); setAdmin(false); selecionar(null, null) }}>2 · Ver como expositor</button></nav>
+        <button className="btn" onClick={()=>{setTipoCatalogo('complemento');setInclusoes(true);setAdmin(true)}}>Inclusões e substituições por GLB</button>
+        <button className="btn" onClick={()=>{setTipoCatalogo('mobiliario');setInclusoes(true);setAdmin(true);setEditarInclusao(null)}}>Catálogo de mobiliário</button>
         {editarInclusao && inclusoes && <div className="orientacao"><p>{editarInclusao.modo==='posicionar'?'Clique no piso para posicionar.':'Clique nos elementos que serão substituídos.'}</p><button className="btn" onClick={()=>{setEscolhas(p=>({...p,[editarInclusao.gid]:editarInclusao.oid}));setEditarInclusao(null)}}>Concluir seleção</button></div>}
-        <div style={{ padding: 18 }}>{inclusoes ? <PainelComplementos {...{analise,superficies,objetos,grupos,setGrupos}}
+        <div style={{ padding: 18 }}>{inclusoes ? <PainelComplementos tipo={tipoCatalogo} {...{analise,superficies,objetos,grupos,setGrupos}}
           aoPosicionar={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'posicionar'});setEscolhas(p=>({...p,[gid]:oid}))}}
           aoEscolherSubstituidos={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'substituir'});setEscolhas(p=>({...p,[gid]:null}))}} previa={escolhas} setPrevia={setEscolhas} enviarArquivoLocal={async f=>({url:await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)}),nomeOriginal:f.name,bytes:f.size})}/> : admin ? <PainelElementos {...{ analise, superficies, objetos, setSuperficies, setObjetos, supFoco, objFoco }} aoSelecionar={selecionar}
           acabamentos={acabamentos} setAcabamentos={setAcabamentos} complementos={grupos} setComplementos={setGrupos} aoNovaOpcao={e=>{setGrupos(gs=>[...gs,novoGrupo({nome:`Opções — ${e.nome}`,ancora:e.superficies[0]?.id})]);setInclusoes(true)}} aoFocarPartes={setPartesFoco} aoOrganizar={() => setSuperficies(organizarElementos(analise, superficies, objetos))} />

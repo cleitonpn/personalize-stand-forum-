@@ -429,12 +429,12 @@ export default function Editor() {
           mostrarIgnorados={avancado && mostrarIgnorados} mostrarRecorte={aba === 'recorte'} mostrarGrade={aba === 'recorte' || !!objSel}
           indice={indice} acabamentos={aba === 'personalizar' ? acabamentos : {}}
           partesFoco={partesFoco} supFoco={supFoco} objetos={aba === 'personalizar' ? objetosPrevia : objetos} objFoco={objFoco}
-          complementos={grupos} extras={['personalizar','complementos'].includes(aba) ? extras : []} escondidos={['personalizar','complementos'].includes(aba) && !(aba === 'complementos' && editarInclusao?.modo === 'substituir') ? escondidos : null} realceSuave
-          aoPosicionar={aba === 'complementos' && editarInclusao?.modo === 'posicionar' ? ponto => {
+          complementos={grupos} extras={['personalizar','complementos','mobiliario'].includes(aba) ? extras : []} escondidos={['personalizar','complementos','mobiliario'].includes(aba) && !(['complementos','mobiliario'].includes(aba) && editarInclusao?.modo === 'substituir') ? escondidos : null} realceSuave
+          aoPosicionar={['complementos','mobiliario'].includes(aba) && editarInclusao?.modo === 'posicionar' ? ponto => {
             setGrupos(gs=>gs.map(g=>g.id!==editarInclusao.gid?g:{...g,opcoes:g.opcoes.map(o=>o.id!==editarInclusao.oid?o:{...o,offset:offsetNoPiso(o.bbox,ponto)})}));setSalvo(false);setEditarInclusao(null)
           } : null}
           aoSelecionar={(sid, oid) => {
-            if(aba === 'complementos' && editarInclusao?.modo === 'substituir') {
+            if(['complementos','mobiliario'].includes(aba) && editarInclusao?.modo === 'substituir') {
               const e=listarElementos(superficies,objetos,analise,recorte).find(e=>e.superficies.some(s=>s.id===sid)||e.objetos.some(o=>o.id===oid))
               if(e){const ids=e.superficies.map(s=>s.id);setGrupos(gs=>gs.map(g=>g.id!==editarInclusao.gid?g:{...g,opcoes:g.opcoes.map(o=>o.id!==editarInclusao.oid?o:{...o,esconde:ids.every(id=>o.esconde.includes(id))?o.esconde.filter(id=>!ids.includes(id)):[...new Set([...o.esconde,...ids])]})}));setSalvo(false)}
             }
@@ -490,11 +490,12 @@ export default function Editor() {
             <nav className="etapas-studio" aria-label="Preparação do estande">
               <button className={`btn ${aba === 'elementos' ? 'btn-primary' : ''}`} onClick={() => { setAba('elementos'); setAvancado(false); setObjSel(null) }}>1 · Revisar elementos</button>
               <button className={`btn ${aba === 'personalizar' ? 'btn-primary' : ''}`} onClick={() => {
-                setObjetosPrevia(structuredClone(objetos || [])); setAba('personalizar'); setAvancado(false); setSupFoco(null); setObjFoco(null); setObjSel(null)
+                setPrevia(p => Object.fromEntries(Object.entries(p).filter(([id,v]) => !grupos.some(g => g.id === id && g.tipo === 'mobiliario' && typeof v === 'string')))); setEditarInclusao(null); setObjetosPrevia(structuredClone(objetos || [])); setAba('personalizar'); setAvancado(false); setSupFoco(null); setObjFoco(null); setObjSel(null)
               }}>2 · Ver como expositor</button>
             </nav>
             <button className="btn" onClick={() => {setAba('complementos');setAvancado(false)}}>Inclusões e substituições por GLB</button>
-            {aba === 'complementos' && editarInclusao && <div className="orientacao" role="status"><p>{editarInclusao.modo === 'substituir' ? 'Clique nos elementos que devem sair. Clique novamente para desmarcar. A lista da opção mostra sua seleção.' : 'Clique no piso para posicionar o adicional. O tamanho permanece igual ao GLB.'}</p><button className="btn" onClick={()=>{setPrevia(p=>({...p,[editarInclusao.gid]:editarInclusao.oid}));setEditarInclusao(null)}}>Concluir seleção</button></div>}
+            <button className={`btn ${aba === 'mobiliario' ? 'btn-primary' : ''}`} onClick={() => {setAba('mobiliario');setAvancado(false);setEditarInclusao(null);setSupFoco(null);setObjFoco(null)}}>Catálogo de mobiliário</button>
+            {['complementos','mobiliario'].includes(aba) && editarInclusao && <div className="orientacao" role="status"><p>{editarInclusao.modo === 'substituir' ? 'Clique nos elementos que devem sair. Clique novamente para desmarcar. A lista da opção mostra sua seleção.' : 'Clique no piso para posicionar o adicional. O tamanho permanece igual ao GLB.'}</p><button className="btn" onClick={()=>{setPrevia(p=>({...p,[editarInclusao.gid]:editarInclusao.oid}));setEditarInclusao(null)}}>Concluir seleção</button></div>}
             <div className="ajustes-avancados">
               <button className="btn btn-sm btn-ghost" aria-expanded={avancado} onClick={() => {
                 setAvancado(!avancado); setAba(avancado ? 'elementos' : 'recorte'); setSupFoco(null); setObjFoco(null); setObjSel(null)
@@ -524,9 +525,9 @@ export default function Editor() {
                       precos={precos} setPrecos={(v) => { setPrecos(v); setSalvo(false) }}
                       precosObjeto={precosObjeto} setPrecosObjeto={(v) => { setPrecosObjeto(v); setSalvo(false) }} />
                   : <div className="row"><span className="spinner" /><span className="muted">Preparando…</span></div>
-              ) : aba === 'complementos' ? (
+              ) : ['complementos','mobiliario'].includes(aba) ? (
                 superficies
-                  ? <PainelComplementos analise={analise} recorte={recorte} superficies={superficies} objetos={objetos}
+                  ? <PainelComplementos tipo={aba === 'mobiliario' ? 'mobiliario' : 'complemento'} analise={analise} recorte={recorte} superficies={superficies} objetos={objetos}
                       aoEscolherSubstituidos={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'substituir'});setPrevia(p=>({...p,[gid]:null}))}}
                       aoPosicionar={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'posicionar'});setPrevia(p=>({...p,[gid]:oid}))}}
                       grupos={grupos} setGrupos={(v) => { setGrupos(v); setSalvo(false) }}

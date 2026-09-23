@@ -187,7 +187,7 @@ function usePecasExtras(extras) {
   // A assinatura evita recarregar quando o pai recria a lista com o mesmo
   // conteúdo — o que acontece a cada render, já que ela sai de um map().
   const chave = useMemo(
-    () => (extras || []).map((e) => `${e.id}@${e.url}@${(e.offset || []).join(',')}`).join('|'),
+    () => (extras || []).map((e) => `${e.id}@${e.url}@${(e.offset || []).join(',')}@${e.rotY || 0}@${(e.pivo || []).join(',')}@${e.ancora || ''}`).join('|'),
     [extras],
   )
 
@@ -775,7 +775,10 @@ export default function Viewer({
           de propósito: são o objeto real que a montadora vai montar, com o
           acabamento que o projetista deu — não uma superfície a colorir. */}
       {pecasExtras.map((p) => (
-        <group key={p.id} position={p.offset || [0, 0, 0]}><primitive object={p.objeto} onClick={e => { if (aoSelecionar && p.ancora) { e.stopPropagation(); aoSelecionar(p.ancora, null) } }} /></group>
+        <group key={p.id} position={(p.offset || [0, 0, 0]).map((v, i) => v + (p.pivo?.[i] || 0))} rotation={[0, p.rotY || 0, 0]}>
+          {p.dimensoes && supFoco === `extra:${p.id}` && <mesh raycast={() => null}><boxGeometry args={p.dimensoes} /><meshBasicMaterial color="#50efd1" wireframe depthTest={false} /></mesh>}
+          <group position={(p.pivo || [0, 0, 0]).map(v => -v)}><primitive object={p.objeto} onClick={e => { e.stopPropagation(); if (aoSelecionar && p.tipo === 'mobiliario') aoSelecionar(`extra:${p.id}`, null); else if (aoSelecionar && p.ancora) aoSelecionar(p.ancora, null) }} /></group>
+        </group>
       ))}
 
       {/* a caixa do recorte é ferramenta de mapeamento — o expositor não vê */}

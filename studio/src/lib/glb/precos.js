@@ -157,13 +157,13 @@ export function calcularOrcamento({
   // orçamento — mas continua registrado na proposta pelo nome da opção.
   for (const o of complementos?.ativas || []) {
     const valor = o.preco?.valor || 0
-    if (!valor) continue
+    if (!valor && o.tipo !== 'mobiliario') continue
     const qtd = o.preco.unidade === 'm2' ? areaDaOpcao(o.bbox) : 1
     itens.push({
       id: o.id,
       grupo: 'complemento',
       nome: o.nome,
-      detalhe: o.grupoNome,
+      detalhe: o.tipo === 'mobiliario' ? `${o.grupoNome} · ${o.esconde?.length ? 'substituição' : 'inclusão'}` : o.grupoNome,
       unidade: o.preco.unidade,
       quantidade: qtd,
       valorUnitario: valor,

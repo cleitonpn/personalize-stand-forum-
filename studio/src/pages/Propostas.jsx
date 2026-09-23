@@ -30,7 +30,7 @@ export default function Propostas() {
   const abrirPDF = (p) => {
     const html = gerarPropostaHTML({
       cliente: p.clienteNome, email: p.clienteEmail, feira: p.feira,
-      modelo: p.modeloNome, itens: p.itens, total: p.total, imagem: null,
+      modelo: p.modeloNome, itens: p.itens, total: p.total, imagem: null, complementos: p.complementos,
     })
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }

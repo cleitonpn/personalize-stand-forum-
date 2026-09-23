@@ -1,3 +1,4 @@
+import { registroComplemento } from '../lib/glb/mobiliario.js'
 import { useEffect, useMemo, useState } from 'react'
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
@@ -132,14 +133,12 @@ export default function Expositor() {
         // produção precisa ler "Depósito na ponta esquerda" sem ter que
         // consultar o mapeamento do modelo para traduzir um id.
         escolhas,
-        complementos: ativas.map((o) => ({
-          grupo: o.grupoNome, opcao: o.nome, arquivo: o.arquivo?.nomeOriginal || null,
-        })),
+        complementos: ativas.map(registroComplemento),
         itens: orcamento.itens,
         total: orcamento.total,
         criadoEm: serverTimestamp(),
       })
-      setGravado({ id: ref.id, imagem, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(o => ({ grupo: o.grupoNome, opcao: o.nome })) })
+      setGravado({ id: ref.id, imagem, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
     } catch (ex) {
       alert(`Não foi possível gravar: ${ex.message}`)
     } finally {
@@ -155,7 +154,7 @@ export default function Expositor() {
       modelo: modelo?.nome,
       itens: gravado?.itens || orcamento.itens,
       total: gravado?.total ?? orcamento.total,
-      complementos: gravado?.complementos || ativas.map((o) => ({ grupo: o.grupoNome, opcao: o.nome })),
+      complementos: gravado?.complementos || ativas.map(registroComplemento),
       imagem: gravado?.imagem || window.__psfShot?.() || null,
     })
     const w = window.open('', '_blank')

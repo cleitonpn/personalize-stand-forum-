@@ -51,4 +51,14 @@ A leitura/escrita autenticada no Firebase, o upload ao Storage e o envio de prop
 
 ## Verificação do código
 
+### Catálogo de mobiliário
+
+No editor de cada modelo, **Catálogo de mobiliário** permite criar categorias e enviar GLBs de peças individuais ou conjuntos. Defina o nome, preço adicional por unidade, limite de quantidade (1 a 30; padrão 10), posição inicial e os elementos do projeto que a alternativa pode substituir. Por exemplo, marque os dois bistrôs e as seis banquetas para liberar a troca por outro conjunto. A configuração é por modelo de estande, não uma biblioteca global de estoque.
+
+O expositor encontra **Incluir / substituir móveis**. **Adicionar** mantém o mobiliário padrão; **Substituir** retira os elementos definidos pelo admin. Cada unidade tem identidade, posição e rotação próprias, mantém a escala do GLB e pode ser removida. A seleção pela lista ou pelo 3D destaca a unidade; setas movem 25 cm e os botões giram 15°. Remover a última unidade que substitui um conjunto restaura os originais. Um botão também restaura toda a categoria.
+
+As escolhas usam o histórico e rascunho existentes. Preços somam cada unidade, sem cobrar acabamentos dos elementos substituídos. O preço da troca é adicional, sem crédito automático pelo mobiliário padrão. Propostas registram arquivo, instância, deslocamento, giro e IDs substituídos; o PDF do cliente e do admin inclui as escolhas, mesmo gratuitas.
+
+Validação: 33 testes automatizados e build; teste visual local com uma banqueta extraída do ECBR, duas unidades, substituição de duas cadeiras, limite de quantidade, total de R$ 300, movimento, giro de 15°, destaque e restauração para R$ 0. O arquivo de teste não é enviado ao servidor nem incluído no repositório. O posicionamento limita a caixa do móvel à área quando há espaço, mas não resolve colisões entre móveis, paredes ou circulação. Confira a distribuição na vista de cima. Upload autenticado e envio ao Firebase continuam sujeitos à homologação integrada indicada acima.
+
 `npm test` cobre separação de paredes, união manual de painéis, componentes do GLB, logo removível, posição após separar móveis girados, preservação manual e de adicionais, móveis legados, recorte, permissões, limites de giro, UV compartilhada, perfis e camadas de testeiras. `npm run build` verifica a compilação de produção. O workflow `check-studio.yml` executa ambos em pull requests.
