@@ -1,3 +1,4 @@
+import { limiteMobiliario } from '../lib/glb/mobiliario.js'
 import { listarElementos } from '../lib/glb/elementos.js'
 import { useRef, useState } from 'react'
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
@@ -13,7 +14,7 @@ const n2 = (v) => (isFinite(v) ? v.toFixed(2) : '—')
 const fmtMB = (b) => `${((b || 0) / 1024 / 1024).toFixed(1)} MB`
 
 /* ------------------------- envio de uma peça .glb ------------------------ */
-function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal }) {
+function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal, mobiliario }) {
   const fileRef = useRef(null)
   const [nome, setNome] = useState('')
   const [progresso, setProgresso] = useState(null)
@@ -56,6 +57,7 @@ function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal }) {
           : `Falha no envio: ${ex.message}`)
       },
       async () => {
+        try {
         const url = await getDownloadURL(tarefa.snapshot.ref)
         const opc = novaOpcao({
           nome: rotulo, bbox,
@@ -66,7 +68,9 @@ function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal }) {
         const check = conferirAlinhamento(bbox, limitesDoEstande(analise, recorte))
         if (!check.ok) opc.offset = check.sugestao
         aoCriar(opc)
-        setNome(''); setProgresso(null)
+        setNome('')
+        } catch (ex) { setErro(`Falha ao obter o arquivo enviado: ${ex.message}`) }
+        finally { setProgresso(null) }
       })
   }
 
@@ -76,7 +80,7 @@ function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal }) {
     <div className="col" style={{ gap: 7 }}>
       <div className="row" style={{ gap: 7 }}>
         <input className="input" value={nome} onChange={(e) => setNome(e.target.value)}
-          placeholder="Nome da opção (ex.: Painel de LED)" disabled={enviando}
+          placeholder={mobiliario ? "Nome do móvel ou conjunto (ex.: Mesa com 4 cadeiras)" : "Nome da opção (ex.: Painel de LED)"} disabled={enviando}
           style={{ padding: '7px 10px', fontSize: 12.5 }} />
         <button className="btn btn-sm" style={{ flex: 'none' }} disabled={enviando}
           onClick={() => fileRef.current?.click()}>
@@ -87,15 +91,14 @@ function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal }) {
       {erro && <div style={{ fontSize: 11.5, color: '#fda4af' }}>{erro}</div>}
       <input ref={fileRef} type="file" accept=".glb" hidden onChange={escolher} />
       <p className="dim" style={{ margin: 0, fontSize: 11, lineHeight: 1.6 }}>
-        Exporte a peça do mesmo arquivo do projeto, <b>sem centralizar na origem</b>.
-        Assim ela chega no lugar certo sozinha.
+        {mobiliario ? "Envie um móvel ou conjunto em escala real. Depois defina a posição inicial no estande; cada unidade manterá o tamanho do arquivo." : <>Exporte a peça do mesmo arquivo do projeto, <b>sem centralizar na origem</b>. Assim ela chega no lugar certo sozinha.</>}
       </p>
     </div>
   )
 }
 
 /* ---------------------------- uma opção do grupo ------------------------- */
-function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, previa, setPrevia, aoEscolherSubstituidos, aoPosicionar }) {
+function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, previa, setPrevia, aoEscolherSubstituidos, aoPosicionar, mobiliario }) {
   const [abrirEsconde, setAbrirEsconde] = useState(false)
   const check = conferirAlinhamento(opc.bbox, limitesDoEstande(analise, recorte))
   const ativa = previa === opc.id
@@ -168,8 +171,7 @@ function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, 
       {abrirEsconde && (
         <div className="col" style={{ gap: 5, marginBottom: 10, maxHeight: 190, overflowY: 'auto' }}>
           <p className="dim" style={{ margin: '0 0 2px', fontSize: 11, lineHeight: 1.55 }}>
-            Marque o que sai de cena. Um painel novo normalmente não tira nada;
-            uma sala pode retirar móveis e paredes; um LED pode substituir a parede do depósito.
+            {mobiliario ? 'Marque os móveis do projeto que esta alternativa pode substituir. Ao escolher Adicionar, o cliente mantém os originais; ao escolher Substituir, estes itens saem.' : 'Marque o que sai de cena. Uma sala pode retirar móveis e paredes; um LED pode substituir a parede do depósito.'}
           </p>
           {elementos.map(e => {
             const ids=e.superficies.map(s=>s.id), marcado=ids.every(id=>opc.esconde.includes(id))
@@ -180,6 +182,9 @@ function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, 
         </div>
       )}
 
+      {mobiliario && <label className="field"><span className="label">Máximo de unidades por cliente (1 a 30)</span>
+        <input className="input" type="number" min="1" max="30" value={limiteMobiliario(opc)} onChange={e => mudar({ limite: Math.max(1, Math.min(30, Number(e.target.value) || 1)) })} />
+      </label>}
       {/* preço da opção */}
       <div className="row" style={{ gap: 6 }}>
         <select className="select" value={opc.preco?.unidade || 'peca'}
@@ -217,53 +222,52 @@ function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, 
  * conversam entre si — é isso que impede a explosão de combinações.
  */
 export default function PainelComplementos({
-  analise, recorte, superficies, grupos, setGrupos, previa, setPrevia, objetos = [], aoEscolherSubstituidos, aoPosicionar, enviarArquivoLocal,
+  analise, recorte, superficies, grupos, setGrupos, previa, setPrevia, objetos = [], aoEscolherSubstituidos, aoPosicionar, enviarArquivoLocal, tipo = "complemento",
 }) {
-  const elementos = listarElementos(superficies, objetos, analise, recorte)
+  const mobiliario = tipo === 'mobiliario'
+  const visiveis = grupos.filter(g => (g.tipo === 'mobiliario') === mobiliario)
+  const elementos = listarElementos(superficies, objetos, analise, recorte).filter(e => e.superficies.length && (!mobiliario || e.tipo === 'movel' || e.objetos.length))
   const mudarGrupo = (id, patch) =>
-    setGrupos(grupos.map((g) => (g.id === id ? { ...g, ...patch } : g)))
+    setGrupos(gs => gs.map(g => g.id === id ? { ...g, ...(typeof patch === 'function' ? patch(g) : patch) } : g))
 
   const mudarOpcao = (gid, oid, patch) =>
-    setGrupos(grupos.map((g) => (g.id !== gid ? g : {
+    setGrupos(gs => gs.map((g) => (g.id !== gid ? g : {
       ...g, opcoes: g.opcoes.map((o) => (o.id === oid ? { ...o, ...patch } : o)),
     })))
 
   return (
     <div className="col" style={{ gap: 13 }}>
       <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6 }}>
-        Aqui entram as escolhas que mudam a <b>peça</b>, não a cor: incluir um painel
-        de LED, levar o depósito para outra ponta. Cada bloco é uma pergunta que o
-        expositor vai responder, e cada opção é um <b>.glb</b> exportado do projeto.
+        {mobiliario ? <>Cadastre os <b>móveis e conjuntos disponíveis neste projeto</b>. O cliente pode adicionar várias unidades ou substituir os itens que você indicar. Exemplo: selecione os 2 bistrôs e as 6 banquetas ao cadastrar o conjunto alternativo. O preço é o adicional por unidade, inclusive na substituição.</> : <>Aqui entram as escolhas que mudam a peça: incluir um painel de LED ou levar o depósito para outra ponta. Cada bloco é uma pergunta e cada opção é um .glb.</>}
       </p>
 
       <button className="btn btn-sm" style={{ width: '100%' }}
-        onClick={() => setGrupos([...grupos, novoGrupo()])}>
-        + Nova inclusão ou substituição
+        onClick={() => setGrupos(gs => [...gs, { ...novoGrupo({ nome: mobiliario ? 'Mobiliário disponível' : undefined }), tipo }])}>
+        {mobiliario ? '+ Nova categoria de mobiliário' : '+ Nova inclusão ou substituição'}
       </button>
 
-      {!grupos.length && (
+      {!visiveis.length && (
         <div className="card card-pad" style={{ textAlign: 'center', padding: '26px 20px' }}>
           <div style={{ fontSize: 24, marginBottom: 8, opacity: .5 }}>🧩</div>
           <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6 }}>
-            Nenhuma pergunta ainda. Crie uma para "Painel de LED na parede do
-            depósito" ou "Posição do depósito".
+{mobiliario ? "Crie uma categoria, como Mesas e cadeiras, e envie seus arquivos GLB abaixo." : "Crie uma inclusão para configurar as alternativas do projeto."}
           </p>
         </div>
       )}
 
-      {grupos.map((g) => (
+      {visiveis.map((g) => (
         <div key={g.id} className="card card-pad" style={{ padding: 14 }}>
           <div className="row" style={{ gap: 7, marginBottom: 9 }}>
             <input className="input" value={g.nome}
               onChange={(e) => mudarGrupo(g.id, { nome: e.target.value })}
-              placeholder="O que o expositor escolhe aqui?"
+              placeholder={mobiliario ? "Nome da categoria (ex.: Mesas e cadeiras)" : "O que o expositor escolhe aqui?"}
               style={{ padding: '6px 10px', fontSize: 13, fontWeight: 600 }} />
             <button className="btn btn-sm btn-ghost" style={{ flex: 'none', color: '#fda4af' }}
-              title="Remover esta pergunta"
-              onClick={() => setGrupos(grupos.filter((x) => x.id !== g.id))}>✕</button>
+              title={mobiliario ? "Remover categoria" : "Remover esta pergunta"}
+              onClick={() => setGrupos(gs => gs.filter((x) => x.id !== g.id))}>✕</button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 11 }}>
+          <div hidden={mobiliario} style={{ display: mobiliario ? 'none' : 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 11 }}>
             <div className="field">
               <label className="label" style={{ fontSize: 10 }}>Aparece junto de</label>
               <select className="select" value={g.ancora || ''}
@@ -284,17 +288,17 @@ export default function PainelComplementos({
 
           <div className="col" style={{ gap: 9, marginBottom: 11 }}>
             {(g.opcoes || []).map((o) => (
-              <Opcao key={o.id} opc={o} superficies={superficies} elementos={elementos}
+              <Opcao key={o.id} opc={o} mobiliario={mobiliario} superficies={superficies} elementos={elementos}
                 aoEscolherSubstituidos={aoEscolherSubstituidos ? () => aoEscolherSubstituidos(g.id,o.id) : null} aoPosicionar={aoPosicionar ? () => aoPosicionar(g.id,o.id) : null}
                 analise={analise} recorte={recorte}
-                previa={previa?.[g.id]} setPrevia={(v) => setPrevia({ ...previa, [g.id]: v })}
+                previa={previa?.[g.id]} setPrevia={(v) => setPrevia(p => ({ ...p, [g.id]: v }))}
                 mudar={(patch) => mudarOpcao(g.id, o.id, patch)}
                 remover={() => mudarGrupo(g.id, { opcoes: g.opcoes.filter((x) => x.id !== o.id) })} />
             ))}
           </div>
 
-          <EnviarPeca analise={analise} recorte={recorte} enviarArquivoLocal={enviarArquivoLocal}
-            aoCriar={(opc) => { mudarGrupo(g.id, { opcoes: [...(g.opcoes || []), opc] }); setPrevia({...previa,[g.id]:opc.id}) }} />
+          <EnviarPeca mobiliario={mobiliario} analise={analise} recorte={recorte} enviarArquivoLocal={enviarArquivoLocal}
+            aoCriar={(opc) => { mudarGrupo(g.id, atual => ({ opcoes: [...(atual.opcoes || []), opc] })); setPrevia(p => ({...p,[g.id]:opc.id})) }} />
         </div>
       ))}
     </div>

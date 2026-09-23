@@ -1,5 +1,6 @@
+import CatalogoMobiliario from './CatalogoMobiliario.jsx'
 import { ehBalcao } from '../lib/glb/frente.js'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { listarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { limitesDoEstande } from '../lib/glb/nomes.js'
 import { fmtBRL } from '../lib/glb/precos.js'
@@ -13,6 +14,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
   objetos = [], setObjetos, objFoco, setObjFoco, objSel, setObjSel,
   enviarArquivo = enviarArte, aoEnviarArte }) {
   const [filtro, setFiltro] = useState('todos')
+  useEffect(() => { if (supFoco?.startsWith('extra:')) setFiltro('mobiliario') }, [supFoco])
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const arquivo = useRef(null)
@@ -37,7 +39,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
     catch (e) { setErro(e.message || 'Não foi possível enviar. Tente novamente.') }
     finally { setEnviando(false); aoEnviarArte?.(false) }
   }
-  const perguntasSoltas = complementos.filter(g => !g.ancora || !lista.some(e => e.superficies.some(s => s.id === g.ancora)))
+  const perguntasSoltas = complementos.filter(g => g.tipo !== 'mobiliario').filter(g => !g.ancora || !lista.some(e => e.superficies.some(s => s.id === g.ancora)))
   const transformar = (o, patch) => setObjetos(os => os.map(x => x.id === o.id
     ? { ...x, transform: limitarTransformacao(x, patch, limitesDoEstande(analise, recorte)) } : x))
   const opcoes = g => <EscolhaComplemento key={g.id} grupo={g} escolhido={escolhas?.[g.id]}
@@ -46,7 +48,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
     <div className="orientacao"><strong>Deixe o estande do seu jeito</strong>
       <p>Clique em uma parte do estande ou escolha abaixo. Você verá apenas as opções disponíveis.</p></div>
     <div className="filtros-elementos" aria-label="O que personalizar">
-      {[['todos', 'Tudo'], ['parede', 'Paredes'], ['logo', 'Logos'], ['piso', 'Piso'], ['movel', 'Móveis'], ['adicionais', 'Adicionais']].map(([id, nome]) =>
+      {[['todos', 'Tudo'], ['parede', 'Paredes'], ['logo', 'Logos'], ['piso', 'Piso'], ['movel', 'Móveis do projeto'], ['mobiliario', 'Incluir / substituir móveis'], ['adicionais', 'Adicionais']].map(([id, nome]) =>
         <button className={`chip ${filtro === id ? 'sel' : ''}`} aria-pressed={filtro === id} key={id} onClick={() => { setFiltro(id); voltar() }}>{nome}</button>)}
     </div>
     {enviando && <p className="orientacao" role="status">Enviando sua arte… Você pode continuar escolhendo as cores.</p>}
@@ -99,15 +101,18 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
         {complementos.filter(g => atual.superficies.some(s => s.id === g.ancora)).map(opcoes)}
       </div>
     </article> : <>
-      {filtro !== 'adicionais' && disponiveis.filter(e => filtro === 'todos' || e.tipo === filtro).map(e =>
+      {!['adicionais', 'mobiliario'].includes(filtro) && disponiveis.filter(e => filtro === 'todos' || e.tipo === filtro).map(e =>
         <button className="elemento-card elemento-titulo" key={e.id} onClick={() => selecionar(e)}>
           <span className="elemento-icone" aria-hidden="true">{e.tipo === 'piso' ? '▦' : e.tipo === 'parede' ? '▥' : '◇'}</span>
           <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) ? 'Personalizado' : 'Ver opções'}</small></span><span aria-hidden="true">→</span>
         </button>)}
-      {(filtro === 'adicionais' ? complementos : filtro === 'todos' ? perguntasSoltas : []).map(opcoes)}
+      {(filtro === 'adicionais' ? complementos.filter(g => g.tipo !== 'mobiliario') : filtro === 'todos' ? perguntasSoltas : []).map(opcoes)}
+      {(filtro === 'mobiliario' || (filtro === 'todos' && complementos.some(g => g.tipo === 'mobiliario'))) && <CatalogoMobiliario
+        grupos={complementos.filter(g => g.tipo === 'mobiliario')} escolhas={escolhas} setEscolhas={setEscolhas}
+        elementos={lista} foco={supFoco} aoFocar={setSupFoco} limites={limitesDoEstande(analise, recorte)} />}
       {!disponiveis.length && !complementos.length && <p className="muted">A equipe está preparando as opções deste estande.</p>}
-      {disponiveis.length > 0 && !disponiveis.some(e => filtro === 'todos' || e.tipo === filtro) && filtro !== 'adicionais' && <p className="muted">Não há opções nesta categoria.</p>}
-      {filtro === 'adicionais' && !complementos.length && <p className="muted">Este projeto não tem adicionais disponíveis.</p>}
+      {disponiveis.length > 0 && !disponiveis.some(e => filtro === 'todos' || e.tipo === filtro) && !['adicionais', 'mobiliario'].includes(filtro) && <p className="muted">Não há opções nesta categoria.</p>}
+      {filtro === 'adicionais' && !complementos.some(g => g.tipo !== 'mobiliario') && <p className="muted">Este projeto não tem adicionais disponíveis.</p>}
     </>}
     <input ref={arquivo} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload} />
   </div>

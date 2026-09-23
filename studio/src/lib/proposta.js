@@ -29,7 +29,7 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
   // não geram linha no orçamento — mas a produção precisa de todas elas para
   // montar o estande certo.
   const escolhas = (complementos || []).map((c) => `
-    <li><b>${esc(c.grupo)}:</b> ${esc(c.opcao)}</li>`).join('')
+    <li><b>${esc(c.grupo)}:</b> ${esc(c.opcao)}${c.tipo === 'mobiliario' ? ` — 1 unidade (${c.substitui?.length ? 'substituição' : 'inclusão'}); deslocamento X/Y/Z: ${(c.offset || [0, 0, 0]).map(v => Number(v).toFixed(2)).join(' / ')} m; rotação ${Math.round((c.rotY || 0) * 180 / Math.PI)}°` : ''}</li>`).join('')
 
   return `<!doctype html>
 <html lang="pt-BR"><head><meta charset="UTF-8">

@@ -21,6 +21,7 @@
 // ============================================================================
 
 import * as THREE from 'three'
+import { instanciasMobiliario, limiteMobiliario, LIMITE_MOBILIARIO } from './mobiliario.js'
 
 let seq = 0
 const novoId = (p) => `${p}-${Date.now().toString(36)}-${seq++}`
@@ -68,6 +69,22 @@ export function opcoesAtivas(grupos, escolhas) {
   for (const g of grupos || []) {
     const id = escolhas?.[g.id]
     if (!id) continue
+    if (g.tipo === 'mobiliario' && typeof id === 'object') {
+      const quantidades = new Map(), vistos = new Set()
+      for (const item of instanciasMobiliario(id).slice(0, LIMITE_MOBILIARIO)) {
+        const o = (g.opcoes || []).find(x => x.id === item.opcaoId)
+        const quantidade = quantidades.get(o?.id) || 0
+        if (!o?.arquivo?.url || !item.id || vistos.has(item.id) || quantidade >= limiteMobiliario(o)) continue
+        vistos.add(item.id); quantidades.set(o.id, quantidade + 1)
+        out.push({ ...o, id: `${g.id}:${item.id}`, opcaoId: o.id, tipo: 'mobiliario',
+          grupoId: g.id, grupoNome: g.nome, ancora: null,
+          offset: Array.isArray(item.offset) && item.offset.length === 3 && item.offset.every(Number.isFinite) ? item.offset : o.offset,
+          rotY: Number.isFinite(item.rotY) ? item.rotY : 0,
+          esconde: item.substituir ? o.esconde : [],
+        })
+      }
+      continue
+    }
     const o = (g.opcoes || []).find((x) => x.id === id)
     if (o?.arquivo?.url) out.push({ ...o, grupoId: g.id, grupoNome: g.nome, ancora: g.ancora })
   }
@@ -100,8 +117,12 @@ export function pecasParaCena(ativas) {
   return (ativas || []).map((o) => ({
     id: o.id,
     url: o.arquivo.url,
+    tipo: o.tipo || null,
+    dimensoes: o.bbox ? [o.bbox.largura, o.bbox.altura, o.bbox.profundidade] : null,
     ancora: o.ancora || null,
     offset: o.offset || [0, 0, 0],
+    rotY: o.rotY || 0,
+    pivo: o.tipo === 'mobiliario' ? o.bbox?.centro || [0, 0, 0] : [0, 0, 0],
   }))
 }
 
