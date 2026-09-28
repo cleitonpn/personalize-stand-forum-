@@ -77,6 +77,8 @@ export function uvPlanar(geo, matrizMundo) {
     attr: new THREE.BufferAttribute(uv, 2),
     // proporção medida em metros de mundo, não em unidades locais
     proporcao: (du * escala[eu].comprimento) / ((dv * escala[ev].comprimento) || 1),
+    largura: du * escala[eu].comprimento,
+    altura: dv * escala[ev].comprimento,
   }
   return geo.userData._uvPlanar
 }

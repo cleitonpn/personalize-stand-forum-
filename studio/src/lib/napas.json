@@ -1,0 +1,682 @@
+[
+  {
+    "id": "napa-cb685",
+    "nome": "Azul Bebê",
+    "codigo": "CB685",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#95c1d9",
+    "pagina": 2,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb605",
+    "nome": "Azul Céu",
+    "codigo": "CB605",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#5fa1ce",
+    "pagina": 2,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb247",
+    "nome": "Azul Bahia",
+    "codigo": "CB247",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#0686ed",
+    "pagina": 2,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb342",
+    "nome": "Azul Guanabara",
+    "codigo": "CB342",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#2175d1",
+    "pagina": 2,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb332",
+    "nome": "Azul Cancun",
+    "codigo": "CB332",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#0b63d1",
+    "pagina": 2,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb333",
+    "nome": "Azul Royal",
+    "codigo": "CB333",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#0c44a5",
+    "pagina": 2,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb277",
+    "nome": "Azul Marinho",
+    "codigo": "CB277",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#212e4d",
+    "pagina": 3,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb198",
+    "nome": "Branco",
+    "codigo": "CB198",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#f2f4f3",
+    "pagina": 3,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb156",
+    "nome": "Preto",
+    "codigo": "CB156",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#16110d",
+    "pagina": 3,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb204",
+    "nome": "Grafite",
+    "codigo": "CB204",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#5d5f5d",
+    "pagina": 3,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb203",
+    "nome": "Cinza",
+    "codigo": "CB203",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#9b9d9a",
+    "pagina": 3,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb714",
+    "nome": "Prata",
+    "codigo": "CB714",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#858b87",
+    "pagina": 3,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb454",
+    "nome": "Verde Piscina",
+    "codigo": "CB454",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#2ba1ab",
+    "pagina": 4,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb445",
+    "nome": "Verde Água",
+    "codigo": "CB445",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#069d8f",
+    "pagina": 4,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb600",
+    "nome": "Verde Limão",
+    "codigo": "CB600",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#bbc83b",
+    "pagina": 4,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb261",
+    "nome": "Verde Primavera",
+    "codigo": "CB261",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#73a205",
+    "pagina": 4,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb506",
+    "nome": "Verde Pera",
+    "codigo": "CB506",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#4e9a3b",
+    "pagina": 4,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb245",
+    "nome": "Verde Bandeira",
+    "codigo": "CB245",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#3c815c",
+    "pagina": 4,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb457",
+    "nome": "Verde Militar",
+    "codigo": "CB457",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#214f54",
+    "pagina": 5,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb1955",
+    "nome": "Mostarda",
+    "codigo": "CB1955",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#ad9827",
+    "pagina": 5,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb253",
+    "nome": "Amarelo",
+    "codigo": "CB253",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#edc103",
+    "pagina": 5,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb794",
+    "nome": "Amarelo Bebê",
+    "codigo": "CB794",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#fedf8c",
+    "pagina": 5,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb430",
+    "nome": "Creme",
+    "codigo": "CB430",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#d1ca92",
+    "pagina": 5,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb252",
+    "nome": "Areia",
+    "codigo": "CB252",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#d3c479",
+    "pagina": 5,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb461",
+    "nome": "Bege",
+    "codigo": "CB461",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#cfc1a4",
+    "pagina": 6,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb1956",
+    "nome": "Nude",
+    "codigo": "CB1956",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#8d765c",
+    "pagina": 6,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb502",
+    "nome": "Marrom",
+    "codigo": "CB502",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#53452a",
+    "pagina": 6,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb503",
+    "nome": "Café",
+    "codigo": "CB503",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#4c3220",
+    "pagina": 6,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb1957",
+    "nome": "Telha",
+    "codigo": "CB1957",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#9a5743",
+    "pagina": 6,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb462",
+    "nome": "Uva",
+    "codigo": "CB462",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#673a3a",
+    "pagina": 6,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb338",
+    "nome": "Fanta",
+    "codigo": "CB338",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#cd520d",
+    "pagina": 7,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb1130",
+    "nome": "Caramelo",
+    "codigo": "CB1130",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#b14e0c",
+    "pagina": 7,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-vermelho-cereja",
+    "nome": "Vermelho Cereja",
+    "codigo": null,
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#f30610",
+    "pagina": 7,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb205",
+    "nome": "Vermelho",
+    "codigo": "CB205",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#d3050e",
+    "pagina": 7,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb248",
+    "nome": "Vinho",
+    "codigo": "CB248",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#b81339",
+    "pagina": 7,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb793",
+    "nome": "Salmão",
+    "codigo": "CB793",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#ee9e92",
+    "pagina": 7,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb361",
+    "nome": "Pink",
+    "codigo": "CB361",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#c5214b",
+    "pagina": 8,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb422",
+    "nome": "Rosa Bebê",
+    "codigo": "CB422",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#ce98b8",
+    "pagina": 8,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb678",
+    "nome": "Lilás",
+    "codigo": "CB678",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#bb86b9",
+    "pagina": 8,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  },
+  {
+    "id": "napa-cb351",
+    "nome": "Roxo",
+    "codigo": "CB351",
+    "familia": "lisa",
+    "fornecedor": "Casa Brasil",
+    "cor": "#4b2b66",
+    "pagina": 8,
+    "ativo": true,
+    "tipos": [
+      "parede"
+    ],
+    "preco": null,
+    "textura": null,
+    "escala": 0.25,
+    "brilho": 0.15
+  }
+]

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import { useAuth } from '../store/AuthContext.jsx'
+import { useNapas } from '../store/NapasContext.jsx'
 import Viewer, { useGLB, VISTAS } from '../components/Viewer.jsx'
 import PainelExpositor from '../components/JornadaExpositor.jsx'
 import { analisar } from '../lib/glb/analyze.js'
@@ -18,6 +19,7 @@ import { listarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { useHistorico } from '../lib/useHistorico.js'
 
 export default function Expositor() {
+  const {catalogo,erro:erroCatalogo,carregando:carregandoCatalogo}=useNapas()
   const { user, perfil } = useAuth()
   const [modelo, setModelo] = useState(null)
   const [erro, setErro] = useState(null)
@@ -96,9 +98,9 @@ export default function Expositor() {
   const escondidos = useMemo(() => chavesEscondidas(ativas, superficies), [ativas, superficies])
 
   const orcamento = useMemo(() => (analise ? calcularOrcamento({
-    analise, superficies, objetos, acabamentos, precos, precosObjeto, recorte: modelo?.recorte,
+    analise, superficies, objetos, acabamentos, precos, precosObjeto, catalogo, recorte: modelo?.recorte,
     complementos: { ativas, escondidas: superficiesEscondidas(ativas) },
-  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas])
+  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas,catalogo])
 
   // Escolher a peça vira a câmera para cima: é de lá que arrastar no chão
   // corresponde exatamente ao movimento do mouse, sem dúvida de profundidade.
@@ -293,9 +295,10 @@ export default function Expositor() {
                   escolha que a produção precisa receber — então também libera o
                   envio, não só o que gera valor. */}
               <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
-                disabled={gravando || enviandoArte || !analise || cenaCliente.compararOriginal} onClick={revisando?gravar:()=>setSolicitarRevisao(v=>v+1)}>
+                disabled={gravando || enviandoArte || !analise || cenaCliente.compararOriginal || !!erroCatalogo || carregandoCatalogo} onClick={revisando?gravar:()=>setSolicitarRevisao(v=>v+1)}>
                 {gravando ? <><span className="spinner" /> Enviando…</> : revisando ? 'Enviar personalização' : 'Revisar personalização'}
               </button>
+              {erroCatalogo&&<p role="alert" className="dim">{erroCatalogo} O envio aguarda a consulta dos preços.</p>}
               {!orcamento.itens.length && !ativas.length && !objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY) && (
                 <div className="dim" style={{ fontSize: 11.5, marginTop: 8, textAlign: 'center' }}>
                   Você também pode enviar o projeto original, sem adicionais.

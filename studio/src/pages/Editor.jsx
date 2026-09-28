@@ -1,4 +1,5 @@
 import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
+import { useNapas } from '../store/NapasContext.jsx'
 import { listarElementos } from '../lib/glb/elementos.js'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
@@ -198,6 +199,7 @@ function PainelRecorte({ analise, recorte, aoDefinir }) {
 
 /* ------------------------------- página ------------------------------- */
 export default function Editor() {
+  const {catalogo}=useNapas()
   const { id } = useParams()
   const [modelo, setModelo] = useState(null)
   const [erro, setErro] = useState(null)
@@ -559,7 +561,7 @@ export default function Editor() {
                         supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetosPrevia} setObjetos={setObjetosPrevia}
                         objFoco={objFoco} setObjFoco={setObjFoco} objSel={objSel} setObjSel={id => { setObjSel(id); if (id) setVista('cima') }}
                         complementos={grupos} escolhas={previa} setEscolhas={setPrevia} recorte={recorte}
-                        orcamento={calcularOrcamento({ analise, superficies, objetos: objetosPrevia, acabamentos, precos, precosObjeto, recorte,
+                        orcamento={calcularOrcamento({ analise, superficies, objetos: objetosPrevia, acabamentos, precos, precosObjeto, recorte,catalogo,
                           complementos: { ativas, escondidas: superficiesEscondidas(ativas) } })} />
               ) : aba === 'materiais' ? (
                 <div className="col" style={{ gap: 9 }}>

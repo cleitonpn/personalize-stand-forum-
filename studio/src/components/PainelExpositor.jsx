@@ -1,4 +1,5 @@
 import Miniatura from './Miniatura.jsx'
+import CartelaNapas from './CartelaNapas.jsx'
 import EditorArte from './EditorArte.jsx'
 import { etapaGrupo, pertenceEtapa, ordenarCliente } from '../lib/jornada.js'
 import CatalogoMobiliario from './CatalogoMobiliario.jsx'
@@ -79,11 +80,12 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
           return <>
             {removiveis.length > 0 && <button className="btn" onClick={() => aplicar(removiveis, { removido: !removido })}>{removido ? 'Restaurar no estande' : atual.tipo === 'logo' ? 'Remover logo do estande' : 'Remover do estande'}</button>}
             {removido && <p className="orientacao" role="status">Removido desta personalização. Você pode restaurar quando quiser.</p>}
-            {!removido && cores.length > 0 && <div><div className="label">Escolha uma cor</div>
+            {!removido&&cores.length>0&&<CartelaNapas tipo={atual.tipo} superficies={sups.filter(s=>s.podeCor)} acabamentos={acabamentos} aplicar={aplicar}/>}
+            {!removido && cores.length > 0 && atual.tipo!=='parede' && <div><div className="label">Escolha uma cor</div>
               <div className="cartela-cores">{CORES.map(c => {
                 const marcado = cores.every(id => acabamentos[id]?.corId === c.id)
                 return <button key={c.id} className={`amostra ${marcado ? 'ativa' : ''}`} aria-pressed={marcado}
-                  aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id })}>
+                  aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id,materialId:null,materialNome:null,materialCodigo:null,materialFornecedor:null,textura:null,escalaTextura:null,brilho:null })}>
                   <span style={{ background: c.hex }} /><small>{c.nome}</small></button>
               })}</div></div>}
             {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">{(atual.superficies[0]?.arteFrontal ?? ehBalcao(atual)) ? 'Sua arte — somente na frente' : 'Sua arte'}</div>

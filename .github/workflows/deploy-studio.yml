@@ -30,7 +30,22 @@ jobs:
           cache-dependency-path: studio/package-lock.json
 
       - run: npm ci
+      - run: npm test
       - run: npm run build
+
+      - name: Credencial da conta de serviço
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
+
+      # A biblioteca compartilhada exige esta regra antes do novo frontend.
+      # Se a publicação das regras falhar, o Hosting mantém a versão anterior.
+      - name: Publicar regras do Firestore
+        id: firestore
+        run: npx --yes firebase-tools@13 deploy
+          --only firestore:rules
+          --project personalizacao-stand
+          --non-interactive
 
       - name: Deploy no Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -41,25 +56,7 @@ jobs:
           channelId: live
           entryPoint: studio
 
-      # A action acima publica só o site. Regras e functions precisam da CLI —
-      # e sem isto elas nunca chegariam ao Firebase, porque dependeriam de
-      # alguém rodar comando na mão.
-      - name: Credencial da conta de serviço
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
-
-      # Cada alvo vai num passo próprio e tolerante a falha. Publicar tudo junto
-      # fazia uma permissão faltante no Storage derrubar também as regras do
-      # Firestore, que são as que governam quem lê e escreve o quê.
-      - name: Publicar regras do Firestore
-        id: firestore
-        continue-on-error: true
-        run: npx --yes firebase-tools@13 deploy
-          --only firestore:rules
-          --project personalizacao-stand
-          --non-interactive
-
+      # Hosting usa a action; regras e functions usam a CLI autenticada.
       - name: Publicar regras do Storage
         id: storage
         continue-on-error: true

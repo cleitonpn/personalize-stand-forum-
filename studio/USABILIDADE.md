@@ -51,6 +51,18 @@ A leitura/escrita autenticada no Firebase, o upload ao Storage e o envio de prop
 
 ## Verificação do código
 
+### Biblioteca de napas
+
+**Acabamentos**, no menu do admin, reúne 40 referências de napas lisas da Casa Brasil (PDF NAPA CORES, páginas 2 a 8). Os tons são aproximações obtidas da região central das fotos do catálogo; não equivalem a uma medição colorimétrica. O Vermelho Cereja permanece sem código porque o PDF não informa um. O PDF não é distribuído com o aplicativo.
+
+Paredes passam a oferecer essa cartela com busca por nome/código. Outros tipos mantêm as cores existentes e podem receber napas se o admin liberar esses tipos na biblioteca. O admin pode editar disponibilidade, nome, código, fornecedor e preço por m², além de restringir os materiais no cartão de cada elemento. A biblioteca é compartilhada entre projetos e gravada na coleção `acabamentos`; apenas admins escrevem, e perfis ativos consultam. Novas napas especiais começam indisponíveis até a equipe conferir e liberar.
+
+O preço vazio mantém a regra do projeto; um preço por m² explícito substitui a regra de cor, inclusive quando zero. Com arte aplicada, prevalece a regra de impressão do projeto. Não foram inventados preços a partir do catálogo. Nome, código e fornecedor são guardados na escolha e na proposta, inclusive em acabamentos gratuitos. Alterações futuras na biblioteca não renomeiam propostas já enviadas.
+
+Napas especiais aceitam uma imagem, largura real da amostra e brilho aproximado. O padrão se repete com escala física; a altura segue a proporção da imagem. Não são inferidos mapas de relevo ou propriedades físicas de uma foto. Ainda não há amostras especiais fornecidas cadastradas. A equipe deve usar imagens sem iluminação incorporada e com bordas repetíveis, e conferir emendas e orientação no modelo antes de liberar. A publicação passa a exigir sucesso nas regras do Firestore antes de atualizar o Hosting.
+
+Validação: 47 testes (catálogo, permissões, preços, proposta e medidas de UV), build e conferência local de busca por CB333 e aplicação do Azul Royal na parede. O laboratório usa a cartela padrão sem gravar a biblioteca no Firebase.
+
 ### Jornada do expositor
 
 O cliente inicia em **Passo a passo**, com seis etapas: Seu projeto, Sua marca, Piso, Mobiliário, Complementos e Revisão. **Explorar livremente** usa as mesmas escolhas e permite voltar ao roteiro sem perder a personalização. Cartões têm miniaturas e numeração; selecionar um cartão enquadra o elemento. A navegação fica guardada localmente por usuário e versão do modelo, junto ao rascunho de escolhas já existente na tela autenticada.

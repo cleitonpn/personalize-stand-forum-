@@ -63,6 +63,12 @@ service cloud.firestore {
       allow write: if ehAdmin();
     }
 
+    // Biblioteca comercial compartilhada. Só a montadora altera o catálogo.
+    match /acabamentos/{acabamentoId} {
+      allow read: if ativo();
+      allow write: if ehAdmin();
+    }
+
     // Projetos do expositor: dono e admin.
     match /projetos/{projetoId} {
       allow read, update, delete: if autenticado()

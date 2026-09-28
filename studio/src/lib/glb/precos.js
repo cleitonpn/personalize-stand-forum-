@@ -10,6 +10,7 @@
 // ============================================================================
 
 import { areaDaOpcao } from './complementos.js'
+import { NAPAS, nomeNapa } from '../napas.js'
 
 export const UNIDADES = { m2: 'm²', peca: 'peça' }
 
@@ -98,7 +99,7 @@ export const tipoDoObjeto = (o) => o.tipoPreco || (o.nome || '').replace(/\s+\d+
  * removido sai do orçamento.
  */
 export function calcularOrcamento({
-  analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte, complementos,
+  analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte, complementos, catalogo=NAPAS,
 }) {
   const itens = []
 
@@ -115,7 +116,8 @@ export function calcularOrcamento({
       continue
     }
     if (!acab || (!acab.cor && !acab.arte)) continue
-    const regra = precos?.[s.papel]
+    const material=catalogo.find(n=>n.id===acab.materialId)
+    const regra = !acab.arte&&material?.preco!=null ? {unidade:'m2',valor:material.preco} : precos?.[s.papel] || (acab.materialId?{unidade:'m2',valor:0}:null)
     if (!regra) continue
 
     const area = areaDaSuperficie(s, analise, recorte)
@@ -124,7 +126,7 @@ export function calcularOrcamento({
       id: s.id,
       grupo: 'superficie',
       nome: s.nome,
-      detalhe: acab.arte ? 'com arte aplicada' : 'troca de cor',
+      detalhe: acab.materialNome ? `${acab.arte?'Arte aplicada sobre':'Revestimento'} ${nomeNapa({nome:acab.materialNome,codigo:acab.materialCodigo})}${acab.materialFornecedor?` — ${acab.materialFornecedor}`:''}` : acab.arte ? 'com arte aplicada' : 'troca de cor',
       unidade: regra.unidade,
       quantidade: qtd,
       valorUnitario: regra.valor || 0,

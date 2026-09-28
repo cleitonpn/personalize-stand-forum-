@@ -436,6 +436,27 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           roughness: acab.brilho != null ? 1 - acab.brilho : 0.75,
           metalness: 0.02,
         })
+        if (acab.textura && !acab.arte) {
+          originais.set(o,o.geometry)
+          o.geometry=o.geometry.clone()
+          const plano=uvPlanar(o.geometry,o.userData._matrizArteBase || o.matrixWorld)
+          if(plano)o.geometry.setAttribute('uv',plano.attr)
+          const largura=Math.max(.01,Number(acab.escalaTextura)||.25)
+          const key=`napa:${acab.textura}:${plano?.largura}:${plano?.altura}:${largura}`
+          let tex=cacheTexturas.get(key)
+          if(!tex){
+            tex=new THREE.TextureLoader().load(acab.textura,t=>{
+              if(!vivo)return
+              const altura=largura*t.image.height/t.image.width
+              t.repeat.set((plano?.largura||1)/largura,(plano?.altura||1)/altura)
+              t.needsUpdate=true
+            })
+            tex.colorSpace=THREE.SRGBColorSpace;tex.flipY=false
+            tex.wrapS=tex.wrapT=THREE.RepeatWrapping
+            cacheTexturas.set(key,tex);texturas.push(tex)
+          }
+          m.color.set('#ffffff');m.map=tex;m.transparent=false
+        }
         if (acab.arte && (!malhasFrontais.has(o) || frentes.has(o))) {
           // Isola a geometria: duas instâncias podem compartilhar malha, mas
           // ter UVs diferentes conforme sua posição dentro da parede.

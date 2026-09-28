@@ -8,6 +8,8 @@ import TrocarSenha from './pages/TrocarSenha.jsx'
 import Expositor from './pages/Expositor.jsx'
 import Propostas from './pages/Propostas.jsx'
 import Conta from './pages/Conta.jsx'
+import Acabamentos from './pages/Acabamentos.jsx'
+import { NapasProvider } from './store/NapasContext.jsx'
 
 function Marca() {
   return (
@@ -33,6 +35,7 @@ function Topbar() {
           <Link to="/modelos" className={`btn btn-ghost btn-sm ${pathname.startsWith('/modelos') ? 'sel' : ''}`}>Modelos</Link>
           <Link to="/expositores" className={`btn btn-ghost btn-sm ${pathname.startsWith('/expositores') ? 'sel' : ''}`}>Expositores</Link>
           <Link to="/propostas" className={`btn btn-ghost btn-sm ${pathname.startsWith('/propostas') ? 'sel' : ''}`}>Propostas</Link>
+          <Link to="/acabamentos" className={`btn btn-ghost btn-sm ${pathname.startsWith('/acabamentos') ? 'sel' : ''}`}>Acabamentos</Link>
         </nav>
       )}
       <div className="spacer" />
@@ -103,6 +106,7 @@ function Rotas() {
           <Route path="/modelos/:id" element={<Protegida exigeAdmin><Editor /></Protegida>} />
           <Route path="/expositores" element={<Protegida exigeAdmin><Clientes /></Protegida>} />
           <Route path="/propostas" element={<Protegida exigeAdmin><Propostas /></Protegida>} />
+          <Route path="/acabamentos" element={<Protegida exigeAdmin><Acabamentos /></Protegida>} />
           <Route path="/meu-estande" element={<Protegida><Expositor /></Protegida>} />
           <Route path="/conta" element={<Protegida><Conta /></Protegida>} />
           <Route path="*" element={<Inicio />} />
@@ -115,7 +119,7 @@ function Rotas() {
 export default function App() {
   return (
     <AuthProvider>
-      <Rotas />
+      <NapasProvider><Rotas /></NapasProvider>
     </AuthProvider>
   )
 }

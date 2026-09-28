@@ -4,6 +4,7 @@ import { listarElementos } from '../lib/glb/elementos.js'
 import { opcoesAtivas, superficiesEscondidas } from '../lib/glb/complementos.js'
 import { ETAPAS, ordenarCliente, pertenceEtapa, resumoEtapa, resolverConflitos } from '../lib/jornada.js'
 import { fmtBRL } from '../lib/glb/precos.js'
+import { nomeNapa } from '../lib/napas.js'
 
 export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCena, solicitarRevisao=0, aoRevisao, ...props }) {
   const { analise, superficies, objetos, complementos=[], escolhas={}, setEscolhas, acabamentos={}, supFoco, objFoco, setSupFoco, setObjFoco, setObjSel } = props
@@ -101,7 +102,7 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
         <div className="vistas-revisao">{imagens.map(i=><figure key={i.nome}><img src={i.url} alt={`Seu estande: ${i.nome}`} /><figcaption>{i.nome}</figcaption></figure>)}</div>
         {pendentes.length>0&&<p className="orientacao" role="status">Arte pendente em {new Set(pendentes.map(e=>e.id)).size} elemento(s). Você pode enviar a proposta para atendimento com essa pendência; a arte ainda precisa ser entregue.</p>}
         {resumos.slice(0,-1).map(e=><article key={e.id} className="card card-pad"><div className="row" style={{justifyContent:'space-between'}}><strong>{e.nome}</strong><button className="btn btn-sm" onClick={()=>{setNavegacao(n=>({...n,modo:'guiado'}));navegar(e.id)}}>Editar {e.nome.toLowerCase()}</button></div><small>{e.status==='A escolher'?'Original — ainda não revisado':e.status}</small>
-          <ul>{e.alterados.map(x=><li key={x.id}>{x.nome}{e.pendencias.some(p=>p.id===x.id)?' — arte pendente':''}</li>)}{e.adicionais.map(o=><li key={o.id}>{o.nome} — {o.esconde?.length?'substituição':'inclusão'}</li>)}</ul>
+          <ul>{e.alterados.map(x=><li key={x.id}>{x.nome}{[...new Set(x.superficies.map(s=>acabamentos[s.id]).filter(a=>a?.materialNome).map(a=>nomeNapa({nome:a.materialNome,codigo:a.materialCodigo})))].map(n=><small key={n} style={{display:'block'}}>{n}</small>)}{e.pendencias.some(p=>p.id===x.id)?' — arte pendente':''}</li>)}{e.adicionais.map(o=><li key={o.id}>{o.nome} — {o.esconde?.length?'substituição':'inclusão'}</li>)}</ul>
         </article>)}
         <details className="card card-pad"><summary>Detalhar valores dos adicionais</summary>{props.orcamento?.itens.map((i,n)=><p key={`${i.id}:${n}`}>{i.nome}: {fmtBRL(i.total)}</p>)}</details>
       </>:<PainelExpositor {...props} elementosOrdenados={elementos} etapaGuiada={modo==='guiado'?etapa:null} aoFocarElemento={focar} aoVista={aoVista} setEscolhas={escolherSeguro}
