@@ -1,3 +1,5 @@
+import DadosCliente from './DadosCliente.jsx'
+import { etapaGrupo } from '../lib/jornada.js'
 import { limiteMobiliario } from '../lib/glb/mobiliario.js'
 import { listarElementos } from '../lib/glb/elementos.js'
 import { useRef, useState } from 'react'
@@ -98,7 +100,7 @@ function EnviarPeca({ analise, recorte, aoCriar, enviarArquivoLocal, mobiliario 
 }
 
 /* ---------------------------- uma opção do grupo ------------------------- */
-function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, previa, setPrevia, aoEscolherSubstituidos, aoPosicionar, mobiliario }) {
+function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, previa, setPrevia, aoEscolherSubstituidos, aoPosicionar, mobiliario, alternativas=[], enviarArquivoLocal }) {
   const [abrirEsconde, setAbrirEsconde] = useState(false)
   const check = conferirAlinhamento(opc.bbox, limitesDoEstande(analise, recorte))
   const ativa = previa === opc.id
@@ -185,6 +187,8 @@ function Opcao({ opc, superficies, elementos, analise, recorte, mudar, remover, 
       {mobiliario && <label className="field"><span className="label">Máximo de unidades por cliente (1 a 30)</span>
         <input className="input" type="number" min="1" max="30" value={limiteMobiliario(opc)} onChange={e => mudar({ limite: Math.max(1, Math.min(30, Number(e.target.value) || 1)) })} />
       </label>}
+      <DadosCliente dados={opc} mudar={mudar} enviarArquivoLocal={enviarArquivoLocal}/>
+      {alternativas.length>0&&<details className="orientacao"><summary>Opções incompatíveis</summary><p>Ao escolher esta opção, o cliente será avisado antes de retirar uma opção incompatível.</p>{alternativas.map(o=><label className="row" key={o.id}><input type="checkbox" checked={opc.incompativeis?.includes(o.id)||false} onChange={e=>mudar({incompativeis:e.target.checked?[...(opc.incompativeis||[]),o.id]:(opc.incompativeis||[]).filter(id=>id!==o.id)})}/>{o.nome}</label>)}</details>}
       {/* preço da opção */}
       <div className="row" style={{ gap: 6 }}>
         <select className="select" value={opc.preco?.unidade || 'peca'}
@@ -286,9 +290,11 @@ export default function PainelComplementos({
             </div>
           </div>
 
+          <label className="field"><span>Ordem da categoria</span><input className="input" type="number" min="0" value={g.ordemCliente??100} onChange={e=>mudarGrupo(g.id,{ordemCliente:Number(e.target.value)||0})}/></label>
+          {!mobiliario&&<label className="field"><span>Etapa do cliente</span><select className="select" value={etapaGrupo(g)} onChange={e=>mudarGrupo(g.id,{etapa:e.target.value})}><option value="ambientes">Seu projeto e ambientes</option><option value="marca">Sua marca (LED, painéis e logos)</option><option value="complementos">Complementos</option></select></label>}
           <div className="col" style={{ gap: 9, marginBottom: 11 }}>
             {(g.opcoes || []).map((o) => (
-              <Opcao key={o.id} opc={o} mobiliario={mobiliario} superficies={superficies} elementos={elementos}
+              <Opcao key={o.id} opc={o} enviarArquivoLocal={enviarArquivoLocal} alternativas={grupos.filter(x=>x.id!==g.id).flatMap(x=>x.opcoes||[])} mobiliario={mobiliario} superficies={superficies} elementos={elementos}
                 aoEscolherSubstituidos={aoEscolherSubstituidos ? () => aoEscolherSubstituidos(g.id,o.id) : null} aoPosicionar={aoPosicionar ? () => aoPosicionar(g.id,o.id) : null}
                 analise={analise} recorte={recorte}
                 previa={previa?.[g.id]} setPrevia={(v) => setPrevia(p => ({ ...p, [g.id]: v }))}

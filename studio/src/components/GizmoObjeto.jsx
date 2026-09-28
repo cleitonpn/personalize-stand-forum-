@@ -51,6 +51,7 @@ export default function GizmoObjeto({ obj, limites, aoTransformar }) {
     // desliga a órbita: senão arrastar a peça gira a câmera junto
     if (controls) controls.enabled = false
     inicio.current = {
+      gesto: crypto.randomUUID(),
       ponto: e.point.clone(),
       angulo: Math.atan2(e.point.x - x, e.point.z - z),
       t: { dx: t.dx || 0, dz: t.dz || 0, rotY: t.rotY || 0 },
@@ -79,13 +80,13 @@ export default function GizmoObjeto({ obj, limites, aoTransformar }) {
         cx = px[0] > px[1] ? (limites.x0 + limites.x1) / 2 : Math.min(Math.max(cx, px[0]), px[1])
         cz = pz[0] > pz[1] ? (limites.z0 + limites.z1) / 2 : Math.min(Math.max(cz, pz[0]), pz[1])
       }
-      aoTransformar({ dx: cx - obj.apoio[0], dz: cz - obj.apoio[2] })
+      aoTransformar({ dx: cx - obj.apoio[0], dz: cz - obj.apoio[2] }, i.gesto)
     } else {
       // rotation.y = θ leva o ponto local (0,0,r) para (r·sinθ, r·cosθ),
       // então atan2(x, z) devolve o próprio ângulo do mundo
       const ang = Math.atan2(p.x - x, p.z - z)
       const bruto = i.t.rotY + (ang - i.angulo)
-      aoTransformar({ rotY: Math.round(bruto / SNAP) * SNAP })
+      aoTransformar({ rotY: Math.round(bruto / SNAP) * SNAP }, i.gesto)
     }
   }
 

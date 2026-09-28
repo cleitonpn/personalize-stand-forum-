@@ -11,7 +11,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
  * texto selecionável e na fonte certa. Quando o fluxo virar envio automático por
  * e-mail, isso passa para o servidor.
  */
-export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem, complementos }) {
+export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem, complementos, pendenciasArte=[] }) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   const linhas = (itens || []).map((i) => `
@@ -28,6 +28,7 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
   // As escolhas de peça entram numa lista à parte porque várias custam zero e
   // não geram linha no orçamento — mas a produção precisa de todas elas para
   // montar o estande certo.
+  const pendencias = pendenciasArte.map(nome=>`<li>${esc(nome)} — arte a enviar</li>`).join('')
   const escolhas = (complementos || []).map((c) => `
     <li><b>${esc(c.grupo)}:</b> ${esc(c.opcao)}${c.tipo === 'mobiliario' ? ` — 1 unidade (${c.substitui?.length ? 'substituição' : 'inclusão'}); deslocamento X/Y/Z: ${(c.offset || [0, 0, 0]).map(v => Number(v).toFixed(2)).join(' / ')} m; rotação ${Math.round((c.rotY || 0) * 180 / Math.PI)}°` : ''}</li>`).join('')
 
@@ -105,9 +106,9 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
     <span class="v">${fmtBRL(total)}</span>
   </div>
 
-  ${escolhas ? `<div class="escolhas">
+  ${(escolhas || pendencias) ? `<div class="escolhas">
     <div class="r">Configuração escolhida</div>
-    <ul>${escolhas}</ul>
+    <ul>${escolhas}${pendencias}</ul>
   </div>` : ''}
 
   <div class="rodape">

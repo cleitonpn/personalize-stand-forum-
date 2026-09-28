@@ -1,3 +1,4 @@
+import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
 import { listarElementos } from '../lib/glb/elementos.js'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
@@ -7,7 +8,7 @@ import Viewer, { useGLB } from '../components/Viewer.jsx'
 import { analisar } from '../lib/glb/analyze.js'
 import { PAPEIS, LISTA_PAPEIS } from '../lib/glb/roles.js'
 import { superficiesPadrao, indicePorPeca } from '../lib/glb/superficies.js'
-import PainelExpositor from '../components/PainelExpositor.jsx'
+import PainelExpositor from '../components/JornadaExpositor.jsx'
 import PainelElementos from '../components/PainelElementos.jsx'
 import { organizarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { limitesDoEstande } from '../lib/glb/nomes.js'
@@ -227,6 +228,7 @@ export default function Editor() {
   const [objetosPrevia, setObjetosPrevia] = useState([])
   const [objSel, setObjSel] = useState(null)
   const [vista, setVista] = useState(null)
+  const [cenaCliente,setCenaCliente]=useState({})
   const [salvando, setSalvando] = useState(false)
   const [salvo, setSalvo] = useState(false)
 
@@ -429,7 +431,7 @@ export default function Editor() {
           mostrarIgnorados={avancado && mostrarIgnorados} mostrarRecorte={aba === 'recorte'} mostrarGrade={aba === 'recorte' || !!objSel}
           indice={indice} acabamentos={aba === 'personalizar' ? acabamentos : {}}
           partesFoco={partesFoco} supFoco={supFoco} objetos={aba === 'personalizar' ? objetosPrevia : objetos} objFoco={objFoco}
-          complementos={grupos} extras={['personalizar','complementos','mobiliario'].includes(aba) ? extras : []} escondidos={['personalizar','complementos','mobiliario'].includes(aba) && !(['complementos','mobiliario'].includes(aba) && editarInclusao?.modo === 'substituir') ? escondidos : null} realceSuave
+          {...(aba==='personalizar'?cenaCliente:{})} aoTransformarExtra={aba==='personalizar'?(id,patch)=>setPrevia(es=>transformarMovelAdicionado(grupos,es,id,patch,limitesDoEstande(analise,recorte))):null} complementos={grupos} extras={['personalizar','complementos','mobiliario'].includes(aba) ? extras : []} escondidos={['personalizar','complementos','mobiliario'].includes(aba) && !(['complementos','mobiliario'].includes(aba) && editarInclusao?.modo === 'substituir') ? escondidos : null} realceSuave
           aoPosicionar={['complementos','mobiliario'].includes(aba) && editarInclusao?.modo === 'posicionar' ? ponto => {
             setGrupos(gs=>gs.map(g=>g.id!==editarInclusao.gid?g:{...g,opcoes:g.opcoes.map(o=>o.id!==editarInclusao.oid?o:{...o,offset:offsetNoPiso(o.bbox,ponto)})}));setSalvo(false);setEditarInclusao(null)
           } : null}
@@ -552,7 +554,7 @@ export default function Editor() {
                           const g = novoGrupo({ nome: `Opções — ${sup.nome}`, ancora: sup.id })
                           setGrupos((gg) => [...gg, g]); setSalvo(false); setAba('complementos')
                         }} />
-                    : <PainelExpositor
+                    : <PainelExpositor cena={cena} chaveRascunho={`admin.${id}`} aoVista={setVista} aoCena={patch=>setCenaCliente(c=>({...c,...patch}))}
                         analise={analise} superficies={superficies} acabamentos={acabamentos} setAcabamentos={setAcabamentos}
                         supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetosPrevia} setObjetos={setObjetosPrevia}
                         objFoco={objFoco} setObjFoco={setObjFoco} objSel={objSel} setObjSel={id => { setObjSel(id); if (id) setVista('cima') }}
