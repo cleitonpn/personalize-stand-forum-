@@ -1,3 +1,5 @@
+import { FocarElemento, NumerosElementos, CapturasCliente } from './VistasCliente.jsx'
+import PecaAdicionada from './PecaAdicionada.jsx'
 import { projetarFrente } from '../lib/glb/frente.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
@@ -174,7 +176,7 @@ export function useGLB(fonte) {
  */
 const _cachePecas = new Map()
 
-function pecaDoCache(url) {
+export function pecaDoCache(url) {
   if (!_cachePecas.has(url)) {
     _cachePecas.set(url, carregarGLB(url).catch((e) => { _cachePecas.delete(url); throw e }))
   }
@@ -187,7 +189,7 @@ function usePecasExtras(extras) {
   // A assinatura evita recarregar quando o pai recria a lista com o mesmo
   // conteúdo — o que acontece a cada render, já que ela sai de um map().
   const chave = useMemo(
-    () => (extras || []).map((e) => `${e.id}@${e.url}@${(e.offset || []).join(',')}@${e.rotY || 0}@${(e.pivo || []).join(',')}@${e.ancora || ''}`).join('|'),
+    () => (extras || []).map((e) => `${e.id}@${e.url}`).join('|'),
     [extras],
   )
 
@@ -202,7 +204,7 @@ function usePecasExtras(extras) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chave])
 
-  return prontas
+  return (extras || []).flatMap(e => { const p = prontas.find(p => p.id === e.id && p.url === e.url); return p ? [{ ...p, ...e }] : [] })
 }
 
 /**
@@ -286,9 +288,11 @@ function IrParaVista({ vista, alvo, recorte, aoConcluir }) {
 
     const pos = {
       perspectiva: [c.x + d * 0.62, c.y + d * 0.5, c.z + d * 0.72],
+      esquerda:    [c.x-d*1.05,c.y+t.y*.12,c.z],
+      direita:     [c.x+d*1.05,c.y+t.y*.12,c.z],
       frente:      [c.x, c.y + t.y * 0.12, c.z + d * 1.05],
       dentro:      [c.x, caixa.min.y + Math.min(1.6, t.y * 0.62), c.z + t.z * 0.28],
-      cima:        [c.x + 0.001, c.y + d * 1.15, c.z + 0.001],
+      cima:        [c.x, c.y + d * 1.15, c.z + 0.001],
     }[vista] || null
     if (!pos) return
 
@@ -432,6 +436,27 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           roughness: acab.brilho != null ? 1 - acab.brilho : 0.75,
           metalness: 0.02,
         })
+        if (acab.textura && !acab.arte) {
+          originais.set(o,o.geometry)
+          o.geometry=o.geometry.clone()
+          const plano=uvPlanar(o.geometry,o.userData._matrizArteBase || o.matrixWorld)
+          if(plano)o.geometry.setAttribute('uv',plano.attr)
+          const largura=Math.max(.01,Number(acab.escalaTextura)||.25)
+          const key=`napa:${acab.textura}:${plano?.largura}:${plano?.altura}:${largura}`
+          let tex=cacheTexturas.get(key)
+          if(!tex){
+            tex=new THREE.TextureLoader().load(acab.textura,t=>{
+              if(!vivo)return
+              const altura=largura*t.image.height/t.image.width
+              t.repeat.set((plano?.largura||1)/largura,(plano?.altura||1)/altura)
+              t.needsUpdate=true
+            })
+            tex.colorSpace=THREE.SRGBColorSpace;tex.flipY=false
+            tex.wrapS=tex.wrapT=THREE.RepeatWrapping
+            cacheTexturas.set(key,tex);texturas.push(tex)
+          }
+          m.color.set('#ffffff');m.map=tex;m.transparent=false
+        }
         if (acab.arte && (!malhasFrontais.has(o) || frentes.has(o))) {
           // Isola a geometria: duas instâncias podem compartilhar malha, mas
           // ter UVs diferentes conforme sua posição dentro da parede.
@@ -439,12 +464,12 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           o.geometry = o.geometry.clone()
           const plano = frentes.get(o) || planos.get(o) || uvPlanar(o.geometry, o.matrixWorld)
           if (plano) o.geometry.setAttribute('uv', plano.attr)
-          const key = `${acab.arte}|${plano?.proporcao || 1}|${acab.cor || '#f2f2ee'}`
+          const key = `${acab.arte}|${plano?.proporcao || 1}|${acab.cor || '#f2f2ee'}|${JSON.stringify(acab.enquadramento || {})}`
           let tex = cacheTexturas.get(key)
           if (!tex) {
             tex = new THREE.TextureLoader().load(acab.arte, t => {
               if (!vivo) return
-              t.image = comporArte(t.image, plano?.proporcao || 1, acab.cor || '#f2f2ee')
+              t.image = comporArte(t.image, plano?.proporcao || 1, acab.cor || '#f2f2ee', acab.enquadramento)
               t.needsUpdate = true
             })
             tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false
@@ -669,11 +694,13 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
 export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
-  extras, escondidos, objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
+  extras, escondidos, aoTransformarExtra, compararOriginal=false, focoCamera, marcadores=[], objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
   aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco, complementos = [], aoPosicionar,
 }) {
-  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos, supFoco: realceSuave ? null : supFoco, objetos, objFoco: realceSuave ? null : objFoco, escondidos, realceSuave, recorte })
-  useTransformes(cena, objetos)
+  const objetosExibidos=useMemo(()=>compararOriginal?(objetos||[]).map(o=>({...o,transform:{dx:0,dz:0,rotY:0}})):objetos,[objetos,compararOriginal])
+  const acabamentosExibidos=useMemo(()=>compararOriginal?{}:acabamentos,[acabamentos,compararOriginal])
+  useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos:acabamentosExibidos, supFoco: realceSuave ? null : supFoco, objetos, objFoco: realceSuave ? null : objFoco, escondidos:compararOriginal?null:escondidos, realceSuave, recorte })
+  useTransformes(cena, objetosExibidos)
   const pecasExtras = usePecasExtras(extras)
 
   const [exposicao, setExposicao] = useState(() => {
@@ -754,7 +781,7 @@ export default function Viewer({
       />}
 
       {cena && <primitive object={cena} onClick={e => {
-        if (!aoSelecionar || e.delta > 4 || objSel) return
+        if (compararOriginal || !aoSelecionar || e.delta > 4 || objSel) return
         const hit = e.intersections.find(h => {
           for (let p = h.object; p; p = p.parent) if (!p.visible) return false
           return h.object.isMesh
@@ -769,28 +796,30 @@ export default function Viewer({
         if (somentePersonalizaveis && !sup?.podeCor && !sup?.podeArte && !sup?.podeRemover && !complementos.some(g => { const ancora = [...(indice?.values() || [])].find(s => s.id === g.ancora); return ancora && sup && (ancora.id === sup.id || (ancora.elementoId && ancora.elementoId === sup.elementoId)) })) return
         aoSelecionar(sup?.id || null, sup ? null : obj?.id || null)
       }} />}
-      {cena && realceSuave && <SelecaoElemento cena={cena} indice={indice} supFoco={supFoco} objetos={objetos} objFoco={objFoco} partesFoco={partesFoco} />}
+      {!compararOriginal && cena && realceSuave && <SelecaoElemento cena={cena} indice={indice} supFoco={supFoco} objetos={objetos} objFoco={objFoco} partesFoco={partesFoco} />}
 
       {/* Peças opcionais escolhidas. Ficam fora do realce e das transformações
           de propósito: são o objeto real que a montadora vai montar, com o
           acabamento que o projetista deu — não uma superfície a colorir. */}
-      {pecasExtras.map((p) => (
-        <group key={p.id} position={(p.offset || [0, 0, 0]).map((v, i) => v + (p.pivo?.[i] || 0))} rotation={[0, p.rotY || 0, 0]}>
-          {p.dimensoes && supFoco === `extra:${p.id}` && <mesh raycast={() => null}><boxGeometry args={p.dimensoes} /><meshBasicMaterial color="#50efd1" wireframe depthTest={false} /></mesh>}
-          <group position={(p.pivo || [0, 0, 0]).map(v => -v)}><primitive object={p.objeto} onClick={e => { e.stopPropagation(); if (aoSelecionar && p.tipo === 'mobiliario') aoSelecionar(`extra:${p.id}`, null); else if (aoSelecionar && p.ancora) aoSelecionar(p.ancora, null) }} /></group>
-        </group>
-      ))}
+      {!compararOriginal && pecasExtras.map(p => <PecaAdicionada key={p.id} p={p} selecionada={supFoco === `extra:${p.id}`} aoSelecionar={aoSelecionar} aoTransformar={aoTransformarExtra} />)}
+      {!compararOriginal && aoTransformarExtra && pecasExtras.filter(p => p.tipo === 'mobiliario' && supFoco === `extra:${p.id}` && p.dimensoes).map(p =>
+        <GizmoObjeto key={`gizmo:${p.id}`} obj={{ id:p.id, apoio:p.pivo.map((v,i) => i===1 ? v-p.dimensoes[1]/2+(p.offset[1]||0) : v), largura:p.dimensoes[0], profundidade:p.dimensoes[2], podeMover:true, podeGirar:true,
+          transform:{dx:p.offset[0],dz:p.offset[2],rotY:p.rotY} }} limites={limitesGizmo}
+          aoTransformar={(patch, gesto) => aoTransformarExtra(p.id, { offset:[patch.dx ?? p.offset[0],p.offset[1],patch.dz ?? p.offset[2]], rotY:patch.rotY ?? p.rotY }, gesto)} />)}
 
       {/* a caixa do recorte é ferramenta de mapeamento — o expositor não vê */}
       {mostrarRecorte && <CaixaRecorte recorte={recorte} />}
-      {alvoGizmo && aoTransformarObjeto && (
+      {!compararOriginal && alvoGizmo && aoTransformarObjeto && (
         <GizmoObjeto obj={alvoGizmo} limites={limitesGizmo}
-          aoTransformar={(patch) => aoTransformarObjeto(alvoGizmo.id, patch)} />
+          aoTransformar={(patch, gesto) => aoTransformarObjeto(alvoGizmo.id, patch, gesto)} />
       )}
 
       <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados, JSON.stringify(recorte)]} />
       <IrParaVista vista={vista} alvo={cena} recorte={recorte} aoConcluir={aoAplicarVista} />
 
+      <FocarElemento cena={cena} pedido={focoCamera}/>
+      {!compararOriginal&&<NumerosElementos cena={cena} marcadores={marcadores}/>}
+      <CapturasCliente cena={cena} recorte={recorte}/>
       <Exposicao valor={exposicao} />
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />
     </Canvas>

@@ -1,10 +1,11 @@
+import { transformarMovelAdicionado } from '../src/lib/glb/mobiliario.js'
 import PainelComplementos from '../src/components/PainelComplementos.jsx'
 import { offsetNoPiso, novoGrupo, opcoesAtivas, pecasParaCena, chavesEscondidas, superficiesEscondidas } from '../src/lib/glb/complementos.js'
 import React, { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import Viewer, { carregarGLB } from '../src/components/Viewer.jsx'
 import PainelElementos from '../src/components/PainelElementos.jsx'
-import PainelExpositor from '../src/components/PainelExpositor.jsx'
+import PainelExpositor from '../src/components/JornadaExpositor.jsx'
 import { analisar } from '../src/lib/glb/analyze.js'
 import { superficiesPadrao, indicePorPeca } from '../src/lib/glb/superficies.js'
 import { detectarObjetos, numerar } from '../src/lib/glb/objetos.js'
@@ -30,6 +31,7 @@ function Previa({ cena, nome, controles }) {
   const [objFoco, setObjFoco] = useState(null)
   const [objSel, setObjSel] = useState(null)
   const [vista, setVista] = useState(null)
+  const [cenaCliente,setCenaCliente]=useState({})
   const [admin, setAdmin] = useState(true)
   const [inclusoes,setInclusoes]=useState(false)
   const [tipoCatalogo,setTipoCatalogo]=useState('complemento')
@@ -50,7 +52,7 @@ function Previa({ cena, nome, controles }) {
     <header className="topbar"><span className="brand-mark">U</span><strong>Stand Studio</strong><span className="spacer" />
       <span className="dim" style={{ fontSize: 11 }}>Prévia local · sem envio de dados</span></header>
     <div className="studio-workspace">
-      <div className="studio-cena"><Viewer cena={cena} papeis={papeis} complementos={grupos} extras={pecasParaCena(ativas)} escondidos={editarInclusao?.modo==='substituir'?null:chavesEscondidas(ativas,superficies)}
+      <div className="studio-cena"><Viewer {...(!admin?cenaCliente:{})} aoTransformarExtra={!admin?(id,patch)=>setEscolhas(es=>transformarMovelAdicionado(grupos,es,id,patch,limites)):null} cena={cena} papeis={papeis} complementos={grupos} extras={pecasParaCena(ativas)} escondidos={editarInclusao?.modo==='substituir'?null:chavesEscondidas(ativas,superficies)}
         aoPosicionar={inclusoes && editarInclusao?.modo==='posicionar'?p=>{mudarExtra(o=>({...o,offset:offsetNoPiso(o.bbox,p)}));setEditarInclusao(null)}:null} indice={indice} acabamentos={admin ? {} : acabamentos}
         objetos={objetos} partesFoco={partesFoco} supFoco={supFoco} objFoco={objFoco} objSel={objSel} realceSuave mostrarGrade={!!objSel}
         aoSelecionar={(sid,oid)=>{
@@ -71,7 +73,7 @@ function Previa({ cena, nome, controles }) {
           aoPosicionar={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'posicionar'});setEscolhas(p=>({...p,[gid]:oid}))}}
           aoEscolherSubstituidos={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'substituir'});setEscolhas(p=>({...p,[gid]:null}))}} previa={escolhas} setPrevia={setEscolhas} enviarArquivoLocal={async f=>({url:await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)}),nomeOriginal:f.name,bytes:f.size})}/> : admin ? <PainelElementos {...{ analise, superficies, objetos, setSuperficies, setObjetos, supFoco, objFoco }} aoSelecionar={selecionar}
           acabamentos={acabamentos} setAcabamentos={setAcabamentos} complementos={grupos} setComplementos={setGrupos} aoNovaOpcao={e=>{setGrupos(gs=>[...gs,novoGrupo({nome:`Opções — ${e.nome}`,ancora:e.superficies[0]?.id})]);setInclusoes(true)}} aoFocarPartes={setPartesFoco} aoOrganizar={() => setSuperficies(organizarElementos(analise, superficies, objetos))} />
-          : <PainelExpositor complementos={grupos} {...{ analise, superficies, objetos, setObjetos, acabamentos, setAcabamentos, escolhas, setEscolhas, supFoco, setSupFoco, objFoco, setObjFoco, objSel, orcamento }}
+          : <PainelExpositor cena={cena} chaveRascunho={`local.${nome}`} aoVista={setVista} aoCena={patch=>setCenaCliente(c=>({...c,...patch}))} complementos={grupos} {...{ analise, superficies, objetos, setObjetos, acabamentos, setAcabamentos, escolhas, setEscolhas, supFoco, setSupFoco, objFoco, setObjFoco, objSel, orcamento }}
             setObjSel={id => { setObjSel(id); if (id) setVista('cima') }} enviarArquivo={uploadLocal} />}
 
         </div>

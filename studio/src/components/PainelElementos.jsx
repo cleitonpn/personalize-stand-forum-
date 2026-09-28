@@ -1,3 +1,5 @@
+import DadosCliente from './DadosCliente.jsx'
+import PermissoesNapas from './PermissoesNapas.jsx'
 import { ehBalcao } from '../lib/glb/frente.js'
 import { useMemo, useState } from 'react'
 import { listarElementos, TIPOS_ELEMENTO } from '../lib/glb/elementos.js'
@@ -75,6 +77,8 @@ export default function PainelElementos({ analise, superficies, objetos, recorte
               const nome = ev.target.value.trim()
               if (nome && nome !== e.nome) { alterar(e, { nome, nomeManual: true }); alterarObjetos(e, { nome, nomeManual: true }) }
             }} /></label>
+          <DadosCliente dados={e.superficies[0]||e.objetos[0]||{}} mudar={patch=>{alterar(e,patch);alterarObjetos(e,patch)}}/>
+          {e.superficies.some(s=>s.podeCor)&&<PermissoesNapas elemento={e} mudar={patch=>alterar(e,patch)}/>}
           {e.superficies.length > 0 && <label className="field"><span className="label">Este elemento é</span>
             <select className="select" value={e.tipo} onChange={ev => alterar(e, { tipoElemento: ev.target.value, tipoManual: true })}>
               {Object.entries(TIPOS_ELEMENTO).map(([id, nome]) => <option value={id} key={id}>{nome}</option>)}

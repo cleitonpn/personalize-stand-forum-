@@ -1,3 +1,4 @@
+import Miniatura from './Miniatura.jsx'
 import { areaDaOpcao } from '../lib/glb/complementos.js'
 import { fmtBRL } from '../lib/glb/precos.js'
 
@@ -30,6 +31,7 @@ export default function EscolhaComplemento({ grupo, escolhido, aoEscolher, compa
         border: `1.5px solid ${ativo ? 'var(--brand-green)' : 'var(--line)'}`,
         transition: 'background var(--t) var(--ease), border-color var(--t) var(--ease)',
       }}>
+      {id && <Miniatura opcao={opcoes.find(o=>o.id===id)} />}
       <span style={{
         display: 'block', fontSize: 12.5, fontWeight: 600,
         color: ativo ? 'var(--brand-green)' : 'var(--text)',

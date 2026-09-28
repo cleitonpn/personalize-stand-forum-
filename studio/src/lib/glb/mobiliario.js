@@ -44,3 +44,15 @@ export function registroComplemento(o) {
     substitui: o.esconde || [],
   }
 }
+
+/** Recebe o ID da instância da cena, nunca o ID compartilhado do arquivo. */
+export function transformarMovelAdicionado(grupos, escolhas, id, patch, limites) {
+  for (const g of grupos || []) {
+    const itens = instanciasMobiliario(escolhas?.[g.id])
+    const item = itens.find(i => `${g.id}:${i.id}` === id)
+    const opcao = g.opcoes?.find(o => o.id === item?.opcaoId)
+    if (!item || !opcao) continue
+    return { ...escolhas, [g.id]: { itens: itens.map(i => i.id !== item.id ? i : ajustarMovel(opcao, i, patch, limites)) } }
+  }
+  return escolhas
+}

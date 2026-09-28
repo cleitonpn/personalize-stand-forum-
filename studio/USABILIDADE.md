@@ -51,6 +51,32 @@ A leitura/escrita autenticada no Firebase, o upload ao Storage e o envio de prop
 
 ## Verificação do código
 
+### Biblioteca de napas
+
+**Acabamentos**, no menu do admin, reúne 40 referências de napas lisas da Casa Brasil (PDF NAPA CORES, páginas 2 a 8). Os tons são aproximações obtidas da região central das fotos do catálogo; não equivalem a uma medição colorimétrica. O Vermelho Cereja permanece sem código porque o PDF não informa um. O PDF não é distribuído com o aplicativo.
+
+Paredes passam a oferecer essa cartela com busca por nome/código. Outros tipos mantêm as cores existentes e podem receber napas se o admin liberar esses tipos na biblioteca. O admin pode editar disponibilidade, nome, código, fornecedor e preço por m², além de restringir os materiais no cartão de cada elemento. A biblioteca é compartilhada entre projetos e gravada na coleção `acabamentos`; apenas admins escrevem, e perfis ativos consultam. Novas napas especiais começam indisponíveis até a equipe conferir e liberar.
+
+O preço vazio mantém a regra do projeto; um preço por m² explícito substitui a regra de cor, inclusive quando zero. Com arte aplicada, prevalece a regra de impressão do projeto. Não foram inventados preços a partir do catálogo. Nome, código e fornecedor são guardados na escolha e na proposta, inclusive em acabamentos gratuitos. Alterações futuras na biblioteca não renomeiam propostas já enviadas.
+
+Napas especiais aceitam uma imagem, largura real da amostra e brilho aproximado. O padrão se repete com escala física; a altura segue a proporção da imagem. Não são inferidos mapas de relevo ou propriedades físicas de uma foto. Ainda não há amostras especiais fornecidas cadastradas. A equipe deve usar imagens sem iluminação incorporada e com bordas repetíveis, e conferir emendas e orientação no modelo antes de liberar. A publicação passa a exigir sucesso nas regras do Firestore antes de atualizar o Hosting.
+
+Validação: 47 testes (catálogo, permissões, preços, proposta e medidas de UV), build e conferência local de busca por CB333 e aplicação do Azul Royal na parede. O laboratório usa a cartela padrão sem gravar a biblioteca no Firebase.
+
+### Jornada do expositor
+
+O cliente inicia em **Passo a passo**, com seis etapas: Seu projeto, Sua marca, Piso, Mobiliário, Complementos e Revisão. **Explorar livremente** usa as mesmas escolhas e permite voltar ao roteiro sem perder a personalização. Cartões têm miniaturas e numeração; selecionar um cartão enquadra o elemento. A navegação fica guardada localmente por usuário e versão do modelo, junto ao rascunho de escolhas já existente na tela autenticada.
+
+**Manter como está e continuar** registra uma decisão, sem marcar etapas apenas visitadas como concluídas. Artes podem ficar pendentes; a revisão e a proposta identificam essas pendências. O enquadramento da imagem permite mostrar inteira, preencher, ampliar e deslocar sem esticar. O aviso de poucos pixels é indicativo e não substitui a análise de impressão da equipe.
+
+Em Mobiliário, o cliente escolhe manter e organizar, trocar o conjunto ou acrescentar móveis. GLBs do catálogo aceitam clique, segurar e arrastar na própria geometria, além do anel para giro e controles laterais. Cada gesto corresponde a uma ação no histórico. A movimentação preserva a escala do arquivo e os limites da área, sem resolver colisões ou circulação automaticamente.
+
+Trocas mostram os elementos que serão retirados e opções incompatíveis antes da aplicação. Os acabamentos ficam guardados para restauração. **Comparar com original** alterna o projeto base sem apagar escolhas; a revisão permite gerar quatro imagens. No celular, o painel rola em uma área própria abaixo do 3D, sem encobrir os controles.
+
+O admin pode definir ordem e miniaturas comerciais em **Apresentação para o cliente**. Nos adicionais, também pode escolher a etapa e marcar incompatibilidades entre opções de grupos diferentes.
+
+Validação desta jornada: 41 testes automatizados aprovados, compilação de produção e conferência local de navegação, troca de modo, pendência de arte, quatro vistas e arrasto/giro de uma banqueta real. Upload local de imagem e comparação foram conferidos; em 390 × 844, cena e painel ocupam áreas separadas sem transbordamento horizontal. O foco automático usa a caixa geométrica e pode precisar de ajuste manual da câmera em elementos inclinados. Upload autenticado, persistência no Firebase e envio integrado de proposta continuam sujeitos à homologação indicada acima.
+
 ### Catálogo de mobiliário
 
 No editor de cada modelo, **Catálogo de mobiliário** permite criar categorias e enviar GLBs de peças individuais ou conjuntos. Defina o nome, preço adicional por unidade, limite de quantidade (1 a 30; padrão 10), posição inicial e os elementos do projeto que a alternativa pode substituir. Por exemplo, marque os dois bistrôs e as seis banquetas para liberar a troca por outro conjunto. A configuração é por modelo de estande, não uma biblioteca global de estoque.

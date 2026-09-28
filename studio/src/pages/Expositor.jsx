@@ -1,10 +1,12 @@
+import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
 import { registroComplemento } from '../lib/glb/mobiliario.js'
 import { useEffect, useMemo, useState } from 'react'
 import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import { useAuth } from '../store/AuthContext.jsx'
+import { useNapas } from '../store/NapasContext.jsx'
 import Viewer, { useGLB, VISTAS } from '../components/Viewer.jsx'
-import PainelExpositor from '../components/PainelExpositor.jsx'
+import PainelExpositor from '../components/JornadaExpositor.jsx'
 import { analisar } from '../lib/glb/analyze.js'
 import { indicePorPeca } from '../lib/glb/superficies.js'
 import { calcularOrcamento, fmtBRL } from '../lib/glb/precos.js'
@@ -13,10 +15,11 @@ import Tutorial from '../components/Tutorial.jsx'
 import { gerarPropostaHTML } from '../lib/proposta.js'
 import { opcoesAtivas, superficiesEscondidas, chavesEscondidas, pecasParaCena } from '../lib/glb/complementos.js'
 import { limitesDoEstande } from '../lib/glb/nomes.js'
-import { limitarTransformacao } from '../lib/glb/elementos.js'
+import { listarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { useHistorico } from '../lib/useHistorico.js'
 
 export default function Expositor() {
+  const {catalogo,erro:erroCatalogo,carregando:carregandoCatalogo}=useNapas()
   const { user, perfil } = useAuth()
   const [modelo, setModelo] = useState(null)
   const [erro, setErro] = useState(null)
@@ -34,6 +37,9 @@ export default function Expositor() {
   const [gravando, setGravando] = useState(false)
   const [gravado, setGravado] = useState(null)
   const [vista, setVista] = useState(null)
+  const [cenaCliente,setCenaCliente]=useState({})
+  const [revisando,setRevisando]=useState(false)
+  const [solicitarRevisao,setSolicitarRevisao]=useState(0)
 
   useEffect(() => {
     if (!perfil) return
@@ -84,13 +90,17 @@ export default function Expositor() {
 
   const complementos = modelo?.complementos || []
   const ativas = useMemo(() => opcoesAtivas(complementos, escolhas), [complementos, escolhas])
+  const pendenciasArte = useMemo(()=>{
+    const ocultas=superficiesEscondidas(ativas)
+    return listarElementos(superficies,objetos,analise,modelo?.recorte).filter(e=>e.superficies.some(s=>!ocultas.has(s.id)&&!acabamentos[s.id]?.removido&&acabamentos[s.id]?.artePendente&&!acabamentos[s.id]?.arte)).map(e=>e.nome)
+  },[ativas,superficies,objetos,analise,modelo,acabamentos])
   const extras = useMemo(() => pecasParaCena(ativas), [ativas])
   const escondidos = useMemo(() => chavesEscondidas(ativas, superficies), [ativas, superficies])
 
   const orcamento = useMemo(() => (analise ? calcularOrcamento({
-    analise, superficies, objetos, acabamentos, precos, precosObjeto, recorte: modelo?.recorte,
+    analise, superficies, objetos, acabamentos, precos, precosObjeto, catalogo, recorte: modelo?.recorte,
     complementos: { ativas, escondidas: superficiesEscondidas(ativas) },
-  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas])
+  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas,catalogo])
 
   // Escolher a peça vira a câmera para cima: é de lá que arrastar no chão
   // corresponde exatamente ao movimento do mouse, sem dúvida de profundidade.
@@ -100,9 +110,10 @@ export default function Expositor() {
     if (id) setVista('cima')
   }
 
-  const transformarObjeto = (id, patch) => !gravando && setObjetos((os) => os.map((o) => (o.id === id
-    ? { ...o, transform: limitarTransformacao(o, patch, limitesDoEstande(analise, modelo?.recorte)) }
-    : o)))
+  const transformarObjeto = (id, patch, gesto) => !gravando && historico.mudar('objetos', os => os.map(o => o.id === id
+    ? { ...o, transform: limitarTransformacao(o, patch, limitesDoEstande(analise, modelo?.recorte)) } : o), gesto)
+  const transformarExtra = (id, patch, gesto) => !gravando && historico.mudar('escolhas', es => transformarMovelAdicionado(complementos,es,id,patch,limitesDoEstande(analise,modelo?.recorte)),gesto)
+
 
   const limitesGizmo = useMemo(
     () => (analise ? limitesDoEstande(analise, modelo?.recorte) : null),
@@ -127,8 +138,8 @@ export default function Expositor() {
         feira: perfil?.feira || null,
         modeloId: modelo.id,
         modeloNome: modelo.nome,
-        acabamentos,
-        objetos: (objetos || []).map((o) => ({ id: o.id, nome: o.nome, transform: o.transform })),
+        acabamentos, pendenciasArte,
+        objetos: (objetos || []).map((o) => ({ id: o.id, nome: o.nome, transform: o.transform || {dx:0,dz:0,rotY:0} })),
         // As escolhas vão pelo nome, não só pelo id: quem abrir a proposta na
         // produção precisa ler "Depósito na ponta esquerda" sem ter que
         // consultar o mapeamento do modelo para traduzir um id.
@@ -138,7 +149,7 @@ export default function Expositor() {
         total: orcamento.total,
         criadoEm: serverTimestamp(),
       })
-      setGravado({ id: ref.id, imagem, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
+      setGravado({ id: ref.id, imagem, pendenciasArte, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
     } catch (ex) {
       alert(`Não foi possível gravar: ${ex.message}`)
     } finally {
@@ -151,7 +162,7 @@ export default function Expositor() {
       cliente: perfil?.nome || user.email,
       email: user.email,
       feira: perfil?.feira,
-      modelo: modelo?.nome,
+      modelo: modelo?.nome, pendenciasArte:gravado?.pendenciasArte || pendenciasArte,
       itens: gravado?.itens || orcamento.itens,
       total: gravado?.total ?? orcamento.total,
       complementos: gravado?.complementos || ativas.map(registroComplemento),
@@ -196,7 +207,7 @@ export default function Expositor() {
           </div>
         )}
 
-        <Viewer cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
+        <Viewer {...cenaCliente} aoTransformarExtra={transformarExtra} cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
           indice={indice} acabamentos={acabamentos} supFoco={supFoco} objetos={objetos}
           complementos={modelo?.complementos || []} extras={extras} escondidos={escondidos} objFoco={objFoco}
           objSel={objSel} aoTransformarObjeto={transformarObjeto} limitesGizmo={limitesGizmo}
@@ -243,7 +254,7 @@ export default function Expositor() {
 
         <div style={{ padding: 18, flex: 1 }}>
           {analise ? (
-            <fieldset disabled={gravando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><PainelExpositor
+            <fieldset disabled={gravando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><PainelExpositor cena={cena} chaveRascunho={`${user.uid}.${modelo.id}.${modelo.atualizadoEm?.seconds||0}`} aoVista={setVista} aoCena={patch=>setCenaCliente(c=>({...c,...patch}))} solicitarRevisao={solicitarRevisao} aoRevisao={setRevisando}
               aoEnviarArte={setEnviandoArte}
               analise={analise} superficies={superficies}
               acabamentos={acabamentos} setAcabamentos={setAcabamentos}
@@ -284,12 +295,13 @@ export default function Expositor() {
                   escolha que a produção precisa receber — então também libera o
                   envio, não só o que gera valor. */}
               <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
-                disabled={gravando || enviandoArte || !analise || (!orcamento.itens.length && !ativas.length && !objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY))} onClick={gravar}>
-                {gravando ? <><span className="spinner" /> Enviando…</> : 'Enviar personalização'}
+                disabled={gravando || enviandoArte || !analise || cenaCliente.compararOriginal || !!erroCatalogo || carregandoCatalogo} onClick={revisando?gravar:()=>setSolicitarRevisao(v=>v+1)}>
+                {gravando ? <><span className="spinner" /> Enviando…</> : revisando ? 'Enviar personalização' : 'Revisar personalização'}
               </button>
+              {erroCatalogo&&<p role="alert" className="dim">{erroCatalogo} O envio aguarda a consulta dos preços.</p>}
               {!orcamento.itens.length && !ativas.length && !objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY) && (
                 <div className="dim" style={{ fontSize: 11.5, marginTop: 8, textAlign: 'center' }}>
-                  Faça ao menos uma personalização para enviar.
+                  Você também pode enviar o projeto original, sem adicionais.
                 </div>
               )}
             </>

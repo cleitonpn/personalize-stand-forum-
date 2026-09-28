@@ -77,6 +77,8 @@ export function uvPlanar(geo, matrizMundo) {
     attr: new THREE.BufferAttribute(uv, 2),
     // proporção medida em metros de mundo, não em unidades locais
     proporcao: (du * escala[eu].comprimento) / ((dv * escala[ev].comprimento) || 1),
+    largura: du * escala[eu].comprimento,
+    altura: dv * escala[ev].comprimento,
   }
   return geo.userData._uvPlanar
 }
@@ -117,16 +119,17 @@ export function uvDoElemento(malhas) {
 }
 
 /** Prévia raster com margens reais e fundo opaco para logos transparentes. */
-export function comporArte(imagem, proporcao, cor = '#f2f2ee') {
+export function comporArte(imagem, proporcao, cor = '#f2f2ee', ajuste = {}) {
   const canvas = document.createElement('canvas')
   const ratio = Math.max(0.02, Math.min(50, proporcao || 1))
   canvas.width = Math.round(ratio >= 1 ? 2048 : 2048 * ratio)
   canvas.height = Math.round(ratio >= 1 ? 2048 / ratio : 2048)
   const ctx = canvas.getContext('2d')
   ctx.fillStyle = cor; ctx.fillRect(0, 0, canvas.width, canvas.height)
-  const escala = Math.min(canvas.width / imagem.width, canvas.height / imagem.height)
+  const encaixe = ajuste?.modo === 'cobrir' ? Math.max : Math.min
+  const escala = encaixe(canvas.width / imagem.width, canvas.height / imagem.height) * Math.max(1, Math.min(3, ajuste?.zoom || 1))
   const w = imagem.width * escala, h = imagem.height * escala
-  ctx.drawImage(imagem, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h)
+  ctx.drawImage(imagem, (canvas.width - w) * (ajuste?.x ?? .5), (canvas.height - h) * (ajuste?.y ?? .5), w, h)
   return canvas
 }
 

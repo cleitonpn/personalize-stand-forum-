@@ -1,3 +1,7 @@
+import Miniatura from './Miniatura.jsx'
+import CartelaNapas from './CartelaNapas.jsx'
+import EditorArte from './EditorArte.jsx'
+import { etapaGrupo, pertenceEtapa, ordenarCliente } from '../lib/jornada.js'
 import CatalogoMobiliario from './CatalogoMobiliario.jsx'
 import { ehBalcao } from '../lib/glb/frente.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -12,20 +16,23 @@ import EscolhaComplemento from './EscolhaComplemento.jsx'
 export default function PainelExpositor({ analise, superficies, acabamentos, setAcabamentos,
   supFoco, setSupFoco, recorte, orcamento, complementos = [], escolhas, setEscolhas,
   objetos = [], setObjetos, objFoco, setObjFoco, objSel, setObjSel,
-  enviarArquivo = enviarArte, aoEnviarArte }) {
-  const [filtro, setFiltro] = useState('todos')
-  useEffect(() => { if (supFoco?.startsWith('extra:')) setFiltro('mobiliario') }, [supFoco])
+  enviarArquivo = enviarArte, aoEnviarArte, etapaGuiada, aoFocarElemento, aoVista, cena, elementosOrdenados }) {
+  const [filtroLivre, setFiltro] = useState('todos')
+  const filtro = etapaGuiada || filtroLivre
+  const [intencaoMoveis,setIntencaoMoveis]=useState('manter')
+  useEffect(() => { if (supFoco?.startsWith('extra:')) {setFiltro('mobiliario');setIntencaoMoveis('adicionar')} }, [supFoco])
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const arquivo = useRef(null)
   const destinosArte = useRef([])
   const escondidas = useMemo(() => superficiesEscondidas(opcoesAtivas(complementos, escolhas)), [complementos, escolhas])
-  const lista = useMemo(() => listarElementos(superficies, objetos || [], analise, recorte), [superficies, objetos, analise, recorte])
+  const listaCalculada = useMemo(() => ordenarCliente(listarElementos(superficies, objetos || [], analise, recorte)), [superficies, objetos, analise, recorte])
+  const lista=elementosOrdenados || listaCalculada
   const disponiveis = lista.filter(e => e.superficies.some(s => !escondidas.has(s.id) && (s.podeCor || s.podeArte || s.podeRemover))
     || e.objetos.some(o => (o.podeMover || o.podeGirar) && !o.pecas.every(k => superficies.some(s => escondidas.has(s.id) && s.pecas.includes(k))))
     || complementos.some(g => e.superficies.some(s => s.id === g.ancora)))
   const atual = disponiveis.find(e => e.superficies.some(s => s.id === supFoco) || e.objetos.some(o => o.id === objFoco))
-  const selecionar = e => { setSupFoco(e.superficies[0]?.id || null); setObjFoco(e.objetos[0]?.id || null); setObjSel(null); setErro('') }
+  const selecionar = e => { setSupFoco(e.superficies[0]?.id || null); setObjFoco(e.objetos[0]?.id || null); setObjSel(null); setErro(''); aoFocarElemento?.(e) }
   const voltar = () => { setSupFoco(null); setObjFoco(null); setObjSel(null) }
   const aplicar = (ids, patch) => setAcabamentos(a => {
     const n = { ...a }; for (const id of ids) n[id] = { ...n[id], ...patch }; return n
@@ -35,25 +42,30 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
     if (!f) return
     const ids = destinosArte.current.slice()
     setEnviando(true); aoEnviarArte?.(true); setErro('')
-    try { aplicar(ids, await enviarArquivo(f)) }
+    try {
+      const bitmap=await createImageBitmap(f)
+      const artePixels=[bitmap.width,bitmap.height];bitmap.close()
+      aplicar(ids, { ...await enviarArquivo(f), artePixels, artePendente:false, enquadramento:{modo:'conter',zoom:1,x:.5,y:.5} })
+    }
     catch (e) { setErro(e.message || 'Não foi possível enviar. Tente novamente.') }
     finally { setEnviando(false); aoEnviarArte?.(false) }
   }
   const perguntasSoltas = complementos.filter(g => g.tipo !== 'mobiliario').filter(g => !g.ancora || !lista.some(e => e.superficies.some(s => s.id === g.ancora)))
   const transformar = (o, patch) => setObjetos(os => os.map(x => x.id === o.id
     ? { ...x, transform: limitarTransformacao(x, patch, limitesDoEstande(analise, recorte)) } : x))
+  const gruposVisiveis=ordenarCliente(complementos.filter(g=>g.tipo!=='mobiliario' && (!etapaGuiada || etapaGrupo(g)===etapaGuiada)))
   const opcoes = g => <EscolhaComplemento key={g.id} grupo={g} escolhido={escolhas?.[g.id]}
     aoEscolher={oid => setEscolhas(e => ({ ...e, [g.id]: oid }))} />
   return <div className="elementos-painel">
-    <div className="orientacao"><strong>Deixe o estande do seu jeito</strong>
-      <p>Clique em uma parte do estande ou escolha abaixo. Você verá apenas as opções disponíveis.</p></div>
-    <div className="filtros-elementos" aria-label="O que personalizar">
+    {!etapaGuiada && <div className="orientacao"><strong>Deixe o estande do seu jeito</strong>
+      <p>Clique em uma parte do estande ou escolha abaixo. Você verá apenas as opções disponíveis.</p></div>}
+    {!etapaGuiada && <div className="filtros-elementos" aria-label="O que personalizar">
       {[['todos', 'Tudo'], ['parede', 'Paredes'], ['logo', 'Logos'], ['piso', 'Piso'], ['movel', 'Móveis do projeto'], ['mobiliario', 'Incluir / substituir móveis'], ['adicionais', 'Adicionais']].map(([id, nome]) =>
         <button className={`chip ${filtro === id ? 'sel' : ''}`} aria-pressed={filtro === id} key={id} onClick={() => { setFiltro(id); voltar() }}>{nome}</button>)}
-    </div>
+    </div>}
     {enviando && <p className="orientacao" role="status">Enviando sua arte… Você pode continuar escolhendo as cores.</p>}
     {erro && <p className="erro-inline" role="alert">{erro}</p>}
-    {atual ? <article className="elemento-card selecionado">
+    {atual && (!etapaGuiada || pertenceEtapa(atual,etapaGuiada)) ? <article className="elemento-card selecionado">
       <div className="elemento-titulo"><span className="elemento-nome"><strong>{atual.nome}</strong><small>Suas escolhas aparecem no estande</small></span>
         <button className="btn btn-sm btn-ghost" onClick={voltar}>Voltar</button></div>
       <div className="elemento-opcoes">
@@ -68,19 +80,22 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
           return <>
             {removiveis.length > 0 && <button className="btn" onClick={() => aplicar(removiveis, { removido: !removido })}>{removido ? 'Restaurar no estande' : atual.tipo === 'logo' ? 'Remover logo do estande' : 'Remover do estande'}</button>}
             {removido && <p className="orientacao" role="status">Removido desta personalização. Você pode restaurar quando quiser.</p>}
-            {!removido && cores.length > 0 && <div><div className="label">Escolha uma cor</div>
+            {!removido&&cores.length>0&&<CartelaNapas tipo={atual.tipo} superficies={sups.filter(s=>s.podeCor)} acabamentos={acabamentos} aplicar={aplicar}/>}
+            {!removido && cores.length > 0 && atual.tipo!=='parede' && <div><div className="label">Escolha uma cor</div>
               <div className="cartela-cores">{CORES.map(c => {
                 const marcado = cores.every(id => acabamentos[id]?.corId === c.id)
                 return <button key={c.id} className={`amostra ${marcado ? 'ativa' : ''}`} aria-pressed={marcado}
-                  aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id })}>
+                  aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id,materialId:null,materialNome:null,materialCodigo:null,materialFornecedor:null,textura:null,escalaTextura:null,brilho:null })}>
                   <span style={{ background: c.hex }} /><small>{c.nome}</small></button>
               })}</div></div>}
             {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">{(atual.superficies[0]?.arteFrontal ?? ehBalcao(atual)) ? 'Sua arte — somente na frente' : 'Sua arte'}</div>
               <button className="btn" disabled={enviando} onClick={() => { destinosArte.current = artes; arquivo.current?.click() }}>
                 {enviando ? 'Enviando…' : artes.some(id => acabamentos[id]?.arte) ? 'Trocar imagem' : 'Enviar imagem'}</button>
               {artes.some(id => acabamentos[id]?.arte) && <button className="btn btn-sm btn-ghost" onClick={() => setAcabamentos(a => {
-                const n = { ...a }; for (const id of artes) { n[id] = { ...n[id] }; for (const k of ['arte', 'nomeArte', 'caminhoArte']) delete n[id][k] } return n
+                const n = { ...a }; for (const id of artes) { n[id] = { ...n[id] }; for (const k of ['arte', 'nomeArte', 'caminhoArte', 'enquadramento', 'artePixels']) delete n[id][k] } return n
               })}>Remover imagem</button>}
+              {!artes.some(id=>acabamentos[id]?.arte) && <button className="btn btn-sm" aria-pressed={artes.every(id=>acabamentos[id]?.artePendente)} onClick={()=>aplicar(artes,{artePendente:!artes.every(id=>acabamentos[id]?.artePendente)})}>{artes.every(id=>acabamentos[id]?.artePendente)?'✓ Arte pendente — cancelar pendência':'Ainda não tenho minha arte'}</button>}
+              {artes.some(id=>acabamentos[id]?.arte) && <EditorArte acabamento={acabamentos[artes.find(id=>acabamentos[id]?.arte)]} aoMudar={patch=>aplicar(artes,patch)} proporcao={(()=>{const ps=analise.pecas.filter(p=>atual.superficies.some(s=>s.pecas.includes(p.chave)));if(!ps.length)return 1;const min=[0,1,2].map(i=>Math.min(...ps.map(p=>p.bbox.min[i]))),max=[0,1,2].map(i=>Math.max(...ps.map(p=>p.bbox.max[i])));return Math.max(max[0]-min[0],max[2]-min[2])/(max[1]-min[1]||1)})()} />}
               <small className="dim">PNG, JPG ou WebP · menos de 25 MB</small>
             </div>}
             {modificado && <><div className="row" style={{ justifyContent: 'space-between' }}><span>Personalização</span><strong>{fmtBRL(valor)}</strong></div>
@@ -98,21 +113,22 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
             <button className="btn btn-sm btn-ghost" onClick={() => transformar(o, { dx: 0, dz: 0, rotY: 0 })}>Voltar à posição original</button>
           </>}
         </div>)}
-        {complementos.filter(g => atual.superficies.some(s => s.id === g.ancora)).map(opcoes)}
+        {gruposVisiveis.filter(g => atual.superficies.some(s => s.id === g.ancora)).map(opcoes)}
       </div>
     </article> : <>
-      {!['adicionais', 'mobiliario'].includes(filtro) && disponiveis.filter(e => filtro === 'todos' || e.tipo === filtro).map(e =>
+      {filtro==='mobiliario'&&<div className="col" style={{gap:10}}><strong>Móveis do projeto</strong><p className="dim">{lista.filter(e=>e.tipo==='movel').map(e=>e.nome).join(', ') || 'Veja os itens disponíveis abaixo.'}</p><div className="filtros-elementos">{[['manter','Manter e organizar'],['trocar','Trocar o conjunto'],['adicionar','Acrescentar móveis']].map(([id,n])=><button className={`btn ${intencaoMoveis===id?'btn-primary':''}`} key={id} aria-pressed={intencaoMoveis===id} onClick={()=>{setIntencaoMoveis(id);voltar();aoVista?.('cima')}}>{n}</button>)}</div></div>}
+      {disponiveis.filter(e => etapaGuiada ? pertenceEtapa(e,etapaGuiada) && (etapaGuiada!=='mobiliario'||intencaoMoveis==='manter') : filtro === 'todos' || e.tipo===filtro || (filtro==='mobiliario' && intencaoMoveis==='manter' && e.tipo==='movel')).map(e =>
         <button className="elemento-card elemento-titulo" key={e.id} onClick={() => selecionar(e)}>
-          <span className="elemento-icone" aria-hidden="true">{e.tipo === 'piso' ? '▦' : e.tipo === 'parede' ? '▥' : '◇'}</span>
-          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) ? 'Personalizado' : 'Ver opções'}</small></span><span aria-hidden="true">→</span>
+          <Miniatura cena={cena} elemento={e} numero={lista.indexOf(e)+1} />
+          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s=>acabamentos[s.id]?.artePendente&&!acabamentos[s.id]?.arte)?'Arte pendente':e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) ? 'Personalizado' : 'Ver opções'}</small></span><span aria-hidden="true">→</span>
         </button>)}
-      {(filtro === 'adicionais' ? complementos.filter(g => g.tipo !== 'mobiliario') : filtro === 'todos' ? perguntasSoltas : []).map(opcoes)}
-      {(filtro === 'mobiliario' || (filtro === 'todos' && complementos.some(g => g.tipo === 'mobiliario'))) && <CatalogoMobiliario
-        grupos={complementos.filter(g => g.tipo === 'mobiliario')} escolhas={escolhas} setEscolhas={setEscolhas}
-        elementos={lista} foco={supFoco} aoFocar={setSupFoco} limites={limitesDoEstande(analise, recorte)} />}
-      {!disponiveis.length && !complementos.length && <p className="muted">A equipe está preparando as opções deste estande.</p>}
-      {disponiveis.length > 0 && !disponiveis.some(e => filtro === 'todos' || e.tipo === filtro) && !['adicionais', 'mobiliario'].includes(filtro) && <p className="muted">Não há opções nesta categoria.</p>}
-      {filtro === 'adicionais' && !complementos.some(g => g.tipo !== 'mobiliario') && <p className="muted">Este projeto não tem adicionais disponíveis.</p>}
+      {(etapaGuiada ? gruposVisiveis : filtro === 'adicionais' ? gruposVisiveis : filtro === 'todos' ? perguntasSoltas : []).map(opcoes)}
+      {((filtro === 'mobiliario' && intencaoMoveis!=='manter') || (!etapaGuiada&&filtro==='todos')) && <CatalogoMobiliario
+        grupos={ordenarCliente(complementos.filter(g => g.tipo === 'mobiliario'))} escolhas={escolhas} setEscolhas={setEscolhas} intencao={intencaoMoveis}
+        elementos={lista} foco={supFoco} aoFocar={id=>{setSupFoco(id);setObjSel(null);if(id)aoVista?.('cima')}} limites={limitesDoEstande(analise, recorte)} />}
+      {etapaGuiada && !disponiveis.some(e=>pertenceEtapa(e,etapaGuiada)) && !gruposVisiveis.length && etapaGuiada!=='mobiliario' && <p className="orientacao">O projeto não tem opções adicionais nesta etapa. Você pode manter como está e continuar.</p>}
+      {!etapaGuiada && !disponiveis.length && !complementos.length && <p className="muted">A equipe está preparando as opções deste estande.</p>}
+
     </>}
     <input ref={arquivo} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={upload} />
   </div>

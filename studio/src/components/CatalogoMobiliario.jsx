@@ -1,8 +1,9 @@
+import Miniatura from './Miniatura.jsx'
 import { adicionarMovel, ajustarMovel, instanciasMobiliario, limiteMobiliario, LIMITE_MOBILIARIO } from '../lib/glb/mobiliario.js'
 import { fmtBRL } from '../lib/glb/precos.js'
 import { areaDaOpcao } from '../lib/glb/complementos.js'
 
-export default function CatalogoMobiliario({ grupos, escolhas, setEscolhas, limites, elementos, foco, aoFocar }) {
+export default function CatalogoMobiliario({ grupos, escolhas, setEscolhas, limites, elementos, foco, aoFocar, intencao }) {
   const atualizar = (g, fn) => setEscolhas(es => ({ ...es, [g.id]: fn(es?.[g.id]) }))
   return <section className="col" style={{ gap: 14 }} aria-label="Incluir ou substituir mobiliário">
     <div className="orientacao"><strong>Incluir ou substituir mobiliário</strong>
@@ -21,13 +22,14 @@ export default function CatalogoMobiliario({ grupos, escolhas, setEscolhas, limi
           const nomes = (elementos || []).filter(e => e.superficies.some(s => o.esconde?.includes(s.id))).map(e => e.nome)
           const valor = (o.preco?.valor || 0) * (o.preco?.unidade === 'm2' ? areaDaOpcao(o.bbox) : 1)
           return <div key={o.id} className="col" style={{ gap: 9, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-            <strong>{o.nome}</strong>
+            <Miniatura opcao={o} /><strong>{o.nome}</strong>
             <small className="dim">{fmtBRL(valor)} por unidade · {unidades.length} de {limiteMobiliario(o)} selecionadas</small>
             {o.bbox && <small className="dim">{o.bbox.largura.toFixed(2)} × {o.bbox.profundidade.toFixed(2)} m · altura {o.bbox.altura.toFixed(2)} m</small>}
             <div className="filtros-elementos">
-              <button className="btn" disabled={cheio} onClick={() => atualizar(g, e => adicionarMovel(g, e, o, false, limites))}>+ Adicionar {o.nome}</button>
+              {intencao!=='trocar'&&<button className="btn" disabled={cheio} onClick={() => atualizar(g, e => adicionarMovel(g, e, o, false, limites))}>+ Adicionar {o.nome}</button>}
               {!!o.esconde?.length && <button className="btn" disabled={cheio} onClick={() => atualizar(g, e => adicionarMovel(g, e, o, true, limites))}>Substituir por {o.nome}</button>}
             </div>
+            {intencao==='trocar'&&!o.esconde?.length&&<small className="dim">Disponível apenas para acrescentar. A equipe não definiu quais móveis esta opção substitui; use Acrescentar móveis.</small>}
             {nomes.length > 0 && <small className="dim">Ao substituir, saem: {nomes.join(', ')}. O valor acima é o adicional da troca.</small>}
             {unidades.map((i, n) => {
               const chaveFoco = `extra:${g.id}:${i.id}`
@@ -41,7 +43,7 @@ export default function CatalogoMobiliario({ grupos, escolhas, setEscolhas, limi
                   <button className="btn btn-sm" onClick={() => atualizar(g, e => ({ itens: instanciasMobiliario(e).filter(x => x.id !== i.id) }))}>Remover unidade {n + 1}</button>
                 </div>
                 {editando && <>
-                  <small className="dim">Cada seta move 25 cm. Use a vista de cima para conferir.</small>
+                  <small className="dim">Clique, segure e arraste o móvel no estande. Use o anel azul para girar. As setas abaixo ajustam 25 cm.</small>
                   <div className="filtros-elementos">{[['←', -0.25, 0, 'esquerda'], ['↑', 0, -0.25, 'fundo'], ['↓', 0, 0.25, 'frente'], ['→', 0.25, 0, 'direita']].map(([texto, x, z, nome]) =>
                     <button className="btn" key={nome} aria-label={`Mover unidade para ${nome}`} onClick={() => mudar({ offset: [(i.offset?.[0] || 0) + x, i.offset?.[1] || 0, (i.offset?.[2] || 0) + z] })}>{texto}</button>)}</div>
                   <div className="filtros-elementos">{[-1, 1].map(s => <button className="btn btn-sm" key={s} onClick={() => mudar({ rotY: (i.rotY || 0) + s * Math.PI / 12 })}>{s < 0 ? '↶' : '↷'} Girar 15°</button>)}</div>
