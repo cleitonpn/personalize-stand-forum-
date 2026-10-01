@@ -16,7 +16,7 @@ export default function EscolhaComplemento({ grupo, escolhido, aoEscolher, compa
 
   const preco = (o) => {
     const v = o.preco?.valor || 0
-    if (!v) return 'incluso'
+    if (!v) return 'Sem adicional — precisa selecionar'
     return o.preco.unidade === 'm2'
       ? fmtBRL(v * areaDaOpcao(o.bbox))
       : fmtBRL(v)
@@ -47,9 +47,9 @@ export default function EscolhaComplemento({ grupo, escolhido, aoEscolher, compa
       <div className="label" style={{ fontSize: 10.5, marginBottom: 6 }}>{grupo.nome}</div>
       <div className="row" style={{ gap: 7, flexWrap: 'wrap' }}>
         <Botao id={null} ativo={!escolhido}
-          titulo={grupo.rotuloPadrao || 'Como está no projeto'} sub="sem custo" />
+          titulo={grupo.rotuloPadrao || 'Manter o projeto incluído'} sub="Já faz parte do seu estande · sem adicional" />
         {opcoes.map((o) => (
-          <Botao key={o.id} id={o.id} ativo={escolhido === o.id} titulo={o.nome} sub={preco(o)} />
+          <Botao key={o.id} id={o.id} ativo={escolhido === o.id} titulo={o.nome} sub={`${o.esconde?.length?'Troca opcional':'Inclusão opcional'} · ${preco(o)}`} />
         ))}
       </div>
     </div>

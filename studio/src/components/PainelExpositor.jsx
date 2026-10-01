@@ -7,14 +7,15 @@ import { ehBalcao } from '../lib/glb/frente.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { listarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { limitesDoEstande } from '../lib/glb/nomes.js'
-import { fmtBRL } from '../lib/glb/precos.js'
+import { fmtBRL, calcularOrcamento } from '../lib/glb/precos.js'
+import { acabamentoNapa } from '../lib/napas.js'
 import { opcoesAtivas, superficiesEscondidas } from '../lib/glb/complementos.js'
 import { CORES } from '../lib/cores.js'
 import { enviarArte } from '../lib/artes.js'
 import EscolhaComplemento from './EscolhaComplemento.jsx'
 
 export default function PainelExpositor({ analise, superficies, acabamentos, setAcabamentos,
-  supFoco, setSupFoco, recorte, orcamento, complementos = [], escolhas, setEscolhas,
+  supFoco, setSupFoco, recorte, orcamento, precos, complementos = [], escolhas, setEscolhas,
   objetos = [], setObjetos, objFoco, setObjFoco, objSel, setObjSel,
   enviarArquivo = enviarArte, aoEnviarArte, etapaGuiada, aoFocarElemento, aoVista, cena, elementosOrdenados }) {
   const [filtroLivre, setFiltro] = useState('todos')
@@ -66,7 +67,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
     {enviando && <p className="orientacao" role="status">Enviando sua arte… Você pode continuar escolhendo as cores.</p>}
     {erro && <p className="erro-inline" role="alert">{erro}</p>}
     {atual && (!etapaGuiada || pertenceEtapa(atual,etapaGuiada)) ? <article className="elemento-card selecionado">
-      <div className="elemento-titulo"><span className="elemento-nome"><strong>{atual.nome}</strong><small>Suas escolhas aparecem no estande</small></span>
+      <div className="elemento-titulo"><span className="elemento-nome"><strong>{atual.nome}</strong><small>Item do projeto · mudanças opcionais</small></span>
         <button className="btn btn-sm btn-ghost" onClick={voltar}>Voltar</button></div>
       <div className="elemento-opcoes">
         {(() => {
@@ -77,18 +78,21 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
           const removido = removiveis.length > 0 && removiveis.every(id => acabamentos[id]?.removido)
           const modificado = sups.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte)
           const valor = (orcamento?.itens || []).filter(i => atual.superficies.some(s => s.id === i.id)).reduce((n, i) => n + i.total, 0)
+          const estimar=(ids,patch,catalogo)=>calcularOrcamento({analise,superficies:sups.filter(s=>ids.includes(s.id)),recorte,precos,catalogo,acabamentos:Object.fromEntries(ids.map(id=>[id,{...acabamentos[id],...patch}]))}).total
           return <>
+            <p className="dim">Manter o acabamento original não gera adicional. Veja o valor da personalização antes de escolher.</p>
             {removiveis.length > 0 && <button className="btn" onClick={() => aplicar(removiveis, { removido: !removido })}>{removido ? 'Restaurar no estande' : atual.tipo === 'logo' ? 'Remover logo do estande' : 'Remover do estande'}</button>}
             {removido && <p className="orientacao" role="status">Removido desta personalização. Você pode restaurar quando quiser.</p>}
-            {!removido&&cores.length>0&&<CartelaNapas tipo={atual.tipo} superficies={sups.filter(s=>s.podeCor)} acabamentos={acabamentos} aplicar={aplicar}/>}
+            {!removido&&cores.length>0&&<CartelaNapas tipo={atual.tipo} superficies={sups.filter(s=>s.podeCor)} acabamentos={acabamentos} aplicar={aplicar} estimar={n=>estimar(cores,acabamentoNapa(n),[n])}/>}
             {!removido && cores.length > 0 && atual.tipo!=='parede' && <div><div className="label">Escolha uma cor</div>
-              <div className="cartela-cores">{CORES.map(c => {
+              <small className="dim">Adicional pela troca de cor: {fmtBRL(estimar(cores,{cor:'#ffffff',materialId:null}))}</small><div className="cartela-cores">{CORES.map(c => {
                 const marcado = cores.every(id => acabamentos[id]?.corId === c.id)
                 return <button key={c.id} className={`amostra ${marcado ? 'ativa' : ''}`} aria-pressed={marcado}
                   aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id,materialId:null,materialNome:null,materialCodigo:null,materialFornecedor:null,textura:null,escalaTextura:null,brilho:null })}>
                   <span style={{ background: c.hex }} /><small>{c.nome}</small></button>
               })}</div></div>}
             {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">{(atual.superficies[0]?.arteFrontal ?? ehBalcao(atual)) ? 'Sua arte — somente na frente' : 'Sua arte'}</div>
+              <small className="dim">Personalização com arte: {fmtBRL(estimar(artes,{arte:'previa'}))} neste elemento</small>
               <button className="btn" disabled={enviando} onClick={() => { destinosArte.current = artes; arquivo.current?.click() }}>
                 {enviando ? 'Enviando…' : artes.some(id => acabamentos[id]?.arte) ? 'Trocar imagem' : 'Enviar imagem'}</button>
               {artes.some(id => acabamentos[id]?.arte) && <button className="btn btn-sm btn-ghost" onClick={() => setAcabamentos(a => {
@@ -120,7 +124,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
       {disponiveis.filter(e => etapaGuiada ? pertenceEtapa(e,etapaGuiada) && (etapaGuiada!=='mobiliario'||intencaoMoveis==='manter') : filtro === 'todos' || e.tipo===filtro || (filtro==='mobiliario' && intencaoMoveis==='manter' && e.tipo==='movel')).map(e =>
         <button className="elemento-card elemento-titulo" key={e.id} onClick={() => selecionar(e)}>
           <Miniatura cena={cena} elemento={e} numero={lista.indexOf(e)+1} />
-          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s=>acabamentos[s.id]?.artePendente&&!acabamentos[s.id]?.arte)?'Arte pendente':e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) ? 'Personalizado' : 'Ver opções'}</small></span><span aria-hidden="true">→</span>
+          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s=>acabamentos[s.id]?.artePendente&&!acabamentos[s.id]?.arte)?'Arte pendente':e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) ? 'Personalizado' : 'Já incluído · ver opções para mudar'}</small></span><span aria-hidden="true">→</span>
         </button>)}
       {(etapaGuiada ? gruposVisiveis : filtro === 'adicionais' ? gruposVisiveis : filtro === 'todos' ? perguntasSoltas : []).map(opcoes)}
       {((filtro === 'mobiliario' && intencaoMoveis!=='manter') || (!etapaGuiada&&filtro==='todos')) && <CatalogoMobiliario

@@ -1,0 +1,91 @@
+/* A mesma identidade da apresentação, com contraste para uso prolongado. */
+.tema-cliente {
+  --bg:#f4f3ed; --bg-deep:#f4f3ed;
+  --surface:#fffef9; --surface-2:#eaece3; --surface-3:#dde4d6;
+  --text:#193b33; --text-mid:#4b6159; --text-dim:#5b7064;
+  --line:#ced6c8; --line-lit:#78977d; --line-soft:#193b3320;
+  --brand-green:#37644b; --brand-green-dim:#295139;
+  --brand-blue:#37644b; --brand-blue-lit:#58834b;
+  --brand-grad:linear-gradient(100deg,#d2ee80,#bfe06e);
+  --brand-grad-soft:linear-gradient(100deg,#e3edc9,#edf0df);
+  --glow:none; --glow-green:0 3px 12px #193b3310;
+  --shadow:0 8px 30px #193b3310; --shadow-sm:0 1px 3px #193b3310;
+  --cena-fundo:radial-gradient(ellipse at 48% 52%,#e2e6d9 0%,#c6cfbd 55%,#9eae98 100%);
+  --cena-grade:#9da992; --cena-secao:#a7b59f;
+  color:var(--text); background:var(--bg); font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  accent-color:#37644b;
+}
+.tema-cliente>.ambient,.tema-cliente .ambient-host>.ambient {display:none}
+.tema-cliente .topbar {background:#f4f3edf5;backdrop-filter:blur(14px);border-color:var(--line);padding-inline:28px}
+.tema-cliente .uset-assinatura {font-size:44px;font-weight:850;letter-spacing:-.07em;display:flex;align-items:center;gap:16px}
+.tema-cliente .uset-assinatura span {font-size:10px;letter-spacing:.22em;font-weight:600;border-left:1px solid #193b3340;padding-left:16px}
+.tema-cliente .topbar .uset-assinatura {font-size:34px;line-height:1;gap:15px}
+.tema-cliente .topbar .uset-assinatura span {font-size:9px}
+.tema-cliente .brand-mark {background:#d2ee80;color:#193b33;box-shadow:none}
+.tema-cliente .brand-mark::after {display:none}
+.tema-cliente .grad-text {background:none;color:#37644b;-webkit-text-fill-color:currentColor}
+.tema-cliente .btn {border-radius:24px;font-weight:600;box-shadow:none;padding:10px 16px}
+.tema-cliente .btn-primary {background:#d2ee80;color:#193b33;border-color:#c5e375}
+.tema-cliente .btn-primary:hover {background:#c0e46b;border-color:#b8d964;box-shadow:0 3px 8px #193b3310}
+.tema-cliente .btn-ghost {background:transparent}
+.tema-cliente .btn-sm {padding:7px 12px;font-size:12px}
+.tema-cliente .btn:disabled {opacity:.55}
+.tema-cliente .chip {background:#fffef9;color:#193b33;border-color:#ced6c8;box-shadow:none}
+.tema-cliente .chip.sel {background:#193b33;color:#f4f3ed;border-color:#193b33}
+.tema-cliente :is(button,summary,input,select):focus-visible {outline:2px solid #37644b;outline-offset:3px}
+.tema-cliente .studio-painel {background:#f4f3ed}
+.tema-cliente .studio-cena {border-right:0}
+.tema-cliente .studio-cena .chip {background:#f4f3edf2;color:#193b33;border-color:#193b3330;backdrop-filter:blur(10px)}
+.tema-cliente .dica-cena,.tema-cliente .controle-brilho {background:#f4f3ede8!important;color:#193b33;border-color:#193b3325!important}
+.tema-cliente .cliente-projeto {border-bottom:1px solid #193b3320;padding-bottom:18px!important}
+.tema-cliente .cliente-projeto h1 {font-size:24px!important;letter-spacing:-.04em}
+.tema-cliente .cliente-total {background:#f4f3edf5!important;z-index:5;box-shadow:0 -8px 24px #193b3307}
+.tema-cliente .jornada {gap:20px}
+.tema-cliente .jornada-cabecalho h2 {font-size:27px;line-height:1.12;font-weight:650;letter-spacing:-.045em;margin:10px 0}
+.tema-cliente .jornada-cabecalho small {color:#37644b;letter-spacing:.08em;text-transform:uppercase;font-size:10px;font-weight:700}
+.tema-cliente .jornada-cabecalho p {font-size:14px;line-height:1.65}
+.tema-cliente .jornada-ferramentas summary,.tema-cliente .jornada-mapa summary {font-size:12px;color:#4b6159}
+.tema-cliente .jornada-progresso {gap:6px}
+.tema-cliente .jornada-progresso span {height:5px;background:#dde3d5}
+.tema-cliente .jornada-progresso .atual {background:#37644b}
+.tema-cliente .jornada-progresso .feito {background:#afcd76}
+.tema-cliente .jornada-navegar {background:#f4f3ed;border-top:1px solid #193b3320;padding-top:16px}
+.tema-cliente .incluido-projeto {background:#e9eedc;border:1px solid #cedabd;border-radius:22px;padding:20px}
+.tema-cliente .incluido-projeto strong {color:#254e39;font-size:16px}
+.tema-cliente .incluido-projeto p {color:#4b6159;line-height:1.65}
+.tema-cliente .incluido-projeto ul {columns:2;column-gap:24px;list-style:none;padding:0}
+.tema-cliente .incluido-projeto li {break-inside:avoid;margin-bottom:9px;padding-left:14px;position:relative}
+.tema-cliente .incluido-projeto li:before {content:'·';position:absolute;left:0;color:#58834b;font-weight:bold}
+.tema-cliente .elemento-card {background:#fffef9;border-color:#d5ddcd;border-radius:20px;box-shadow:0 3px 8px #193b3303}
+.tema-cliente .elemento-card.selecionado {border-color:#58834b;box-shadow:0 0 0 1px #58834b20}
+.tema-cliente .elemento-titulo {padding:18px}
+.tema-cliente .elemento-nome strong {font-size:15px;font-weight:650;letter-spacing:-.015em}
+.tema-cliente .elemento-nome small {font-size:12px;line-height:1.5}
+.tema-cliente .elemento-opcoes {padding:0 18px 20px;gap:20px}
+.tema-cliente .orientacao {background:#eaeede;border-color:#d5dfc8;border-radius:18px;padding:17px}
+.tema-cliente .card {background:#fffef9;border-color:#d5ddcd;box-shadow:0 3px 10px #193b3305;border-radius:20px}
+.tema-cliente .input,.tema-cliente .select {background:#fffef9;border-color:#bfcbbb;color:#193b33;box-shadow:none}
+.tema-cliente .input::placeholder {color:#718073}
+.tema-cliente .passos-cliente button[aria-current] {background:#e7eed7;border-color:#58834b}
+.tema-cliente .passos-cliente b {color:#37644b}
+.tema-cliente .amostra.ativa {border-color:#37644b;background:#e7eed7}
+.tema-cliente .amostra span {border-color:#193b3325}
+.tema-cliente .amostra small {line-height:1.4}
+.tema-cliente .miniatura-cliente {background:#d7dece;border-radius:12px}
+.tema-cliente .miniatura-cliente b,.tema-cliente .numero-no-estande {background:#193b33;border-color:#d2ee80;color:#fffef9}
+.tema-cliente .editor-arte canvas {background:#d7dece}
+.tema-cliente .editor-arte input[type=range] {accent-color:#37644b}
+.tema-cliente .erro-inline {background:#fff0eb;color:#8a2b24;border-color:#d6aaa2}
+.tema-cliente .confirmacao-escolha {background:#173a316e;backdrop-filter:blur(5px)}
+@media(min-width:1100px){.tema-cliente .studio-workspace,.studio-workspace.tema-cliente{grid-template-columns:minmax(0,1fr) 440px}}
+@media(max-width:700px){
+  .tema-cliente .topbar{padding-inline:16px;gap:8px}
+  .tema-cliente .topbar .uset-assinatura{font-size:30px;gap:9px}
+  .tema-cliente .topbar .uset-assinatura span{padding-left:9px;font-size:8px}
+  .tema-cliente .topbar .tag{display:none}
+  .tema-cliente .jornada-cabecalho h2{font-size:24px}
+  .tema-cliente .btn{white-space:normal}
+  .tema-cliente .controle-brilho{padding:5px 8px!important;right:8px!important;bottom:8px!important}
+  .tema-cliente .controle-brilho input{width:65px!important}
+  .tema-cliente .dica-cena{font-size:10px!important;max-width:calc(100% - 28px)}
+}

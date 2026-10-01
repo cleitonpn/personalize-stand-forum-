@@ -41,7 +41,7 @@ export default function PecaAdicionada({ p, selecionada, aoSelecionar, aoTransfo
   return <group position={(p.offset || [0, 0, 0]).map((v, i) => v + (p.pivo?.[i] || 0))} rotation={[0, p.rotY || 0, 0]}>
     {p.dimensoes && selecionada && <mesh raycast={() => null}><boxGeometry args={p.dimensoes} /><meshBasicMaterial color="#50efd1" wireframe depthTest={false} /></mesh>}
     <group position={(p.pivo || [0, 0, 0]).map(v => -v)} onPointerDown={iniciar} onPointerMove={mover} onPointerUp={terminar} onPointerCancel={terminar}
-      onClick={e => { e.stopPropagation(); if (p.tipo === 'mobiliario') aoSelecionar?.(`extra:${p.id}`, null); else if (p.ancora) aoSelecionar?.(p.ancora, null) }}>
+      onClick={e => { if(!aoSelecionar)return; e.stopPropagation(); if (p.tipo === 'mobiliario') aoSelecionar?.(`extra:${p.id}`, null); else if (p.ancora) aoSelecionar?.(p.ancora, null) }}>
       <primitive object={p.objeto} />
     </group>
   </group>

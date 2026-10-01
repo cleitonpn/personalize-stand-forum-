@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate,Link } from 'react-router-dom'
+import { destinoAposLogin } from '../lib/acesso.js'
+import ErroPerfil from '../components/ErroPerfil.jsx'
 import { useAuth } from '../store/AuthContext.jsx'
 
 const MENSAGENS = {
@@ -12,13 +14,16 @@ const MENSAGENS = {
 }
 
 export default function Login() {
-  const { user, entrar } = useAuth()
+  const acesso=useAuth()
+  const { user, entrar,carregando,erroPerfil,perfil } = acesso
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState(null)
   const [enviando, setEnviando] = useState(false)
 
-  if (user) return <Navigate to="/modelos" replace />
+  if(carregando)return <div className="login-carregando" role="status">Preparando seu acesso…</div>
+  if(user&&(erroPerfil||!perfil))return <ErroPerfil/>
+  if (user) return <Navigate to={destinoAposLogin(acesso)} replace />
 
   const submeter = async (e) => {
     e.preventDefault()
@@ -36,20 +41,15 @@ export default function Login() {
     <div className="ambient-host" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 24 }}>
       <div className="ambient" />
       <div className="fade-up" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
-        <div className="brand" style={{ justifyContent: 'center', marginBottom: 26 }}>
-          <div className="brand-mark" style={{ width: 42, height: 42, fontSize: 18, borderRadius: 12 }}>U</div>
-          <div className="col">
-            <span className="brand-name" style={{ fontSize: 19 }}>Stand Studio</span>
-            <span className="brand-sub">USET</span>
-          </div>
-        </div>
+        <Link className="btn btn-ghost btn-sm" to="/">← Conheça o USET Studio</Link>
+        <Link to="/" className="uset-assinatura" style={{ justifyContent: 'center', marginBottom: 26 }}>uset<span>STUDIO</span></Link>
 
         <div className="card card-pad">
           <h1 style={{ fontSize: 21, marginBottom: 6 }}>
             Entre no <span className="grad-text">Studio</span>
           </h1>
           <p className="muted" style={{ marginTop: 0, marginBottom: 22, fontSize: 13.5 }}>
-            Gestão de modelos de estande e personalização.
+            Entre para deixar seu estande com a identidade da sua empresa.
           </p>
 
           <form onSubmit={submeter} className="col" style={{ gap: 15 }}>

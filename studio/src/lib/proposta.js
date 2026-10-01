@@ -1,4 +1,5 @@
 import { fmtBRL, fmtM2 } from './glb/precos.js'
+import { posicaoPonto,pontosEletricos } from './eletrica.js'
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
@@ -11,7 +12,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
  * texto selecionável e na fonte certa. Quando o fluxo virar envio automático por
  * e-mail, isso passa para o servidor.
  */
-export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem, complementos, pendenciasArte=[] }) {
+export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem, complementos, pendenciasArte=[],eletrica }) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   const linhas = (itens || []).map((i) => `
@@ -20,7 +21,7 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
         <div class="nome">${esc(i.nome)}</div>
         <div class="det">${esc(i.detalhe || '')}</div>
       </td>
-      <td class="num">${i.unidade === 'm2' ? fmtM2(i.quantidade) : '1 un.'}</td>
+      <td class="num">${i.unidade === 'm2' ? fmtM2(i.quantidade) : `${esc(i.quantidade??1)} un.`}</td>
       <td class="num">${fmtBRL(i.valorUnitario)}</td>
       <td class="num forte">${fmtBRL(i.total)}</td>
     </tr>`).join('')
@@ -93,6 +94,7 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
   </div>
 
   ${imagem ? `<img class="render" src="${imagem}" alt="Estande personalizado">` : ''}
+  ${blocoEletrica(eletrica)}
 
   <table>
     <thead><tr>
@@ -116,4 +118,12 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
     consta no projeto está incluso no valor do estande. Contato: ${esc(email || '')}.
   </div>
 </body></html>`
+}
+
+export function blocoEletrica(eletrica){
+  const ps=pontosEletricos({_eletrica:eletrica?.pontos}),l=eletrica?.limites
+  if(!ps.length)return ''
+  const valido=l&&[l.x0,l.x1,l.z0,l.z1].every(Number.isFinite)&&l.x1>l.x0&&l.z1>l.z0
+  const mapa=valido?`<svg viewBox="0 0 500 270" role="img" aria-label="Posições dos pontos elétricos, vista superior" style="width:100%;max-height:240px"><rect x="35" y="20" width="430" height="200" fill="#f4f6f9" stroke="#6b7280"/><text x="250" y="255" text-anchor="middle" font-size="12">FRENTE DO ESTANDE (Z máximo)</text>${ps.map((p,i)=>{const x=35+(p.x-l.x0)/(l.x1-l.x0)*430,y=20+(p.z-l.z0)/(l.z1-l.z0)*200;return `<circle cx="${x}" cy="${y}" r="11" fill="#173a31"/><text x="${x}" y="${y+4}" text-anchor="middle" fill="white" font-size="11">${i+1}</text>`}).join('')}</svg>`:''
+  return `<section class="escolhas"><h2>Pontos elétricos adicionais</h2><p>Esquema de localização, sem escala. Posições e equipamentos sujeitos à conferência da equipe.</p>${mapa}<ol>${ps.map(p=>`<li>${esc(p.uso||'Uso a informar')} · ${esc(p.tensao||'A confirmar')} · ${esc(posicaoPonto(p,valido?l:null))}</li>`).join('')}</ol></section>`
 }

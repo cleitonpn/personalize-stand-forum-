@@ -11,6 +11,7 @@
 
 import { areaDaOpcao } from './complementos.js'
 import { NAPAS, nomeNapa } from '../napas.js'
+import { precoPonto } from '../eletrica.js'
 
 export const UNIDADES = { m2: 'm²', peca: 'peça' }
 
@@ -99,7 +100,7 @@ export const tipoDoObjeto = (o) => o.tipoPreco || (o.nome || '').replace(/\s+\d+
  * removido sai do orçamento.
  */
 export function calcularOrcamento({
-  analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte, complementos, catalogo=NAPAS,
+  analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte, complementos, catalogo=NAPAS, eletrica=[],
 }) {
   const itens = []
 
@@ -173,6 +174,8 @@ export function calcularOrcamento({
     })
   }
 
+  const valorEletrica=precoPonto(precos)
+  if(eletrica.length&&valorEletrica!=null)itens.push({id:'pontos-eletricos',grupo:'eletrica',nome:'Pontos elétricos adicionais',detalhe:'Posições indicadas pelo cliente; conferir equipamentos e viabilidade',unidade:'peca',quantidade:eletrica.length,valorUnitario:valorEletrica,total:valorEletrica*eletrica.length})
   const total = itens.reduce((s, i) => s + i.total, 0)
   const soma = (g) => itens.filter((i) => i.grupo === g).reduce((s, i) => s + i.total, 0)
   return {
@@ -182,6 +185,7 @@ export function calcularOrcamento({
       superficie: soma('superficie'),
       objeto: soma('objeto'),
       complemento: soma('complemento'),
+      eletrica: soma('eletrica'),
     },
   }
 }

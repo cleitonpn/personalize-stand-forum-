@@ -1,5 +1,6 @@
 import { FocarElemento, NumerosElementos, CapturasCliente } from './VistasCliente.jsx'
 import PecaAdicionada from './PecaAdicionada.jsx'
+import PontosEletricos from './PontosEletricos.jsx'
 import { projetarFrente } from '../lib/glb/frente.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
@@ -696,6 +697,7 @@ export default function Viewer({
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, aoTransformarExtra, compararOriginal=false, focoCamera, marcadores=[], objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
   aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco, complementos = [], aoPosicionar,
+  pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,
 }) {
   const objetosExibidos=useMemo(()=>compararOriginal?(objetos||[]).map(o=>({...o,transform:{dx:0,dz:0,rotY:0}})):objetos,[objetos,compararOriginal])
   const acabamentosExibidos=useMemo(()=>compararOriginal?{}:acabamentos,[acabamentos,compararOriginal])
@@ -781,7 +783,7 @@ export default function Viewer({
       />}
 
       {cena && <primitive object={cena} onClick={e => {
-        if (compararOriginal || !aoSelecionar || e.delta > 4 || objSel) return
+        if (modoEletrica || compararOriginal || !aoSelecionar || e.delta > 4 || objSel) return
         const hit = e.intersections.find(h => {
           for (let p = h.object; p; p = p.parent) if (!p.visible) return false
           return h.object.isMesh
@@ -801,7 +803,7 @@ export default function Viewer({
       {/* Peças opcionais escolhidas. Ficam fora do realce e das transformações
           de propósito: são o objeto real que a montadora vai montar, com o
           acabamento que o projetista deu — não uma superfície a colorir. */}
-      {!compararOriginal && pecasExtras.map(p => <PecaAdicionada key={p.id} p={p} selecionada={supFoco === `extra:${p.id}`} aoSelecionar={aoSelecionar} aoTransformar={aoTransformarExtra} />)}
+      {!compararOriginal && pecasExtras.map(p => <PecaAdicionada key={p.id} p={p} selecionada={supFoco === `extra:${p.id}`} aoSelecionar={modoEletrica?null:aoSelecionar} aoTransformar={modoEletrica?null:aoTransformarExtra} />)}
       {!compararOriginal && aoTransformarExtra && pecasExtras.filter(p => p.tipo === 'mobiliario' && supFoco === `extra:${p.id}` && p.dimensoes).map(p =>
         <GizmoObjeto key={`gizmo:${p.id}`} obj={{ id:p.id, apoio:p.pivo.map((v,i) => i===1 ? v-p.dimensoes[1]/2+(p.offset[1]||0) : v), largura:p.dimensoes[0], profundidade:p.dimensoes[2], podeMover:true, podeGirar:true,
           transform:{dx:p.offset[0],dz:p.offset[2],rotY:p.rotY} }} limites={limitesGizmo}
@@ -820,12 +822,13 @@ export default function Viewer({
       <FocarElemento cena={cena} pedido={focoCamera}/>
       {!compararOriginal&&<NumerosElementos cena={cena} marcadores={marcadores}/>}
       <CapturasCliente cena={cena} recorte={recorte}/>
+      {!compararOriginal&&<PontosEletricos pontos={pontosEletricos} limites={limitesEletrica} altura={alturaEletrica} modo={modoEletrica} aoMarcar={aoMarcarEletrica}/>}
       <Exposicao valor={exposicao} />
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />
     </Canvas>
 
     {/* controle de brilho, canto inferior direito do 3D */}
-    <div style={{
+    <div className="controle-brilho" style={{
       position: 'absolute', right: 14, bottom: 14, display: 'flex', alignItems: 'center', gap: 9,
       padding: '7px 12px', borderRadius: 99, background: 'rgba(12,18,30,.82)',
       backdropFilter: 'blur(10px)', border: '1px solid var(--line)',

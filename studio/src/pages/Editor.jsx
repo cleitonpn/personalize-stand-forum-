@@ -1,5 +1,6 @@
 import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
 import { useNapas } from '../store/NapasContext.jsx'
+import { pontosEletricos } from '../lib/eletrica.js'
 import { listarElementos } from '../lib/glb/elementos.js'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
@@ -347,7 +348,7 @@ export default function Editor() {
   const nIgnorados = Object.values(papeis).filter((p) => p === 'ignorar').length
 
   return (
-    <div className="studio-workspace">
+    <div className={`studio-workspace ${aba==='personalizar'?'tema-cliente':''}`}>
       {/* ---------------- viewer ---------------- */}
       <div className="studio-cena">
         {(carregando || !cena) && !erroGlb && (
@@ -560,8 +561,8 @@ export default function Editor() {
                         analise={analise} superficies={superficies} acabamentos={acabamentos} setAcabamentos={setAcabamentos}
                         supFoco={supFoco} setSupFoco={setSupFoco} objetos={objetosPrevia} setObjetos={setObjetosPrevia}
                         objFoco={objFoco} setObjFoco={setObjFoco} objSel={objSel} setObjSel={id => { setObjSel(id); if (id) setVista('cima') }}
-                        complementos={grupos} escolhas={previa} setEscolhas={setPrevia} recorte={recorte}
-                        orcamento={calcularOrcamento({ analise, superficies, objetos: objetosPrevia, acabamentos, precos, precosObjeto, recorte,catalogo,
+                        complementos={grupos} escolhas={previa} setEscolhas={setPrevia} recorte={recorte} precos={precos}
+                        orcamento={calcularOrcamento({ analise, superficies, objetos: objetosPrevia, acabamentos, precos, precosObjeto, recorte,catalogo,eletrica:pontosEletricos(previa),
                           complementos: { ativas, escondidas: superficiesEscondidas(ativas) } })} />
               ) : aba === 'materiais' ? (
                 <div className="col" style={{ gap: 9 }}>

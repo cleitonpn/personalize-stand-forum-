@@ -17,6 +17,7 @@ import { opcoesAtivas, superficiesEscondidas, chavesEscondidas, pecasParaCena } 
 import { limitesDoEstande } from '../lib/glb/nomes.js'
 import { listarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { useHistorico } from '../lib/useHistorico.js'
+import { pontosEletricos,precoPonto } from '../lib/eletrica.js'
 
 export default function Expositor() {
   const {catalogo,erro:erroCatalogo,carregando:carregandoCatalogo}=useNapas()
@@ -98,9 +99,9 @@ export default function Expositor() {
   const escondidos = useMemo(() => chavesEscondidas(ativas, superficies), [ativas, superficies])
 
   const orcamento = useMemo(() => (analise ? calcularOrcamento({
-    analise, superficies, objetos, acabamentos, precos, precosObjeto, catalogo, recorte: modelo?.recorte,
+    analise, superficies, objetos, acabamentos, precos, precosObjeto, catalogo, eletrica:pontosEletricos(escolhas), recorte: modelo?.recorte,
     complementos: { ativas, escondidas: superficiesEscondidas(ativas) },
-  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas,catalogo])
+  }) : { itens: [], total: 0, porGrupo: {} }), [analise, superficies, objetos, acabamentos, modelo, ativas,catalogo,escolhas])
 
   // Escolher a peça vira a câmera para cima: é de lá que arrastar no chão
   // corresponde exatamente ao movimento do mouse, sem dúvida de profundidade.
@@ -127,6 +128,7 @@ export default function Expositor() {
 
   const gravar = async () => {
     if (enviandoArte || gravando) return
+    if(pontosEletricos(escolhas).length&&precoPonto(precos)==null){alert('A equipe precisa liberar o preço dos pontos elétricos. Remova os pontos adicionais para enviar sem eles.');return}
     setGravando(true)
     try {
       // A imagem do 3D entra na proposta como registro do que foi escolhido.
@@ -138,7 +140,7 @@ export default function Expositor() {
         feira: perfil?.feira || null,
         modeloId: modelo.id,
         modeloNome: modelo.nome,
-        acabamentos, pendenciasArte,
+        acabamentos, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo},
         objetos: (objetos || []).map((o) => ({ id: o.id, nome: o.nome, transform: o.transform || {dx:0,dz:0,rotY:0} })),
         // As escolhas vão pelo nome, não só pelo id: quem abrir a proposta na
         // produção precisa ler "Depósito na ponta esquerda" sem ter que
@@ -149,7 +151,7 @@ export default function Expositor() {
         total: orcamento.total,
         criadoEm: serverTimestamp(),
       })
-      setGravado({ id: ref.id, imagem, pendenciasArte, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
+      setGravado({ id: ref.id, imagem, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo}, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
     } catch (ex) {
       alert(`Não foi possível gravar: ${ex.message}`)
     } finally {
@@ -167,6 +169,7 @@ export default function Expositor() {
       total: gravado?.total ?? orcamento.total,
       complementos: gravado?.complementos || ativas.map(registroComplemento),
       imagem: gravado?.imagem || window.__psfShot?.() || null,
+      eletrica:gravado?.eletrica || {pontos:pontosEletricos(escolhas),limites:limitesGizmo},
     })
     const w = window.open('', '_blank')
     if (!w) { alert('O navegador bloqueou a janela. Libere pop-ups para gerar o PDF.'); return }
@@ -228,19 +231,19 @@ export default function Expositor() {
           ? Como funciona
         </button>
 
-        <div className="dim" style={{
+        <div className="dim dica-cena" style={{
           position: 'absolute', bottom: 64, left: 14, fontSize: 11.5,
           background: 'rgba(7,10,20,.7)', backdropFilter: 'blur(8px)',
           padding: '6px 11px', borderRadius: 99, border: '1px solid var(--line)',
         }}>
-          {objSel
+          {cenaCliente.modoEletrica?'Clique no piso para marcar o ponto elétrico':objSel
             ? 'Arraste a marca verde para mover · o anel azul para girar'
             : 'Clique para personalizar · arraste para girar'}
         </div>
       </div>
 
       <aside className="studio-painel">
-        <div style={{ padding: '18px 18px 0' }}>
+        <div className="cliente-projeto" style={{ padding: '18px 18px 0' }}>
           <h1 style={{ fontSize: 19, marginBottom: 3 }}>Seu estande</h1>
           <div className="filtros-elementos" style={{ margin: '12px 0' }}>
             <button className="btn btn-sm" disabled={!historico.podeDesfazer || gravando} onClick={historico.desfazer}>↶ Desfazer</button>
@@ -266,7 +269,7 @@ export default function Expositor() {
           ) : null}
         </div>
 
-        <div style={{
+        <div className="cliente-total" style={{
           position: 'sticky', bottom: 0, padding: 18, background: 'rgba(4,6,13,.94)',
           backdropFilter: 'blur(10px)', borderTop: '1px solid var(--line)',
         }}>
@@ -286,7 +289,7 @@ export default function Expositor() {
           ) : (
             <>
               <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
-                <span className="label" style={{ fontSize: 10.5 }}>Total</span>
+                <span className="label" style={{ fontSize: 10.5 }}>Adicionais escolhidos</span>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 21, color: 'var(--brand-green)' }}>
                   {fmtBRL(orcamento.total)}
                 </span>
@@ -294,9 +297,9 @@ export default function Expositor() {
               {/* Trocar o depósito de lugar pode custar zero e mesmo assim é uma
                   escolha que a produção precisa receber — então também libera o
                   envio, não só o que gera valor. */}
-              <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
+              <button className={`btn ${revisando?'btn-primary':'btn-ghost btn-sm'}`} style={{ width: '100%', padding: 12 }}
                 disabled={gravando || enviandoArte || !analise || cenaCliente.compararOriginal || !!erroCatalogo || carregandoCatalogo} onClick={revisando?gravar:()=>setSolicitarRevisao(v=>v+1)}>
-                {gravando ? <><span className="spinner" /> Enviando…</> : revisando ? 'Enviar personalização' : 'Revisar personalização'}
+                {gravando ? <><span className="spinner" /> Enviando…</> : revisando ? 'Enviar escolhas para a USET' : 'Ver resumo das escolhas'}
               </button>
               {erroCatalogo&&<p role="alert" className="dim">{erroCatalogo} O envio aguarda a consulta dos preços.</p>}
               {!orcamento.itens.length && !ativas.length && !objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY) && (

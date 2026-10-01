@@ -1,0 +1,11 @@
+import { fmtBRL } from '../lib/glb/precos.js'
+import { MAX_PONTOS,posicaoPonto } from '../lib/eletrica.js'
+export default function PainelEletrica({pontos,valor,limites,modo,aoMarcar,aoMudar,aoRemover}){
+  return <section className="col" style={{gap:14}} aria-label="Pontos elétricos adicionais"><div className="orientacao"><strong>Precisa de energia em mais lugares?</strong><p>Os pontos marcados aqui são adicionais ao projeto. Indique o local no piso e o equipamento que pretende usar.</p>{valor==null?<p>A equipe ainda não liberou o preço por ponto neste projeto.</p>:<p><b>{fmtBRL(valor)} por ponto</b> · {pontos.length} selecionado(s) · {fmtBRL(valor*pontos.length)}</p>}</div>
+    <button className="btn btn-primary" disabled={!modo&&(valor==null||pontos.length>=MAX_PONTOS)} onClick={()=>aoMarcar(modo?null:'novo')}>{modo?'Cancelar marcação':'+ Marcar ponto no piso'}</button>
+    {modo&&<p className="orientacao" role="status">{modo==='novo'?'Clique no piso para adicionar um ponto.':'Clique na nova posição deste ponto.'} Depois de marcar, você volta às opções.</p>}
+    {!pontos.length&&<p className="dim">Nenhum ponto adicional. Você pode continuar sem acrescentar.</p>}
+    {pontos.map((p,i)=><article className="card card-pad col" style={{gap:9}} key={p.id}><strong>Ponto {i+1} · {valor==null?'Preço a confirmar':fmtBRL(valor)}</strong><small className="dim">{posicaoPonto(p,limites)}</small><label className="field">Equipamento / finalidade<input className="input" maxLength={200} placeholder="Ex.: TV, notebook, frigobar…" value={p.uso||''} onChange={e=>aoMudar(p.id,{uso:e.target.value})}/></label><label className="field">Tensão desejada<select className="select" value={p.tensao||'A confirmar'} onChange={e=>aoMudar(p.id,{tensao:e.target.value})}><option>A confirmar</option><option>127 V</option><option>220 V</option></select></label><div className="row"><button className="btn btn-sm" onClick={()=>aoMarcar(p.id)}>Reposicionar ponto {i+1}</button><button className="btn btn-sm" onClick={()=>aoRemover(p.id)}>Remover ponto {i+1}</button></div></article>)}
+    <small className="dim">A equipe confere a carga dos equipamentos e a viabilidade das posições antes da montagem.</small>
+  </section>
+}

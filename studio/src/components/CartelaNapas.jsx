@@ -3,7 +3,7 @@ import { useNapas } from '../store/NapasContext.jsx'
 import { napasDisponiveis, nomeNapa, acabamentoNapa } from '../lib/napas.js'
 import { fmtBRL } from '../lib/glb/precos.js'
 
-export default function CartelaNapas({tipo,superficies,acabamentos,aplicar}) {
+export default function CartelaNapas({tipo,superficies,acabamentos,aplicar,estimar}) {
   const {catalogo,erro,carregando}=useNapas()
   const [busca,setBusca]=useState(''),[familia,setFamilia]=useState('lisa')
   const permitidas=napasDisponiveis(catalogo,tipo,superficies)
@@ -21,9 +21,9 @@ export default function CartelaNapas({tipo,superficies,acabamentos,aplicar}) {
     {carregando&&<p role="status">Consultando acabamentos…</p>}
     {!carregando&&!erro&&!lista.length&&<p className="dim">{familia==='especial'?'Nenhuma napa especial liberada para este elemento.':'Nenhuma napa encontrada para este elemento.'}</p>}
     <div className="cartela-cores napas-cartela">{lista.map(n=><button className={`amostra ${superficies.every(s=>acabamentos[s.id]?.materialId===n.id)?'ativa':''}`} key={n.id} aria-label={nomeNapa(n)} aria-pressed={superficies.every(s=>acabamentos[s.id]?.materialId===n.id)} onClick={()=>aplicar(superficies.map(s=>s.id),acabamentoNapa(n))}>
-      <span style={{backgroundColor:n.cor,backgroundImage:n.textura?`url("${n.textura}")`:undefined,backgroundSize:'cover'}}/><small>{n.nome}<br/>{n.codigo||'Código não informado'}{n.preco!=null&&<><br/>{fmtBRL(n.preco)}/m²</>}</small>
+      <span style={{backgroundColor:n.cor,backgroundImage:n.textura?`url("${n.textura}")`:undefined,backgroundSize:'cover'}}/><small>{n.nome}<br/>{n.codigo||'Código não informado'}{estimar?<><br/>+ {fmtBRL(estimar(n))}</>:n.preco!=null&&<><br/>{fmtBRL(n.preco)}/m²</>}</small>
     </button>)}</div>
-    <small className="dim">Cores aproximadas na tela. A referência de produção é o nome e código do material. O preço segue a configuração do projeto quando não indicado na amostra.</small>
+    <small className="dim">{estimar?'Valores para personalizar este elemento, já considerando sua metragem. ':''}Cores aproximadas na tela. A referência de produção é o nome e código do material.</small>
     {superficies.some(s=>acabamentos[s.id]?.arte)&&<p className="dim">A arte está aplicada sobre o revestimento. Remova a imagem para visualizar o material inteiro.</p>}
   </section>
 }

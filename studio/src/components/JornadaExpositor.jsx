@@ -5,6 +5,9 @@ import { opcoesAtivas, superficiesEscondidas } from '../lib/glb/complementos.js'
 import { ETAPAS, ordenarCliente, pertenceEtapa, resumoEtapa, resolverConflitos } from '../lib/jornada.js'
 import { fmtBRL } from '../lib/glb/precos.js'
 import { nomeNapa } from '../lib/napas.js'
+import PainelEletrica from './PainelEletrica.jsx'
+import { pontosEletricos,marcarPonto,precoPonto,posicaoPonto } from '../lib/eletrica.js'
+import { limitesDoEstande } from '../lib/glb/nomes.js'
 
 export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCena, solicitarRevisao=0, aoRevisao, ...props }) {
   const { analise, superficies, objetos, complementos=[], escolhas={}, setEscolhas, acabamentos={}, supFoco, objFoco, setSupFoco, setObjFoco, setObjSel } = props
@@ -18,6 +21,21 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
   const [confirmacao,setConfirmacao] = useState(null)
   const [imagens,setImagens] = useState([])
   const [erroCaptura,setErroCaptura] = useState('')
+  const [modoEletrica,setModoEletrica]=useState(null)
+  const pontos=useMemo(()=>pontosEletricos(escolhas),[escolhas._eletrica])
+  const limites=useMemo(()=>analise?limitesDoEstande(analise,props.recorte):null,[analise,props.recorte])
+  const alturaPiso=useMemo(()=>{
+    const chaves=new Set(superficies.filter(s=>s.tipoElemento==='piso'||s.papel==='piso').flatMap(s=>s.pecas))
+    const pisos=(analise?.pecas||[]).filter(p=>chaves.has(p.chave))
+    return pisos.length?Math.max(...pisos.map(p=>p.bbox.max[1])):analise?.resumo?.cena?.min?.[1]||0
+  },[analise,superficies])
+  const alterarPontos=fn=>setEscolhas(e=>({...e,_eletrica:fn(pontosEletricos(e))}))
+  const iniciarMarcacao=id=>{limparFoco();setModoEletrica(id);if(id)aoVista?.('cima')}
+  useEffect(()=>{
+    aoCena?.({pontosEletricos:pontos,limitesEletrica:limites,alturaEletrica:alturaPiso,modoEletrica:!comparando&&etapa==='eletrica'&&modoEletrica,
+      aoMarcarEletrica:pos=>{alterarPontos(ps=>marcarPonto(ps,pos,limites,modoEletrica==='novo'?null:modoEletrica));setModoEletrica(null)}})
+  },[pontos,limites,alturaPiso,modoEletrica,comparando,etapa])
+  useEffect(()=>()=>aoCena?.({modoEletrica:null,pontosEletricos:[],aoMarcarEletrica:null}),[])
   const cabecalho=useRef(null)
   const dialogo=useRef(null)
   useEffect(()=>()=>aoCena?.({compararOriginal:false,focoCamera:null}),[])
@@ -43,9 +61,9 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
   const indice=ETAPAS.findIndex(e=>e.id===atual.id)
   const ativas=opcoesAtivas(complementos,escolhas)
   const pendentes=resumos.slice(0,-1).flatMap(e=>e.pendencias)
-  const alteracoes=new Set(resumos.flatMap(e=>e.alterados.map(x=>x.id))).size + ativas.length
+  const alteracoes=new Set(resumos.flatMap(e=>e.alterados.map(x=>x.id))).size + ativas.length + pontos.length
   const limparFoco=()=>{setSupFoco(null);setObjFoco(null);setObjSel(null)}
-  const navegar=id=>{limparFoco();setNavegacao(n=>({...n,etapa:id}));aoVista?.(ETAPAS.find(e=>e.id===id)?.vista || 'perspectiva');cabecalho.current?.focus()}
+  const navegar=id=>{setModoEletrica(null);limparFoco();setNavegacao(n=>({...n,etapa:id}));aoVista?.(ETAPAS.find(e=>e.id===id)?.vista || 'perspectiva');cabecalho.current?.focus()}
   useEffect(()=>{try{localStorage.setItem(`psf.jornada.${chaveRascunho}`,JSON.stringify(navegacao))}catch{/* sem persistência */}},[chaveRascunho,navegacao])
   useEffect(()=>{aoRevisao?.(etapa==='revisao')},[etapa])
   useEffect(()=>{if(solicitarRevisao) navegar('revisao')},[solicitarRevisao])
@@ -83,19 +101,21 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
   }
   useEffect(()=>{setImagens([])},[acabamentos,escolhas,objetos])
   return <div className="jornada">
-    <div className="modos-cliente" aria-label="Modo de personalização">
+    <details className="jornada-ferramentas"><summary>Modo de navegação e comparação</summary><div className="modos-cliente" aria-label="Modo de personalização">
       {[['guiado','Passo a passo'],['livre','Explorar livremente']].map(([id,nome])=><button className={`btn ${modo===id?'btn-primary':''}`} key={id} aria-pressed={modo===id} disabled={enviando} onClick={()=>setNavegacao(n=>({...n,modo:id,etapa:id==='livre'&&n.etapa==='revisao'?'marca':n.etapa}))}>{nome}</button>)}
     </div>
     <div className="jornada-utilidades">
       <button className="btn btn-sm" onClick={()=>{limparFoco();aoVista?.('perspectiva')}}>Visão geral</button>
       <button className={`btn btn-sm ${comparando?'btn-primary':''}`} aria-pressed={comparando} disabled={enviando} onClick={()=>{setComparando(!comparando);aoCena?.({compararOriginal:!comparando})}}>{comparando?'Voltar à minha versão':'Comparar com original'}</button>
     </div>
-    {comparando&&<p className="orientacao" role="status">Você está vendo o projeto original no mesmo ângulo. Suas escolhas estão guardadas. Volte à sua versão para editar.</p>}
-    {modo==='guiado'&&<nav className="passos-cliente" aria-label="Etapas da personalização">{resumos.map((e,i)=><button key={e.id} aria-current={etapa===e.id?'step':undefined} disabled={enviando||comparando} onClick={()=>navegar(e.id)}><b>{i+1}</b><span>{e.nome}<small>{e.id==='revisao'?'Conferir':e.status}</small></span></button>)}</nav>}
+    </details>
+    {comparando&&<p className="orientacao" role="status">Você está vendo o projeto original. <button className="btn btn-sm" onClick={()=>{setComparando(false);aoCena?.({compararOriginal:false})}}>Voltar para editar</button></p>}
+    {modo==='guiado'&&<><div className="jornada-progresso" aria-label={`Etapa ${indice+1} de ${ETAPAS.length}`}>{ETAPAS.map((e,i)=><span key={e.id} className={i===indice?'atual':escolhas._etapas?.[e.id]?'feito':''}/>)}</div><details className="jornada-mapa"><summary>Ver etapas e escolhas</summary><nav className="passos-cliente" aria-label="Etapas da personalização">{resumos.map((e,i)=><button key={e.id} aria-current={etapa===e.id?'step':undefined} disabled={enviando||comparando} onClick={()=>navegar(e.id)}><b>{i+1}</b><span>{e.nome}<small>{e.id==='revisao'?'Conferir':e.status}</small></span></button>)}</nav></details></>}
     <div ref={cabecalho} tabIndex={-1} className="jornada-cabecalho"><small>{modo==='guiado'?`Etapa ${indice+1} de ${ETAPAS.length}`:'Suas escolhas, na sua ordem'}</small><h2>{modo==='livre'&&etapa!=='revisao'?'Explore seu estande':atual.pergunta}</h2><p>{modo==='livre'&&etapa!=='revisao'?'Escolha uma categoria ou clique no estande. Você pode voltar ao passo a passo sem perder nada.':atual.dica}</p></div>
     <fieldset disabled={comparando} className="jornada-conteudo">
-      {etapa==='ambientes'&&modo==='guiado'&&<details className="orientacao"><summary>O que está incluso no seu projeto</summary><ul>{elementos.filter(e=>['movel','parede','piso'].includes(e.tipo)).map(e=><li key={e.id}>{e.nome}</li>)}</ul></details>}
-      {etapa==='revisao'?<>
+      {etapa==='ambientes'&&modo==='guiado'&&<section className="incluido-projeto"><strong>✓ Já incluído no projeto</strong><p>Estes itens fazem parte da base do seu estande. Mantê-los como estão não gera adicional.</p><ul>{elementos.filter(e=>['movel','parede','piso'].includes(e.tipo)).map(e=><li key={e.id}>{e.nome}</li>)}</ul><p>As opções abaixo são mudanças opcionais. Você pode seguir sem escolher nenhuma.</p></section>}
+      {etapa==='eletrica'?<PainelEletrica pontos={pontos} valor={precoPonto(props.precos)} limites={limites} modo={modoEletrica} aoMarcar={iniciarMarcacao} aoMudar={(id,patch)=>alterarPontos(ps=>ps.map(p=>p.id===id?{...p,...patch}:p))} aoRemover={id=>{setModoEletrica(null);alterarPontos(ps=>ps.filter(p=>p.id!==id))}}/>:
+      etapa==='revisao'?<>
         <div className="jornada-utilidades">{[['frente','Frente'],['esquerda','Lateral esquerda'],['direita','Lateral direita'],['cima','Vista de cima']].map(([v,n])=><button className="btn btn-sm" key={v} onClick={()=>aoVista?.(v)}>{n}</button>)}</div>
         <button className="btn" onClick={capturar}>Gerar imagens da revisão</button>
         {erroCaptura&&<p role="status">{erroCaptura}</p>}
@@ -104,10 +124,13 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
         {resumos.slice(0,-1).map(e=><article key={e.id} className="card card-pad"><div className="row" style={{justifyContent:'space-between'}}><strong>{e.nome}</strong><button className="btn btn-sm" onClick={()=>{setNavegacao(n=>({...n,modo:'guiado'}));navegar(e.id)}}>Editar {e.nome.toLowerCase()}</button></div><small>{e.status==='A escolher'?'Original — ainda não revisado':e.status}</small>
           <ul>{e.alterados.map(x=><li key={x.id}>{x.nome}{[...new Set(x.superficies.map(s=>acabamentos[s.id]).filter(a=>a?.materialNome).map(a=>nomeNapa({nome:a.materialNome,codigo:a.materialCodigo})))].map(n=><small key={n} style={{display:'block'}}>{n}</small>)}{e.pendencias.some(p=>p.id===x.id)?' — arte pendente':''}</li>)}{e.adicionais.map(o=><li key={o.id}>{o.nome} — {o.esconde?.length?'substituição':'inclusão'}</li>)}</ul>
         </article>)}
+        {pontos.length>0&&<article className="card card-pad"><strong>{pontos.length} ponto(s) elétrico(s) adicional(is)</strong><ol>{pontos.map(p=><li key={p.id}>{p.uso||'Uso a informar'} · {p.tensao} · {posicaoPonto(p,limites)}</li>)}</ol></article>}
         <details className="card card-pad"><summary>Detalhar valores dos adicionais</summary>{props.orcamento?.itens.map((i,n)=><p key={`${i.id}:${n}`}>{i.nome}: {fmtBRL(i.total)}</p>)}</details>
       </>:<PainelExpositor {...props} elementosOrdenados={elementos} etapaGuiada={modo==='guiado'?etapa:null} aoFocarElemento={focar} aoVista={aoVista} setEscolhas={escolherSeguro}
         aoEnviarArte={v=>{setEnviando(v);props.aoEnviarArte?.(v)}} />}
-      {modo==='guiado'&&etapa!=='revisao'&&<div className="jornada-navegar"><button className="btn" disabled={indice===0||enviando} onClick={()=>navegar(ETAPAS[indice-1].id)}>Voltar</button><button className="btn btn-primary" disabled={enviando} onClick={concluir}>{atual.personalizado?'Continuar com minhas escolhas':'Manter como está e continuar'}</button></div>}
+      {modo==='guiado'&&etapa!=='revisao'&&<div className="jornada-navegar"><button className="btn" disabled={indice===0||enviando} onClick={()=>navegar(ETAPAS[indice-1].id)}>Voltar</button><button className="btn btn-primary" disabled={enviando||!!modoEletrica} onClick={concluir}>{atual.personalizado?'Salvar escolhas e continuar':'Manter o incluído e continuar'} →</button><small>Próximo: {ETAPAS[indice+1]?.nome}</small></div>}
+      {modo==='livre'&&etapa!=='eletrica'&&etapa!=='revisao'&&<button className="btn" onClick={()=>navegar('eletrica')}>Pontos elétricos adicionais</button>}
+      {modo==='livre'&&etapa==='eletrica'&&<button className="btn" onClick={()=>navegar('marca')}>Voltar às personalizações</button>}
       {modo==='livre'&&etapa!=='revisao'&&<button className="btn btn-primary" disabled={enviando} onClick={()=>navegar('revisao')}>Revisar personalização</button>}
     </fieldset>
     <small className="dim">{alteracoes} alteração(ões) · adicionais {fmtBRL(props.orcamento?.total)}. O projeto padrão já está incluso.</small>
