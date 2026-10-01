@@ -114,4 +114,8 @@ function Laboratorio() {
   </div>
   return <Previa key={modelo.id} {...modelo} controles={controles} />
 }
-if (import.meta.env.DEV) createRoot(document.getElementById('root')).render(<React.StrictMode><Laboratorio /></React.StrictMode>)
+if (import.meta.env.DEV) {
+  const root=import.meta.hot?.data.root || createRoot(document.getElementById('root'))
+  if(import.meta.hot)import.meta.hot.data.root=root
+  root.render(<React.StrictMode><Laboratorio /></React.StrictMode>)
+}
