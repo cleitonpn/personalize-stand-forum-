@@ -1,11 +1,12 @@
 import { opcoesAtivas, superficiesEscondidas } from './glb/complementos.js'
 
 export const ETAPAS = [
-  { id:'ambientes', nome:'Seu projeto', pergunta:'Quer acrescentar algum ambiente?', dica:'Conheça o que já está incluso. Escolha uma sala ou mantenha o projeto original.', vista:'perspectiva' },
+  { id:'ambientes', nome:'Seu projeto', pergunta:'Seu estande já tem um ponto de partida', dica:'Confira o que já está incluído. Você só precisa escolher o que quer mudar ou acrescentar.', vista:'perspectiva' },
   { id:'marca', nome:'Sua marca', pergunta:'Onde você quer destacar sua empresa?', dica:'Escolha um cartão para personalizar paredes, logos e frentes de balcão.', vista:'frente' },
   { id:'piso', nome:'Piso', pergunta:'Qual acabamento combina com sua marca?', dica:'Compare as cores no estande. Você também pode manter o piso original.', vista:'cima' },
   { id:'mobiliario', nome:'Mobiliário', pergunta:'Como você quer receber seus visitantes?', dica:'Mantenha, troque ou acrescente móveis. Arraste cada peça para distribuir do seu jeito.', vista:'cima' },
   { id:'complementos', nome:'Complementos', pergunta:'Precisa de mais alguma coisa?', dica:'Confira os itens extras disponíveis para este projeto.', vista:'perspectiva' },
+  { id:'eletrica', nome:'Elétrica', pergunta:'Onde você precisa de mais energia?', dica:'Marque no piso a posição de cada ponto adicional. O valor aparece antes de adicionar.', vista:'cima' },
   { id:'revisao', nome:'Revisão', pergunta:'Confira como ficou seu estande', dica:'Revise as escolhas e as artes pendentes antes de enviar à equipe.', vista:'perspectiva' },
 ]
 export function etapaGrupo(g) {
@@ -28,7 +29,7 @@ export function resumoEtapa(id, elementos, grupos, escolhas, acabamentos) {
   const pendencias = es.filter(e => e.superficies.some(s => !ocultas.has(s.id) && !acabamentos[s.id]?.removido && acabamentos[s.id]?.artePendente && !acabamentos[s.id]?.arte))
   const alterados = es.filter(e => e.superficies.some(s => !ocultas.has(s.id) && ['cor','arte','removido','artePendente'].some(k => acabamentos[s.id]?.[k])) || e.objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY))
   const adicionais = ativas.filter(o => etapaGrupo(grupos.find(g => g.id === o.grupoId) || {}) === id)
-  const personalizado = alterados.length > 0 || adicionais.length > 0
+  const personalizado = alterados.length > 0 || adicionais.length > 0 || (id==='eletrica'&&escolhas?._eletrica?.length>0)
   return { pendencias, alterados, adicionais, personalizado,
     status: pendencias.length ? 'Pendente' : personalizado ? 'Personalizado' : escolhas?._etapas?.[id] ? 'Mantido' : 'A escolher' }
 }

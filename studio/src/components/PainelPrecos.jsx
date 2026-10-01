@@ -46,6 +46,7 @@ export default function PainelPrecos({
 
   return (
     <div className="col" style={{ gap: 16 }}>
+      <section className="card card-pad col" style={{gap:10}}><h3>Pontos elétricos adicionais</h3><label className="row"><input type="checkbox" checked={precos.eletrica?.ativo===true} onChange={e=>setPrecos(p=>({...p,eletrica:{unidade:'peca',valor:p.eletrica?.valor??null,ativo:e.target.checked}}))}/>Liberar marcação de pontos no piso</label><label className="field">Preço por ponto (R$)<input className="input" type="number" min="0" step="0.01" value={precos.eletrica?.valor??''} placeholder="Defina antes de liberar" onChange={e=>setPrecos(p=>({...p,eletrica:{unidade:'peca',ativo:p.eletrica?.ativo||false,valor:e.target.value===''?null:Math.max(0,Number(e.target.value))}}))}/></label><small className="dim">O cliente vê o preço e marca posições. O padrão do projeto continua incluído; a equipe confere as solicitações adicionais.</small></section>
       <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.6 }}>
         A metragem é medida no próprio projeto — cada parede entra com a área que
         tem no arquivo, já descontando peças duplicadas e o que está fora da

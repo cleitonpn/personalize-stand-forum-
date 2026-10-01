@@ -3,6 +3,7 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import { fmtBRL, fmtM2 } from '../lib/glb/precos.js'
 import { gerarPropostaHTML } from '../lib/proposta.js'
+import { posicaoPonto,pontosEletricos } from '../lib/eletrica.js'
 
 const data = (ts) => ts?.toDate?.().toLocaleString('pt-BR', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -30,7 +31,7 @@ export default function Propostas() {
   const abrirPDF = (p) => {
     const html = gerarPropostaHTML({
       cliente: p.clienteNome, email: p.clienteEmail, feira: p.feira,
-      modelo: p.modeloNome, itens: p.itens, total: p.total, imagem: null, complementos: p.complementos, pendenciasArte:p.pendenciasArte,
+      modelo: p.modeloNome, itens: p.itens, total: p.total, imagem: null, complementos: p.complementos, pendenciasArte:p.pendenciasArte,eletrica:p.eletrica,
     })
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
@@ -96,13 +97,14 @@ export default function Propostas() {
                     {(p.itens || []).map((it) => (
                       <div key={it.id} className="row" style={{ justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
                         <span className="muted">
-                          {it.nome} <span className="dim">· {it.unidade === 'm2' ? fmtM2(it.quantidade) : '1 un.'}</span>
+                          {it.nome} <span className="dim">· {it.unidade === 'm2' ? fmtM2(it.quantidade) : `${it.quantidade??1} un.`}</span>
                         </span>
                         <span className="mono">{fmtBRL(it.total)}</span>
                       </div>
                     ))}
                   </div>
                   <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{p.clienteEmail}</div>
+                  {pontosEletricos({_eletrica:p.eletrica?.pontos}).length>0&&<section><h4>Pontos elétricos adicionais</h4><ol>{p.eletrica.pontos.map(pt=><li key={pt.id}>{pt.uso||'Uso a informar'} · {pt.tensao||'A confirmar'} · {posicaoPonto(pt,p.eletrica.limites)}</li>)}</ol></section>}
                 </>
               )}
             </div>

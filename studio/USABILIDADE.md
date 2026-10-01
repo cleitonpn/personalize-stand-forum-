@@ -65,7 +65,7 @@ Validação: 47 testes (catálogo, permissões, preços, proposta e medidas de U
 
 ### Jornada do expositor
 
-O cliente inicia em **Passo a passo**, com seis etapas: Seu projeto, Sua marca, Piso, Mobiliário, Complementos e Revisão. **Explorar livremente** usa as mesmas escolhas e permite voltar ao roteiro sem perder a personalização. Cartões têm miniaturas e numeração; selecionar um cartão enquadra o elemento. A navegação fica guardada localmente por usuário e versão do modelo, junto ao rascunho de escolhas já existente na tela autenticada.
+O cliente inicia em **Passo a passo**, com sete etapas: Seu projeto, Sua marca, Piso, Mobiliário, Complementos, Elétrica e Revisão. **Explorar livremente** usa as mesmas escolhas e permite voltar ao roteiro sem perder a personalização. Cartões têm miniaturas e numeração; selecionar um cartão enquadra o elemento. A navegação fica guardada localmente por usuário e versão do modelo, junto ao rascunho de escolhas já existente na tela autenticada.
 
 **Manter como está e continuar** registra uma decisão, sem marcar etapas apenas visitadas como concluídas. Artes podem ficar pendentes; a revisão e a proposta identificam essas pendências. O enquadramento da imagem permite mostrar inteira, preencher, ampliar e deslocar sem esticar. O aviso de poucos pixels é indicativo e não substitui a análise de impressão da equipe.
 
@@ -88,3 +88,18 @@ As escolhas usam o histórico e rascunho existentes. Preços somam cada unidade,
 Validação: 33 testes automatizados e build; teste visual local com uma banqueta extraída do ECBR, duas unidades, substituição de duas cadeiras, limite de quantidade, total de R$ 300, movimento, giro de 15°, destaque e restauração para R$ 0. O arquivo de teste não é enviado ao servidor nem incluído no repositório. O posicionamento limita a caixa do móvel à área quando há espaço, mas não resolve colisões entre móveis, paredes ou circulação. Confira a distribuição na vista de cima. Upload autenticado e envio ao Firebase continuam sujeitos à homologação integrada indicada acima.
 
 `npm test` cobre separação de paredes, união manual de painéis, componentes do GLB, logo removível, posição após separar móveis girados, preservação manual e de adicionais, móveis legados, recorte, permissões, limites de giro, UV compartilhada, perfis e camadas de testeiras. `npm run build` verifica a compilação de produção. O workflow `check-studio.yml` executa ambos em pull requests.
+
+
+### Entrada pública, clareza comercial e elétrica — outubro de 2026
+
+A rota `/` apresenta o Studio antes do login. O conteúdo institucional usa as páginas oficiais https://stand.uset.com.br/quem-somos2/ e https://stand.uset.com.br/o-que-fazemos/; foto ilustrativa do portfólio https://stand.uset.com.br/portfolio/. A empresa descreve reaproveitamento, preparação dos módulos e a iniciativa USEG. Não foram encontradas metas ESG quantitativas verificáveis, por isso a página não promete certificações ou resultados ambientais mensurados.
+
+Login, personalização e prévia do cliente usam a mesma identidade da entrada: marfim, verde escuro e verde-lima, com fundo do 3D em verde acinzentado. O tema é aplicado à interface; as cores dos materiais dos modelos são preservadas. No roteiro, o projeto incluído aparece primeiro. Cartões distinguem itens incluídos, trocas e inclusões opcionais. Os preços de revestimento mostram o valor por elemento antes da escolha. Controles de navegação livre e comparação ficam recolhidos.
+
+O login aguarda a leitura do perfil: administradores vão para `/modelos` e expositores para `/meu-estande`. Falha ou ausência de perfil mostra recuperação de acesso, sem inventar um perfil de expositor. Bloqueios de conta desativada, senha provisória e permissão de admin continuam nas rotas protegidas.
+
+No admin, em **Preços → Pontos elétricos adicionais**, informe um valor por ponto e habilite a marcação. Preço vazio não libera inclusão; zero é permitido quando definido explicitamente. Na etapa **Elétrica**, o cliente vê o preço, clica no piso, informa equipamento e tensão, reposiciona ou remove pontos. A quantidade soma ao adicional. Há limite de 40 pontos. A marcação usa os limites retangulares do recorte/estande e não verifica colisões ou capacidade elétrica; a equipe confere viabilidade. O PDF traz esquema numerado, posições medidas a partir das bordas e equipamento; o esquema é sem escala.
+
+Os pontos integram escolhas, histórico, rascunho, revisão, proposta e consulta do admin. A prévia local usa R$ 100 por ponto apenas como exemplo; nenhum projeto real recebe esse preço automaticamente. `/dev/usabilidade.html?cliente=1` abre a demonstração sem ferramentas de administração. Rotas de desenvolvimento não entram no build publicado.
+
+Validação: 51 testes aprovados, incluindo destino pós-login, limites e reposicionamento, cobrança por quantidade e texto seguro na proposta. Teste no navegador local confirmou inclusão de dois pontos (R$ 200), remoção (R$ 100), reposicionamento sem duplicar cobrança e revisão com uso/tensão preservados. O login com credenciais reais e a gravação autenticada no Firebase ainda precisam de homologação integrada.

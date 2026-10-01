@@ -8,7 +8,7 @@ export function miniatura(objeto, chaves, chave) {
   if (!renderer) renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false, preserveDrawingBuffer:true })
   renderer.setSize(240,160,false)
   renderer.setPixelRatio(1)
-  const cena = new THREE.Scene(); cena.background = new THREE.Color('#56647d')
+  const cena = new THREE.Scene(); cena.background = new THREE.Color('#d7dece')
   const grupo = new THREE.Group()
   const ids = chaves && new Set(chaves)
   objeto.updateWorldMatrix(true,true)

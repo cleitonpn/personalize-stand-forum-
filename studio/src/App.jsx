@@ -10,8 +10,13 @@ import Propostas from './pages/Propostas.jsx'
 import Conta from './pages/Conta.jsx'
 import Acabamentos from './pages/Acabamentos.jsx'
 import { NapasProvider } from './store/NapasContext.jsx'
+import Apresentacao from './pages/Apresentacao.jsx'
+import ErroPerfil from './components/ErroPerfil.jsx'
+import './styles/cliente.css'
 
 function Marca() {
+  const { ehAdmin }=useAuth()
+  if(!ehAdmin)return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início">uset<span>STUDIO</span></Link>
   return (
     <Link to="/" className="brand">
       <div className="brand-mark">U</div>
@@ -26,7 +31,7 @@ function Marca() {
 function Topbar() {
   const { user, perfil, sair } = useAuth()
   const { pathname } = useLocation()
-  if (!user) return null
+  if (!user || pathname==='/' || pathname==='/entrar') return null
   return (
     <header className="topbar">
       <Marca />
@@ -50,7 +55,7 @@ function Topbar() {
 }
 
 function Protegida({ children, exigeAdmin }) {
-  const { user, perfil, ehAdmin, carregando, recarregarPerfil } = useAuth()
+  const { user, perfil, ehAdmin, carregando, recarregarPerfil,erroPerfil } = useAuth()
   if (carregando) {
     return (
       <div style={{ display: 'grid', placeItems: 'center', minHeight: '70vh' }}>
@@ -59,6 +64,7 @@ function Protegida({ children, exigeAdmin }) {
     )
   }
   if (!user) return <Navigate to="/entrar" replace />
+  if(erroPerfil||!perfil)return <ErroPerfil/>
   // senha provisória bloqueia tudo até ser trocada
   // acesso desativado pelo admin: bloqueia antes de qualquer tela
   if (perfil?.ativo === false) {
@@ -88,19 +94,23 @@ function Protegida({ children, exigeAdmin }) {
 
 /** Cada papel entra na sua casa: admin nos modelos, expositor no estande dele. */
 function Inicio() {
-  const { user, ehAdmin, carregando } = useAuth()
+  const { user, ehAdmin, carregando,erroPerfil,perfil } = useAuth()
   if (carregando) return null
-  if (!user) return <Navigate to="/entrar" replace />
+  if (!user) return <Navigate to="/" replace />
+  if(erroPerfil||!perfil)return <ErroPerfil/>
   return <Navigate to={ehAdmin ? '/modelos' : '/meu-estande'} replace />
 }
 
 function Rotas() {
+  const {user,ehAdmin}=useAuth()
+  const {pathname}=useLocation()
   return (
-    <div className="shell">
+    <div className={`shell ${pathname==='/entrar'||(user&&!ehAdmin)?'tema-cliente':''}`}>
       <div className="ambient" />
       <Topbar />
       <main style={{ flex: 1 }}>
         <Routes>
+          <Route path="/" element={<Apresentacao />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/modelos" element={<Protegida exigeAdmin><Modelos /></Protegida>} />
           <Route path="/modelos/:id" element={<Protegida exigeAdmin><Editor /></Protegida>} />

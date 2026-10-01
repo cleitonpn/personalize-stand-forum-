@@ -1,9 +1,9 @@
 import { useState } from 'react'
 
 const PASSOS = [
-  { icone: '☝', titulo: 'Escolha uma parte do estande', texto: 'Clique em uma parede, no piso ou em um móvel. Você também pode escolher pela lista. As opções daquela parte aparecem no painel.' },
+  { icone: '✓', titulo: 'Comece pelo que já está incluído', texto: 'Seu estande já tem paredes, piso e mobiliário. Confira a lista inicial e siga o passo a passo. Você pode manter o projeto sem acrescentar nada.' },
   { icone: '🎨', titulo: 'Experimente suas escolhas', texto: 'Escolha uma cor ou envie sua imagem. Nos móveis liberados, use Ajustar posição. Desfazer e Refazer ajudam a experimentar; as alterações ficam salvas neste navegador.' },
-  { icone: '✓', titulo: 'Confira e envie', texto: 'Veja o total e clique em Enviar personalização para encaminhar suas escolhas à USET. Depois você pode salvar a proposta em PDF.' },
+  { icone: '✓', titulo: 'Confira seus adicionais e envie', texto: 'A revisão mostra suas mudanças e o valor adicional. Clique em Enviar escolhas para a USET para encaminhar à equipe. Depois você pode salvar a proposta em PDF.' },
 ]
 
 export default function Tutorial({ aoFechar }) {
