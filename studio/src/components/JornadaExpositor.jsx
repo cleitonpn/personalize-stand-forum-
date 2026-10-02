@@ -8,8 +8,9 @@ import { nomeNapa } from '../lib/napas.js'
 import PainelEletrica from './PainelEletrica.jsx'
 import { pontosEletricos,marcarPonto,precoPonto,posicaoPonto } from '../lib/eletrica.js'
 import { limitesDoEstande } from '../lib/glb/nomes.js'
+import BotaoReiniciar from './BotaoReiniciar.jsx'
 
-export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCena, solicitarRevisao=0, aoRevisao, ...props }) {
+export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCena, solicitarRevisao=0, aoRevisao, aoReiniciar, aoEvento, ...props }) {
   const { analise, superficies, objetos, complementos=[], escolhas={}, setEscolhas, acabamentos={}, supFoco, objFoco, setSupFoco, setObjFoco, setObjSel } = props
   const [navegacao,setNavegacao] = useState(() => {
     try { const n=JSON.parse(localStorage.getItem(`psf.jornada.${chaveRascunho}`)); if (n && ETAPAS.some(e=>e.id===n.etapa)) return n } catch { /* opcional */ }
@@ -65,7 +66,7 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
   const limparFoco=()=>{setSupFoco(null);setObjFoco(null);setObjSel(null)}
   const navegar=id=>{setModoEletrica(null);limparFoco();setNavegacao(n=>({...n,etapa:id}));aoVista?.(ETAPAS.find(e=>e.id===id)?.vista || 'perspectiva');cabecalho.current?.focus()}
   useEffect(()=>{try{localStorage.setItem(`psf.jornada.${chaveRascunho}`,JSON.stringify(navegacao))}catch{/* sem persistência */}},[chaveRascunho,navegacao])
-  useEffect(()=>{aoRevisao?.(etapa==='revisao')},[etapa])
+  useEffect(()=>{aoRevisao?.(etapa==='revisao');aoEvento?.('etapa',etapa)},[etapa,aoEvento])
   useEffect(()=>{if(solicitarRevisao) navegar('revisao')},[solicitarRevisao])
   useEffect(()=>{aoVista?.(atual.vista)},[])
   // A seleção no 3D abre a categoria correspondente, inclusive no modo guiado.
@@ -92,6 +93,7 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
     else setEscolhas(resultado.escolhas)
   }
   const concluir=()=>{
+    aoEvento?.('concluir',etapa)
     setEscolhas(e=>({...e,_etapas:{...e?._etapas,[etapa]:true}}))
     navegar(ETAPAS[Math.min(indice+1,ETAPAS.length-1)].id)
   }
@@ -101,6 +103,13 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
   }
   useEffect(()=>{setImagens([])},[acabamentos,escolhas,objetos])
   return <div className="jornada">
+    {aoReiniciar && <BotaoReiniciar disabled={enviando} aoReiniciar={() => {
+      aoReiniciar()
+      limparFoco(); setNavegacao({modo:'guiado',etapa:'ambientes'})
+      setComparando(false); setModoEletrica(null); setConfirmacao(null); setImagens([]); setErroCaptura('')
+      aoCena?.({compararOriginal:false,focoCamera:null,modoEletrica:null,pontosEletricos:[],marcadores:[]})
+      aoVista?.('perspectiva')
+    }} />}
     <details className="jornada-ferramentas"><summary>Modo de navegação e comparação</summary><div className="modos-cliente" aria-label="Modo de personalização">
       {[['guiado','Passo a passo'],['livre','Explorar livremente']].map(([id,nome])=><button className={`btn ${modo===id?'btn-primary':''}`} key={id} aria-pressed={modo===id} disabled={enviando} onClick={()=>setNavegacao(n=>({...n,modo:id,etapa:id==='livre'&&n.etapa==='revisao'?'marca':n.etapa}))}>{nome}</button>)}
     </div>

@@ -17,7 +17,7 @@ import EscolhaComplemento from './EscolhaComplemento.jsx'
 export default function PainelExpositor({ analise, superficies, acabamentos, setAcabamentos,
   supFoco, setSupFoco, recorte, orcamento, precos, complementos = [], escolhas, setEscolhas,
   objetos = [], setObjetos, objFoco, setObjFoco, objSel, setObjSel,
-  enviarArquivo = enviarArte, aoEnviarArte, etapaGuiada, aoFocarElemento, aoVista, cena, elementosOrdenados }) {
+  enviarArquivo = enviarArte, aoEnviarArte, aoErroUpload, etapaGuiada, aoFocarElemento, aoVista, cena, elementosOrdenados }) {
   const [filtroLivre, setFiltro] = useState('todos')
   const filtro = etapaGuiada || filtroLivre
   const [intencaoMoveis,setIntencaoMoveis]=useState('manter')
@@ -48,7 +48,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
       const artePixels=[bitmap.width,bitmap.height];bitmap.close()
       aplicar(ids, { ...await enviarArquivo(f), artePixels, artePendente:false, enquadramento:{modo:'conter',zoom:1,x:.5,y:.5} })
     }
-    catch (e) { setErro(e.message || 'Não foi possível enviar. Tente novamente.') }
+    catch (e) { aoErroUpload?.(); setErro(e.message || 'Não foi possível enviar. Tente novamente.') }
     finally { setEnviando(false); aoEnviarArte?.(false) }
   }
   const perguntasSoltas = complementos.filter(g => g.tipo !== 'mobiliario').filter(g => !g.ancora || !lista.some(e => e.superficies.some(s => s.id === g.ancora)))

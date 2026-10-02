@@ -77,6 +77,10 @@
 .tema-cliente .editor-arte input[type=range] {accent-color:#37644b}
 .tema-cliente .erro-inline {background:#fff0eb;color:#8a2b24;border-color:#d6aaa2}
 .tema-cliente .confirmacao-escolha {background:#173a316e;backdrop-filter:blur(5px)}
+.dialogo-reiniciar {max-width:520px;width:calc(100% - 32px);color:var(--text);max-height:90dvh;overflow:auto}
+.dialogo-reiniciar::backdrop {background:#173a3180;backdrop-filter:blur(4px)}
+.dialogo-reiniciar h2 {font-size:22px}
+.dialogo-reiniciar p {line-height:1.65}
 @media(min-width:1100px){.tema-cliente .studio-workspace,.studio-workspace.tema-cliente{grid-template-columns:minmax(0,1fr) 440px}}
 @media(max-width:700px){
   .tema-cliente .topbar{padding-inline:16px;gap:8px}

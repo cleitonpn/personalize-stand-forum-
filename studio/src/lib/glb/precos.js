@@ -118,7 +118,8 @@ export function calcularOrcamento({
     }
     if (!acab || (!acab.cor && !acab.arte)) continue
     const material=catalogo.find(n=>n.id===acab.materialId)
-    const regra = !acab.arte&&material?.preco!=null ? {unidade:'m2',valor:material.preco} : precos?.[s.papel] || (acab.materialId?{unidade:'m2',valor:0}:null)
+    const especifica = precos?.itens?.[s.id]?.[acab.arte ? 'arte' : 'cor']
+    const regra = especifica || (!acab.arte&&material?.preco!=null ? {unidade:'m2',valor:material.preco} : precos?.[s.papel] || (acab.materialId?{unidade:'m2',valor:0}:null))
     if (!regra) continue
 
     const area = areaDaSuperficie(s, analise, recorte)

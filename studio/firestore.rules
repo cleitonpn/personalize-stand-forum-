@@ -69,6 +69,43 @@ service cloud.firestore {
       allow write: if ehAdmin();
     }
 
+    match /mobiliario/{movelId} {
+      allow read, write: if ehAdmin();
+    }
+
+    function contador(n) { return n is number && n >= 0 && n <= 10000; }
+    function etapaValida(e) {
+      return e is map && e.keys().hasOnly(['visitas','segundos','erros','concluiu'])
+        && contador(e.visitas) && contador(e.erros) && e.concluiu is bool
+        && e.segundos is number && e.segundos >= 0 && e.segundos <= 86400;
+    }
+    function metricaValida(d) {
+      let a = d.acoes;
+      let e = d.etapas;
+      return d.keys().hasOnly(['uid','modeloId','dispositivo','segundos','enviou','ultimaEtapa','acoes','etapas','atualizadoEm'])
+        && d.uid == request.auth.uid && d.modeloId == perfil().modeloId
+        && d.dispositivo in ['celular','desktop'] && d.enviou is bool
+        && d.segundos is number && d.segundos >= 0 && d.segundos <= 86400
+        && d.atualizadoEm == request.time
+        && d.ultimaEtapa in ['','ambientes','marca','piso','mobiliario','complementos','eletrica','revisao']
+        && a is map && a.keys().hasOnly(['reinicio','alteracao','desfazer','refazer','ajuda','upload_erro','envio_erro','glb_erro','cliques_repetidos','envio','carregamento'])
+        && contador(a.get('reinicio',0)) && contador(a.get('alteracao',0))
+        && contador(a.get('desfazer',0)) && contador(a.get('refazer',0))
+        && contador(a.get('ajuda',0)) && contador(a.get('upload_erro',0))
+        && contador(a.get('envio_erro',0)) && contador(a.get('glb_erro',0))
+        && contador(a.get('cliques_repetidos',0)) && contador(a.get('envio',0)) && contador(a.get('carregamento',0))
+        && e is map && e.keys().hasOnly(['ambientes','marca','piso','mobiliario','complementos','eletrica','revisao'])
+        && etapaValida(e.ambientes) && etapaValida(e.marca) && etapaValida(e.piso)
+        && etapaValida(e.mobiliario) && etapaValida(e.complementos) && etapaValida(e.eletrica) && etapaValida(e.revisao);
+    }
+    match /sessoesUso/{sessaoId} {
+      allow read, delete: if ehAdmin();
+      allow create: if ativo() && perfil().papel == 'expositor' && metricaValida(request.resource.data);
+      allow update: if ativo() && perfil().papel == 'expositor' && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid && request.resource.data.modeloId == resource.data.modeloId
+        && metricaValida(request.resource.data);
+    }
+
     // Projetos do expositor: dono e admin.
     match /projetos/{projetoId} {
       allow read, update, delete: if autenticado()

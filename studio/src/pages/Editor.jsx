@@ -4,7 +4,8 @@ import { pontosEletricos } from '../lib/eletrica.js'
 import { listarElementos } from '../lib/glb/elementos.js'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
+import { salvarModelo } from '../lib/salvarModelo.js'
 import { db } from '../lib/firebase.js'
 import Viewer, { useGLB } from '../components/Viewer.jsx'
 import { analisar } from '../lib/glb/analyze.js'
@@ -318,8 +319,8 @@ export default function Editor() {
   const salvar = async () => {
     setSalvando(true)
     try {
-      await updateDoc(doc(db, 'modelos', id), {
-        papeis, recorte, atualizadoEm: serverTimestamp(),
+      const atualizado = await salvarModelo(modelo, {
+        papeis, recorte,
         superficies: superficies || [],
         objetos: objetos || [],
         complementos: grupos || [],
@@ -327,6 +328,7 @@ export default function Editor() {
         precos, precosObjeto,
         status: Object.keys(papeis).length ? 'mapeado' : 'novo',
       })
+      setModelo(atualizado)
       setSalvo(true); setTimeout(() => setSalvo(false), 2600)
     } catch (ex) { alert(`Não foi possível salvar: ${ex.message}`) }
     finally { setSalvando(false) }

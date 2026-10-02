@@ -4,6 +4,7 @@ import { db } from '../lib/firebase.js'
 import { fmtBRL, fmtM2 } from '../lib/glb/precos.js'
 import { gerarPropostaHTML } from '../lib/proposta.js'
 import { posicaoPonto,pontosEletricos } from '../lib/eletrica.js'
+import Proposta3D from '../components/Proposta3D.jsx'
 
 const data = (ts) => ts?.toDate?.().toLocaleString('pt-BR', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -93,6 +94,7 @@ export default function Propostas() {
               {open && (
                 <>
                   <div className="hr" />
+                  {p.arquivoPersonalizado?.url ? <Proposta3D arquivo={p.arquivoPersonalizado}/> : <p className="orientacao">Esta proposta foi enviada antes do registro em GLB. O arquivo 3D personalizado não está disponível para este envio.</p>}
                   <div className="col" style={{ gap: 6 }}>
                     {(p.itens || []).map((it) => (
                       <div key={it.id} className="row" style={{ justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>

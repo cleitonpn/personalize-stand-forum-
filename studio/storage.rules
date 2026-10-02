@@ -48,6 +48,17 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Cada envio recebe um arquivo próprio. Propostas enviadas não são sobrescritas.
+    match /propostas/{uid}/{propostaId}/estande.glb {
+      allow read: if ehAdmin() || (ativo() && request.auth.uid == uid);
+      allow create: if ativo() && request.auth.uid == uid
+        && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId))
+        && request.resource.size < 200 * 1024 * 1024
+        && request.resource.contentType == 'model/gltf-binary';
+      allow delete: if ativo() && request.auth.uid == uid
+        && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId));
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -38,12 +38,20 @@ jobs:
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > "$RUNNER_TEMP/sa.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/sa.json" >> "$GITHUB_ENV"
 
-      # A biblioteca compartilhada exige esta regra antes do novo frontend.
+      # A biblioteca, a telemetria e o envio 3D exigem regras antes do frontend.
       # Se a publicação das regras falhar, o Hosting mantém a versão anterior.
       - name: Publicar regras do Firestore
         id: firestore
         run: npx --yes firebase-tools@13 deploy
           --only firestore:rules
+          --project personalizacao-stand
+          --non-interactive
+
+      # Hosting usa a action; regras e functions usam a CLI autenticada.
+      - name: Publicar regras do Storage
+        id: storage
+        run: npx --yes firebase-tools@13 deploy
+          --only storage
           --project personalizacao-stand
           --non-interactive
 
@@ -55,15 +63,6 @@ jobs:
           projectId: personalizacao-stand
           channelId: live
           entryPoint: studio
-
-      # Hosting usa a action; regras e functions usam a CLI autenticada.
-      - name: Publicar regras do Storage
-        id: storage
-        continue-on-error: true
-        run: npx --yes firebase-tools@13 deploy
-          --only storage
-          --project personalizacao-stand
-          --non-interactive
 
       # A CLI carrega functions/index.js na própria máquina para descobrir quais
       # gatilhos existem. Sem as dependências instaladas aqui, esse require

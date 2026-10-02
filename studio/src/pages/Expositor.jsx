@@ -1,8 +1,10 @@
 import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
 import { registroComplemento } from '../lib/glb/mobiliario.js'
-import { useEffect, useMemo, useState } from 'react'
-import { doc, getDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
-import { db } from '../lib/firebase.js'
+import { useEffect, useMemo, useState, useRef } from 'react'
+import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { db, storage } from '../lib/firebase.js'
+import { ref as arquivoRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { useTelemetria } from '../lib/useTelemetria.js'
 import { useAuth } from '../store/AuthContext.jsx'
 import { useNapas } from '../store/NapasContext.jsx'
 import Viewer, { useGLB, VISTAS } from '../components/Viewer.jsx'
@@ -18,16 +20,21 @@ import { limitesDoEstande } from '../lib/glb/nomes.js'
 import { listarElementos, limitarTransformacao } from '../lib/glb/elementos.js'
 import { useHistorico } from '../lib/useHistorico.js'
 import { pontosEletricos,precoPonto } from '../lib/eletrica.js'
+import { reiniciarPersonalizacao } from '../lib/reiniciarPersonalizacao.js'
+import { mesmaVersao } from '../lib/salvarModelo.js'
 
 export default function Expositor() {
   const {catalogo,erro:erroCatalogo,carregando:carregandoCatalogo}=useNapas()
   const { user, perfil } = useAuth()
+  const exportadorRef=useRef(null)
+  const [metricas,setMetricas]=useState(()=>{try{return localStorage.getItem('psf.metricas')!=='nao'}catch{return false}})
+  const registrar=useTelemetria(user?.uid,perfil?.modeloId,metricas&&perfil?.papel==='expositor')
   const [modelo, setModelo] = useState(null)
   const [erro, setErro] = useState(null)
   const historico = useHistorico({ acabamentos: {}, escolhas: {}, objetos: [] })
   const { acabamentos, escolhas, objetos, restaurar } = historico
-  const setAcabamentos = v => historico.mudar('acabamentos', v)
-  const setEscolhas = v => historico.mudar('escolhas', v)
+  const setAcabamentos = v => {registrar('alteracao');historico.mudar('acabamentos', v)}
+  const setEscolhas = v => {registrar('alteracao');historico.mudar('escolhas', v)}
   const setObjetos = v => historico.mudar('objetos', v)
   const [rascunhoStatus, setRascunhoStatus] = useState('')
   const [enviandoArte, setEnviandoArte] = useState(false)
@@ -82,6 +89,7 @@ export default function Expositor() {
   }, [modelo, user, acabamentos, escolhas, objetos])
 
   const { cena, erro: erroGlb, progresso, carregando } = useGLB(modelo?.arquivo?.url)
+  useEffect(()=>{if(erroGlb)registrar('glb_erro')},[erroGlb,registrar])
   const analise = useMemo(() => (cena ? analisar(cena) : null), [cena])
 
   const superficies = modelo?.superficies || []
@@ -126,14 +134,40 @@ export default function Expositor() {
     try { localStorage.setItem(`psf.tutorial.${user.uid}`, '1') } catch { /* opcional */ }
   }
 
+  const reiniciar = () => {
+    if (!modelo || gravando || enviandoArte) return
+    const { estado, persistido } = reiniciarPersonalizacao(modelo,
+      `psf.rascunho.${user.uid}.${modelo.id}`,
+      `psf.jornada.${user.uid}.${modelo.id}.${modelo.atualizadoEm?.seconds || 0}`)
+    registrar('reinicio')
+    restaurar(estado)
+    setSupFoco(null); setObjFoco(null); setObjSel(null)
+    setGravado(null); setRevisando(false); setSolicitarRevisao(0); setCenaCliente({}); setVista('perspectiva')
+    if (!persistido) alert('A personalização foi reiniciada, mas o navegador não permitiu atualizar o rascunho salvo. Mantenha esta aba aberta.')
+  }
+
   const gravar = async () => {
     if (enviandoArte || gravando) return
     if(pontosEletricos(escolhas).length&&precoPonto(precos)==null){alert('A equipe precisa liberar o preço dos pontos elétricos. Remova os pontos adicionais para enviar sem eles.');return}
     setGravando(true)
+    let arquivoEnviado=null, registrada=false
     try {
+      const publicado=await getDoc(doc(db,'modelos',modelo.id))
+      if(!publicado.exists()||!mesmaVersao(publicado.data().atualizadoEm,modelo.atualizadoEm)) {
+        throw Error('A equipe atualizou o projeto ou seus preços. Recarregue a página e confira as escolhas antes de enviar.')
+      }
       // A imagem do 3D entra na proposta como registro do que foi escolhido.
       const imagem = window.__psfShot?.() || null
-      const ref = await addDoc(collection(db, 'propostas'), {
+      const ref = doc(collection(db, 'propostas'))
+      if(!exportadorRef.current)throw Error('A cena ainda não está pronta. Aguarde e tente novamente.')
+      const glb=await exportadorRef.current()
+      if(glb.size>=200*1024*1024)throw Error('A personalização ultrapassou o limite de 200 MB para a proposta. Fale com a equipe da USET.')
+      const caminho=`propostas/${user.uid}/${ref.id}/estande.glb`
+      arquivoEnviado=arquivoRef(storage,caminho)
+      await uploadBytes(arquivoEnviado,glb,{contentType:'model/gltf-binary'})
+      const arquivoPersonalizado={caminho,url:await getDownloadURL(arquivoEnviado),bytes:glb.size,nomeOriginal:'estande-personalizado.glb'}
+      await setDoc(ref, {
+        arquivoPersonalizado,
         cliente: user.uid,
         clienteNome: perfil?.nome || user.email,
         clienteEmail: user.email,
@@ -151,8 +185,11 @@ export default function Expositor() {
         total: orcamento.total,
         criadoEm: serverTimestamp(),
       })
+      registrada=true;registrar('envio')
       setGravado({ id: ref.id, imagem, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo}, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
     } catch (ex) {
+      registrar('envio_erro')
+      if(arquivoEnviado&&!registrada)try{await deleteObject(arquivoEnviado)}catch{/* O arquivo fica sem proposta; um novo envio usa outro ID. */}
       alert(`Não foi possível gravar: ${ex.message}`)
     } finally {
       setGravando(false)
@@ -210,7 +247,7 @@ export default function Expositor() {
           </div>
         )}
 
-        <Viewer {...cenaCliente} aoTransformarExtra={transformarExtra} cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
+        <Viewer exportadorRef={exportadorRef} {...cenaCliente} aoTransformarExtra={transformarExtra} cena={cena} papeis={modelo?.papeis} modo="original" recorte={modelo?.recorte}
           indice={indice} acabamentos={acabamentos} supFoco={supFoco} objetos={objetos}
           complementos={modelo?.complementos || []} extras={extras} escondidos={escondidos} objFoco={objFoco}
           objSel={objSel} aoTransformarObjeto={transformarObjeto} limitesGizmo={limitesGizmo}
@@ -226,7 +263,7 @@ export default function Expositor() {
           ))}
         </div>
 
-        <button className="chip" onClick={() => setTutorial(true)}
+        <button className="chip" onClick={() => {registrar('ajuda');setTutorial(true)}}
           style={{ position: 'absolute', bottom: 14, left: 14, backdropFilter: 'blur(10px)' }}>
           ? Como funciona
         </button>
@@ -246,9 +283,10 @@ export default function Expositor() {
         <div className="cliente-projeto" style={{ padding: '18px 18px 0' }}>
           <h1 style={{ fontSize: 19, marginBottom: 3 }}>Seu estande</h1>
           <div className="filtros-elementos" style={{ margin: '12px 0' }}>
-            <button className="btn btn-sm" disabled={!historico.podeDesfazer || gravando} onClick={historico.desfazer}>↶ Desfazer</button>
-            <button className="btn btn-sm" disabled={!historico.podeRefazer || gravando} onClick={historico.refazer}>↷ Refazer</button>
+            <button className="btn btn-sm" disabled={!historico.podeDesfazer || gravando} onClick={()=>{registrar('desfazer');historico.desfazer()}}>↶ Desfazer</button>
+            <button className="btn btn-sm" disabled={!historico.podeRefazer || gravando} onClick={()=>{registrar('refazer');historico.refazer()}}>↷ Refazer</button>
           </div>
+          <details className="dim" style={{fontSize:11,marginBottom:10}}><summary>Dados de uso para melhorar a ferramenta</summary><p>A USET registra etapas, tempo ativo, erros e contagens de ações ligados à sua conta. Não registra o conteúdo das artes, senhas ou textos digitados. A consulta fica restrita ao admin.</p><label><input type="checkbox" checked={metricas} onChange={e=>{setMetricas(e.target.checked);try{localStorage.setItem('psf.metricas',e.target.checked?'sim':'nao')}catch{}}}/> Permitir métricas de uso neste navegador</label></details>
           <small className="dim" role="status">{rascunhoStatus}</small>
           <div className="dim" style={{ fontSize: 12.5 }}>
             {modelo?.nome}{perfil?.feira ? ` · ${perfil.feira}` : ''}
@@ -258,7 +296,7 @@ export default function Expositor() {
         <div style={{ padding: 18, flex: 1 }}>
           {analise ? (
             <fieldset disabled={gravando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}><PainelExpositor cena={cena} chaveRascunho={`${user.uid}.${modelo.id}.${modelo.atualizadoEm?.seconds||0}`} aoVista={setVista} aoCena={patch=>setCenaCliente(c=>({...c,...patch}))} solicitarRevisao={solicitarRevisao} aoRevisao={setRevisando}
-              aoEnviarArte={setEnviandoArte}
+              aoEnviarArte={setEnviandoArte} aoReiniciar={reiniciar} aoEvento={registrar} aoErroUpload={()=>registrar('upload_erro')}
               analise={analise} superficies={superficies}
               acabamentos={acabamentos} setAcabamentos={setAcabamentos}
               supFoco={supFoco} setSupFoco={setSupFoco}

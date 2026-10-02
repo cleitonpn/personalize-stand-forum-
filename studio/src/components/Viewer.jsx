@@ -1,3 +1,4 @@
+import { exportarGLB } from '../lib/exportarGLB.js'
 import { FocarElemento, NumerosElementos, CapturasCliente } from './VistasCliente.jsx'
 import PecaAdicionada from './PecaAdicionada.jsx'
 import PontosEletricos from './PontosEletricos.jsx'
@@ -697,13 +698,22 @@ export default function Viewer({
   indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, aoTransformarExtra, compararOriginal=false, focoCamera, marcadores=[], objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
   aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco, complementos = [], aoPosicionar,
-  pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,
+  pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,exportadorRef,
 }) {
   const objetosExibidos=useMemo(()=>compararOriginal?(objetos||[]).map(o=>({...o,transform:{dx:0,dz:0,rotY:0}})):objetos,[objetos,compararOriginal])
   const acabamentosExibidos=useMemo(()=>compararOriginal?{}:acabamentos,[acabamentos,compararOriginal])
   useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos:acabamentosExibidos, supFoco: realceSuave ? null : supFoco, objetos, objFoco: realceSuave ? null : objFoco, escondidos:compararOriginal?null:escondidos, realceSuave, recorte })
   useTransformes(cena, objetosExibidos)
   const pecasExtras = usePecasExtras(extras)
+  useEffect(()=>{
+    if(!exportadorRef)return
+    exportadorRef.current=async()=>{
+      if(!cena||compararOriginal)throw Error('Volte à sua personalização antes de enviar.')
+      if(pecasExtras.length!==(extras||[]).length)throw Error('Um item adicional ainda não carregou. Aguarde ou remova o item indisponível antes de enviar.')
+      return exportarGLB([cena,...pecasExtras.map(p=>p.objeto)],pontosEletricos)
+    }
+    return()=>{exportadorRef.current=null}
+  },[exportadorRef,cena,compararOriginal,pecasExtras,extras,pontosEletricos])
 
   const [exposicao, setExposicao] = useState(() => {
     const salvo = Number(localStorage.getItem('psf.exposicao'))

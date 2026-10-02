@@ -1,5 +1,6 @@
 import { transformarMovelAdicionado } from '../src/lib/glb/mobiliario.js'
 import { pontosEletricos } from '../src/lib/eletrica.js'
+import { estadoOriginal } from '../src/lib/reiniciarPersonalizacao.js'
 import PainelComplementos from '../src/components/PainelComplementos.jsx'
 import { offsetNoPiso, novoGrupo, opcoesAtivas, pecasParaCena, chavesEscondidas, superficiesEscondidas } from '../src/lib/glb/complementos.js'
 import React, { useMemo, useState } from 'react'
@@ -78,6 +79,7 @@ function Previa({ cena, nome, controles }) {
           aoEscolherSubstituidos={(gid,oid)=>{setEditarInclusao({gid,oid,modo:'substituir'});setEscolhas(p=>({...p,[gid]:null}))}} previa={escolhas} setPrevia={setEscolhas} enviarArquivoLocal={async f=>({url:await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(f)}),nomeOriginal:f.name,bytes:f.size})}/> : admin ? <PainelElementos {...{ analise, superficies, objetos, setSuperficies, setObjetos, supFoco, objFoco }} aoSelecionar={selecionar}
           acabamentos={acabamentos} setAcabamentos={setAcabamentos} complementos={grupos} setComplementos={setGrupos} aoNovaOpcao={e=>{setGrupos(gs=>[...gs,novoGrupo({nome:`Opções — ${e.nome}`,ancora:e.superficies[0]?.id})]);setInclusoes(true)}} aoFocarPartes={setPartesFoco} aoOrganizar={() => setSuperficies(organizarElementos(analise, superficies, objetos))} />
           : <PainelExpositor cena={cena} chaveRascunho={`local.${nome}`} aoVista={setVista} aoCena={patch=>setCenaCliente(c=>({...c,...patch}))} complementos={grupos} {...{ analise, superficies, objetos, setObjetos, acabamentos, setAcabamentos, escolhas, setEscolhas, supFoco, setSupFoco, objFoco, setObjFoco, objSel, orcamento,precos }}
+            aoReiniciar={()=>{const e=estadoOriginal(iniciais);setObjetos(e.objetos);setAcabamentos(e.acabamentos);setEscolhas(e.escolhas);setSalvo(false)}}
             setObjSel={id => { setObjSel(id); if (id) setVista('cima') }} enviarArquivo={uploadLocal} />}
 
         </div>
