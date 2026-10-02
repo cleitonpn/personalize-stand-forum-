@@ -4,3 +4,6 @@ dist-ssr
 *.local
 .DS_Store
 .vite
+
+# Logs dos emuladores locais
+studio/*-debug.log

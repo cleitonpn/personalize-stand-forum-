@@ -13,19 +13,13 @@ import { NapasProvider } from './store/NapasContext.jsx'
 import Apresentacao from './pages/Apresentacao.jsx'
 import ErroPerfil from './components/ErroPerfil.jsx'
 import './styles/cliente.css'
+import './styles/admin.css'
+import Precos from './pages/Precos.jsx'
+import BibliotecaMobiliario from './pages/BibliotecaMobiliario.jsx'
+import AnaliseUso from './pages/AnaliseUso.jsx'
 
 function Marca() {
-  const { ehAdmin }=useAuth()
-  if(!ehAdmin)return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início">uset<span>STUDIO</span></Link>
-  return (
-    <Link to="/" className="brand">
-      <div className="brand-mark">U</div>
-      <div className="col">
-        <span className="brand-name">Stand Studio</span>
-        <span className="brand-sub">USET</span>
-      </div>
-    </Link>
-  )
+  return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início">uset<span>STUDIO</span></Link>
 }
 
 function Topbar() {
@@ -33,16 +27,8 @@ function Topbar() {
   const { pathname } = useLocation()
   if (!user || pathname==='/' || pathname==='/entrar') return null
   return (
-    <header className="topbar">
+    <><header className="topbar">
       <Marca />
-      {perfil?.papel === 'admin' && (
-        <nav className="row" style={{ gap: 4, marginLeft: 12 }}>
-          <Link to="/modelos" className={`btn btn-ghost btn-sm ${pathname.startsWith('/modelos') ? 'sel' : ''}`}>Modelos</Link>
-          <Link to="/expositores" className={`btn btn-ghost btn-sm ${pathname.startsWith('/expositores') ? 'sel' : ''}`}>Expositores</Link>
-          <Link to="/propostas" className={`btn btn-ghost btn-sm ${pathname.startsWith('/propostas') ? 'sel' : ''}`}>Propostas</Link>
-          <Link to="/acabamentos" className={`btn btn-ghost btn-sm ${pathname.startsWith('/acabamentos') ? 'sel' : ''}`}>Acabamentos</Link>
-        </nav>
-      )}
       <div className="spacer" />
       <span className="tag">
         <i className="tag-dot" style={{ color: perfil?.papel === 'admin' ? 'var(--brand-green)' : 'var(--text-dim)' }} />
@@ -51,6 +37,7 @@ function Topbar() {
       <Link to="/conta" className="btn btn-ghost btn-sm" style={{ fontWeight: 400 }}>{user.email}</Link>
       <button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
     </header>
+    {perfil?.papel==='admin'&&<nav className="admin-nav" aria-label="Administração">{[['/modelos','Projetos'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']].map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
   )
 }
 
@@ -105,7 +92,7 @@ function Rotas() {
   const {user,ehAdmin}=useAuth()
   const {pathname}=useLocation()
   return (
-    <div className={`shell ${pathname==='/entrar'||(user&&!ehAdmin)?'tema-cliente':''}`}>
+    <div className={`shell ${pathname==='/entrar'||user?'tema-cliente':''} ${user&&ehAdmin?'tema-admin':''}`}>
       <div className="ambient" />
       <Topbar />
       <main style={{ flex: 1 }}>
@@ -117,6 +104,9 @@ function Rotas() {
           <Route path="/expositores" element={<Protegida exigeAdmin><Clientes /></Protegida>} />
           <Route path="/propostas" element={<Protegida exigeAdmin><Propostas /></Protegida>} />
           <Route path="/acabamentos" element={<Protegida exigeAdmin><Acabamentos /></Protegida>} />
+          <Route path="/precos" element={<Protegida exigeAdmin><Precos /></Protegida>} />
+          <Route path="/mobiliario" element={<Protegida exigeAdmin><BibliotecaMobiliario /></Protegida>} />
+          <Route path="/analise" element={<Protegida exigeAdmin><AnaliseUso /></Protegida>} />
           <Route path="/meu-estande" element={<Protegida><Expositor /></Protegida>} />
           <Route path="/conta" element={<Protegida><Conta /></Protegida>} />
           <Route path="*" element={<Inicio />} />

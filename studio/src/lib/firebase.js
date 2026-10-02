@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
 // A config web do Firebase é pública por definição — ela é embarcada no bundle
 // que vai para o navegador de qualquer usuário. Quem protege os dados são as
@@ -17,7 +17,13 @@ const firebaseConfig = {
   measurementId: 'G-NGPY3SW0EQ',
 }
 
-export const app = initializeApp(firebaseConfig)
+const emuladores=import.meta.env.DEV && import.meta.env.VITE_EMULATORS==='1'
+export const app = initializeApp(emuladores?{...firebaseConfig,projectId:'demo-uset',storageBucket:'demo-uset.appspot.com'}:firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+if(emuladores){
+  connectAuthEmulator(auth,'http://127.0.0.1:9198',{disableWarnings:true})
+  connectFirestoreEmulator(db,'127.0.0.1',8185)
+  connectStorageEmulator(storage,'127.0.0.1',9298)
+}

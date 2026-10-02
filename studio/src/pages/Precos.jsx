@@ -1,0 +1,38 @@
+import { useEffect,useState,useMemo } from 'react'
+import { Link,useSearchParams } from 'react-router-dom'
+import { collection,getDocs } from 'firebase/firestore'
+import { db } from '../lib/firebase.js'
+import { salvarModelo } from '../lib/salvarModelo.js'
+import { useGLB } from '../components/Viewer.jsx'
+import { analisar } from '../lib/glb/analyze.js'
+import { listarElementos } from '../lib/glb/elementos.js'
+import { PRECOS_PADRAO } from '../lib/glb/precos.js'
+
+function Regra({nome,valor,aoMudar,opcional=false}) {
+  return <div className="admin-regra"><span>{nome}</span>{opcional&&<label><input type="checkbox" checked={!!valor} onChange={e=>aoMudar(e.target.checked?{unidade:'peca',valor:0}:null)}/> Preço específico</label>}
+    {valor&&<><label>Valor (R$)<input className="input" type="number" min="0" step="0.01" required value={valor.valor??''} onChange={e=>aoMudar({...valor,valor:e.target.value===''?'':Number(e.target.value)})}/></label><label>Cobrança<select className="select" value={valor.unidade||'peca'} onChange={e=>aoMudar({...valor,unidade:e.target.value})}><option value="peca">Por item</option><option value="m2">Por m²</option></select></label></>}
+    {!valor&&<small className="dim">Usa o preço do revestimento ou a regra geral abaixo.</small>}</div>
+}
+export default function Precos(){
+  const [params,setParams]=useSearchParams(),id=params.get('projeto')||''
+  const [modelos,setModelos]=useState(null),[modelo,setModelo]=useState(null),[precos,setPrecos]=useState({}),[grupos,setGrupos]=useState([]),[erro,setErro]=useState(''),[status,setStatus]=useState(''),[salvando,setSalvando]=useState(false),[sujo,setSujo]=useState(false)
+  const {cena,erro:erroGlb,carregando:carregandoGlb}=useGLB(modelo?.arquivo?.url)
+  const analise=useMemo(()=>cena?analisar(cena):null,[cena])
+  const elementos=useMemo(()=>listarElementos(modelo?.superficies||[],modelo?.objetos||[],analise,analise?modelo?.recorte:null),[modelo,analise])
+  useEffect(()=>{getDocs(collection(db,'modelos')).then(s=>setModelos(s.docs.map(d=>({id:d.id,...d.data()})))).catch(e=>setErro(e.message))},[])
+  useEffect(()=>{const m=modelos?.find(m=>m.id===id);setModelo(m||null);setPrecos({...PRECOS_PADRAO,...m?.precos});setGrupos(structuredClone(m?.complementos||[]));setSujo(false)},[id,modelos])
+  useEffect(()=>{const sair=e=>{if(sujo){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',sair);return()=>window.removeEventListener('beforeunload',sair)},[sujo])
+  const mudar=(sid,tipo,valor)=>{setSujo(true);setPrecos(p=>({...p,itens:{...p.itens,[sid]:{...p.itens?.[sid],[tipo]:valor}}}))}
+  const salvar=async e=>{e.preventDefault();setSalvando(true);setErro('');setStatus('');try{const novo=await salvarModelo(modelo,{precos,complementos:grupos});setModelos(ms=>ms.map(m=>m.id===novo.id?novo:m));setStatus('Preços salvos. As novas escolhas usarão estes valores.');setSujo(false)}catch(e){setErro(e.message)}finally{setSalvando(false)}}
+  return <div className="admin-pagina"><header className="admin-cabecalho"><span className="admin-eyebrow">GESTÃO COMERCIAL</span><h1>Preços por projeto</h1><p>O projeto original já está incluído. Cadastre quanto custa cada mudança opcional; R$ 0 significa sem adicional.</p></header>
+    <label className="field">Projeto<select className="select" value={id} disabled={salvando} onChange={e=>{if(!sujo||confirm('Trocar de projeto e descartar os preços ainda não salvos?'))setParams({projeto:e.target.value})}}><option value="">Escolha um projeto</option>{modelos?.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}</select></label>
+    {modelos===null&&!erro&&<p>Carregando projetos…</p>}{erro&&<p className="erro-inline" role="alert">{erro}</p>}{status&&<p className="orientacao" role="status">{status}</p>}
+    {modelo&&<form onSubmit={salvar}><fieldset disabled={salvando} className="admin-form"><section className="card card-pad"><h2>Elementos personalizáveis</h2><p className="muted">Um preço específico tem prioridade sobre o catálogo de napas e a regra geral. Cor e arte são alternativas de cobrança, não somadas.</p>
+      {!(modelo.superficies||[]).length&&<p>Primeiro identifique os elementos no <Link to={`/modelos/${id}`}>editor do projeto</Link>.</p>}
+      {carregandoGlb&&<p>Identificando os nomes dos elementos…</p>}{erroGlb&&<p role="alert">O GLB não carregou. Os nomes abaixo usam o cadastro do projeto.</p>}{elementos.flatMap(e=>e.superficies.filter(s=>s.podeCor||s.podeArte).map((s,i)=>({...s,nomePreco:e.nome+(e.superficies.length>1?` · parte ${i+1}`:'')}))).map(s=><article className="admin-item" key={s.id}><h3>{s.nomePreco}</h3>{s.podeCor&&<Regra nome="Cor / revestimento" opcional valor={precos.itens?.[s.id]?.cor} aoMudar={v=>mudar(s.id,'cor',v)}/>}{s.podeArte!==false&&<Regra nome="Aplicação de arte" opcional valor={precos.itens?.[s.id]?.arte} aoMudar={v=>mudar(s.id,'arte',v)}/>}</article>)}
+    </section><section className="card card-pad"><h2>Inclusões e mobiliário</h2>{!grupos.length&&<p>Relacione móveis pela biblioteca ou configure inclusões no editor.</p>}{grupos.map(g=><div key={g.id}><h3>{g.nome}</h3>{g.opcoes.map(o=><Regra key={o.id} nome={o.nome} valor={o.preco||{unidade:'peca',valor:0}} aoMudar={v=>{setSujo(true);setGrupos(gs=>gs.map(x=>x.id!==g.id?x:{...x,opcoes:x.opcoes.map(y=>y.id!==o.id?y:{...y,preco:v})}))}}/>)}</div>)}</section>
+    <section className="card card-pad"><h2>Pontos elétricos</h2><label><input type="checkbox" checked={!!precos.eletrica?.ativo} onChange={e=>{setSujo(true);setPrecos(p=>({...p,eletrica:{unidade:'peca',valor:p.eletrica?.valor??0,ativo:e.target.checked}}))}}/> Permitir contratação de pontos adicionais</label>{precos.eletrica?.ativo&&<label className="field">Valor por ponto (R$)<input className="input" required type="number" min="0" step="0.01" value={precos.eletrica.valor} onChange={e=>{setSujo(true);setPrecos(p=>({...p,eletrica:{...p.eletrica,valor:e.target.value===''?'':Number(e.target.value)}}))}}/></label>}</section>
+    <details className="card card-pad"><summary>Regras gerais para itens sem preço específico</summary>{Object.entries(PRECOS_PADRAO).map(([papel])=><Regra key={papel} nome={papel} valor={precos[papel]} aoMudar={v=>{setSujo(true);setPrecos(p=>({...p,[papel]:v}))}}/>)}</details>
+    <button className="btn btn-primary" type="submit" disabled={!sujo}>{salvando?'Salvando…':status&&!sujo?'Preços salvos':'Salvar preços deste projeto'}</button></fieldset></form>}
+  </div>
+}

@@ -1,0 +1,32 @@
+.admin-nav{display:flex;gap:6px;padding:10px 28px;overflow-x:auto;border-bottom:1px solid var(--line);background:var(--surface);min-height:58px;box-sizing:border-box}
+.admin-nav a{padding:8px 16px;border-radius:25px;white-space:nowrap;font-size:13px;font-weight:600}
+.admin-nav a[aria-current]{background:#193b33;color:#fffef9}
+.tema-admin .studio-workspace{height:calc(100dvh - 120px)}
+.admin-pagina{max-width:1220px;margin:auto;padding:40px 28px 80px}
+.admin-cabecalho{margin-bottom:30px;max-width:760px}
+.admin-cabecalho h1{font-size:clamp(28px,4vw,40px);letter-spacing:-.04em;margin:12px 0}
+.admin-cabecalho p{color:var(--text-mid);line-height:1.7}
+.admin-eyebrow{font-size:11px;letter-spacing:.17em;font-weight:700;color:var(--brand-green)}
+.admin-form{border:0;padding:0;margin:24px 0;display:grid;gap:20px;min-width:0}
+.admin-item{padding:20px 0;border-bottom:1px solid var(--line)}
+.admin-regra{display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding:12px 0}
+.admin-regra>span{min-width:160px;font-weight:600}
+.admin-regra label{display:flex;gap:6px;align-items:center;font-size:13px}
+.admin-regra input[type=number]{width:115px}
+.admin-filtros{display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin:20px 0}
+.admin-filtros label{display:grid;gap:7px}
+.admin-indicadores{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:25px 0}
+.admin-indicadores article,.admin-indicadores .card{padding:24px}
+.admin-indicadores strong{display:block;font-size:30px;margin-top:10px}
+.admin-tabela{overflow:auto;margin:20px 0;border:1px solid var(--line);border-radius:18px}
+.admin-tabela table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
+.admin-tabela th,.admin-tabela td{padding:14px;border-bottom:1px solid var(--line)}
+.admin-tabela th{background:var(--surface-2);white-space:nowrap}
+.admin-duas-colunas{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:24px 0}
+.admin-check{display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.admin-check span{flex:1;min-width:0}.admin-check small{display:block;color:var(--text-mid);margin-top:5px}
+.tema-admin h2{font-size:20px;letter-spacing:-.025em}.tema-admin h3{font-size:16px}
+.tema-admin .studio-painel{background:var(--bg)}
+.tema-admin [style*="color: rgb(253, 164, 175)"]{color:#94342c!important}
+.tema-admin .elemento-icone{background:#e4ebda;color:#37644b}
+@media(max-width:700px){.admin-nav{padding-inline:12px}.admin-pagina{padding:26px 16px 60px}.admin-duas-colunas{grid-template-columns:1fr}.admin-indicadores{grid-template-columns:1fr 1fr}.admin-regra>span{width:100%}.tema-admin .topbar a[href='/conta']{max-width:140px;overflow:hidden;text-overflow:ellipsis}.tema-admin .studio-workspace{height:auto;min-height:calc(100dvh - 120px)}}
