@@ -54,7 +54,7 @@ export function organizarElementos(analise, superficies, objetos = [], complemen
   const pais = pecas.map((_, i) => i)
   const raiz = (i) => { while (pais[i] !== i) { pais[i] = pais[pais[i]]; i = pais[i] } return i }
   const unir = (i, j) => { pais[raiz(j)] = raiz(i) }
-  const tipos = pecas.map(p => tipoDaPeca(p, porPeca.get(p.chave).papel))
+  const tipos = pecas.map(p => porObjeto.has(p.chave) ? 'movel' : tipoDaPeca(p, porPeca.get(p.chave).papel))
   const grade = new Map()
   const objetosVistos = new Map()
   pecas.forEach((p, i) => {

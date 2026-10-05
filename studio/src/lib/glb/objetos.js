@@ -31,6 +31,7 @@
 
 import { PAPEIS } from './roles.js'
 import { tipoDaPeca } from './elementos.js'
+import { completarPartesMoveis } from './partesMoveis.js'
 
 let seq = 0
 const novoId = () => `obj-${Date.now().toString(36)}-${seq++}`
@@ -73,7 +74,7 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } 
   const papelDaPeca = (p) => supDaPeca.get(p.chave)?.papel ?? papeis[p.materialNome]
 
   const elegiveis = analise.pecas.filter((p) =>
-    PAPEIS_MOVEIS.includes(papelDaPeca(p))
+    (PAPEIS_MOVEIS.includes(papelDaPeca(p)) || (papelDaPeca(p) === 'metal' && grupoDaPeca.has(p.chave) && supDaPeca.get(p.chave)?.tipoElemento === 'movel'))
     && !['parede', 'logo'].includes(supDaPeca.get(p.chave)?.tipoElemento || (grupoDaPeca.has(p.chave) ? 'movel' : tipoDaPeca(p, papelDaPeca(p))))
     && p.tris > 0 && isFinite(p.bbox.centro[0]))
   if (!elegiveis.length) return []
@@ -142,9 +143,10 @@ export function detectarObjetos(analise, papeis, { folga = FOLGA, superficies } 
     grupos.push(membros)
   }
 
-  return grupos
+  const objetos = grupos
     .map((membros) => montarObjeto(membros, papeis, papelDaPeca))
     .sort((a, b) => (a.centro[0] - b.centro[0]) || (a.centro[2] - b.centro[2]))
+  return completarPartesMoveis(analise, objetos, superficies, papeis)
 }
 
 function montarObjeto(membros, papeis, papelDaPeca) {

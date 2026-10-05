@@ -1,4 +1,5 @@
 import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
+import { completarPartesMoveis } from '../lib/glb/partesMoveis.js'
 import { useNapas } from '../store/NapasContext.jsx'
 import { pontosEletricos } from '../lib/eletrica.js'
 import { listarElementos } from '../lib/glb/elementos.js'
@@ -262,7 +263,7 @@ export default function Editor() {
     if (!analise || superficies) return
     const efetivos = { ...Object.fromEntries(analise.materiais.map(m => [m.nome, m.papelSugerido])), ...papeis }
     const base = modelo?.superficies?.length ? modelo.superficies : superficiesPadrao(analise, efetivos)
-    const os = modelo?.objetos?.length ? modelo.objetos : numerar(detectarObjetos(analise, efetivos, { superficies: base }))
+    const os = modelo?.objetos?.length ? completarPartesMoveis(analise, modelo.objetos, base, efetivos) : numerar(detectarObjetos(analise, efetivos, { superficies: base }))
     const sups = modelo?.superficies?.length ? base : organizarElementos(analise, base, os)
     setPapeis(efetivos)
     setSuperficies(sups)
