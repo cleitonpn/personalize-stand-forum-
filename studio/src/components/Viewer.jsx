@@ -12,7 +12,8 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as THREE from 'three'
 import { PAPEIS } from '../lib/glb/roles.js'
-import { chaveDaPeca } from '../lib/glb/analyze.js'
+import { chaveDaPeca, analisar } from '../lib/glb/analyze.js'
+import { completarPartesMoveis } from '../lib/glb/partesMoveis.js'
 import GizmoObjeto from './GizmoObjeto.jsx'
 import SelecaoElemento from './SelecaoElemento.jsx'
 import { dentro } from '../lib/glb/elementos.js'
@@ -585,7 +586,7 @@ function useTransformes(cena, objetos) {
   // remontados a cada clique de mover, o que é caro e desnecessário: mudar a
   // posição não muda quais peças formam o objeto.
   const estrutura = useMemo(
-    () => (objetos || []).map((o) => `${o.id}:${o.pecas.length}`).join('|'),
+    () => (objetos || []).map((o) => `${o.id}:${o.pecas.slice().sort().join(';')}`).join('|'),
     [objetos],
   )
 
@@ -631,6 +632,12 @@ function useTransformes(cena, objetos) {
 
     return () => {
       for (const g of criados.values()) {
+        // Volta à base antes de reconstruir um agrupamento; não acumula o
+        // deslocamento anterior quando o admin acrescenta ou troca partes.
+        const obj = objetos.find(o => o.id === g.name.slice(4))
+        if (obj) g.position.set(...obj.apoio)
+        g.rotation.set(0, 0, 0)
+        g.updateWorldMatrix(true, true)
         for (const m of [...g.children]) {
           const pai = m.userData._paiOrig
           if (pai) pai.attach(m)
@@ -695,11 +702,17 @@ function CaixaRecorte({ recorte, alturaMax = 5 }) {
 
 export default function Viewer({
   cena, materialFoco, papeis, modo = 'original', recorte, altura = '100%', mostrarIgnorados = false,
-  indice, acabamentos, supFoco, objetos, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
+  indice, acabamentos, supFoco, objetos: objetosConfigurados, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, aoTransformarExtra, compararOriginal=false, focoCamera, marcadores=[], objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
   aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco, complementos = [], aoPosicionar,
   pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,exportadorRef,
 }) {
+  const analiseMovimento = useMemo(() => {
+    if (!cena) return null
+    // Captura antes de attach() alterar a hierarquia original.
+    return cena.userData._analiseMovimento || (cena.userData._analiseMovimento = analisar(cena))
+  }, [cena])
+  const objetos = useMemo(() => completarPartesMoveis(analiseMovimento, objetosConfigurados, indice ? [...new Set(indice.values())] : [], papeis), [analiseMovimento, objetosConfigurados, indice, papeis])
   const objetosExibidos=useMemo(()=>compararOriginal?(objetos||[]).map(o=>({...o,transform:{dx:0,dz:0,rotY:0}})):objetos,[objetos,compararOriginal])
   const acabamentosExibidos=useMemo(()=>compararOriginal?{}:acabamentos,[acabamentos,compararOriginal])
   useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice, acabamentos:acabamentosExibidos, supFoco: realceSuave ? null : supFoco, objetos, objFoco: realceSuave ? null : objFoco, escondidos:compararOriginal?null:escondidos, realceSuave, recorte })
