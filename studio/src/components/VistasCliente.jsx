@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
+import { enquadrarSelecao } from '../lib/cameraSelecao.js'
 
 function caixaVisivel(cena, chaves) {
   const caixa=new THREE.Box3(), ids=chaves&&new Set(chaves)
@@ -14,18 +15,20 @@ function caixaVisivel(cena, chaves) {
   })
   return caixa
 }
-export function FocarElemento({ cena, pedido }) {
+export function FocarElemento({ cena, pedido, recorte }) {
   const {camera,controls}=useThree()
   useEffect(()=>{
     if(!pedido?.pecas?.length||!cena)return
     const b=caixaVisivel(cena,pedido.pecas)
     if(b.isEmpty())return
-    const c=b.getCenter(new THREE.Vector3()),t=b.getSize(new THREE.Vector3()),geral=caixaVisivel(cena).getCenter(new THREE.Vector3())
-    const normal=t.x<t.z?new THREE.Vector3(Math.sign(geral.x-c.x)||1,0,0):new THREE.Vector3(0,0,Math.sign(geral.z-c.z)||1)
-    const d=Math.max(t.length(),.8)/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov)/2))*Math.max(1,1/camera.aspect)*1.3
-    camera.position.copy(c).addScaledVector(normal,d);camera.near=.01;camera.far=Math.max(100,d*20);camera.updateProjectionMatrix()
-    if(controls){controls.target.copy(c);controls.update()}
-  },[pedido,cena,camera,controls])
+    const geral=caixaVisivel(cena)
+    if(recorte){geral.min.x=Math.min(recorte.x0,recorte.x1);geral.max.x=Math.max(recorte.x0,recorte.x1);geral.min.z=Math.min(recorte.z0,recorte.z1);geral.max.z=Math.max(recorte.z0,recorte.z1)}
+    const enquadramento=enquadrarSelecao(geral,b,camera.fov,camera.aspect)
+    if(!enquadramento)return
+    camera.position.copy(enquadramento.posicao);camera.near=.01;camera.far=Math.max(100,enquadramento.distanciaFrente*20);camera.updateProjectionMatrix()
+    if(controls){controls.target.copy(enquadramento.alvo);controls.update()}
+    else camera.lookAt(enquadramento.alvo)
+  },[pedido,cena,camera,controls,recorte])
   return null
 }
 export function NumerosElementos({cena,marcadores=[]}) {

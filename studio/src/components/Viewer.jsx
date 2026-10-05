@@ -842,7 +842,7 @@ export default function Viewer({
       <Enquadrar alvo={cena} deps={[chave, nIgnorados, mostrarIgnorados, JSON.stringify(recorte)]} />
       <IrParaVista vista={vista} alvo={cena} recorte={recorte} aoConcluir={aoAplicarVista} />
 
-      <FocarElemento cena={cena} pedido={focoCamera}/>
+      <FocarElemento cena={cena} pedido={focoCamera} recorte={recorte}/>
       {!compararOriginal&&<NumerosElementos cena={cena} marcadores={marcadores}/>}
       <CapturasCliente cena={cena} recorte={recorte}/>
       {!compararOriginal&&<PontosEletricos pontos={pontosEletricos} limites={limitesEletrica} altura={alturaEletrica} modo={modoEletrica} aoMarcar={aoMarcarEletrica}/>}
