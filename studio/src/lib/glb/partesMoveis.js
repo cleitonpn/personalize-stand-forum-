@@ -1,6 +1,10 @@
 // Materiais estruturais dentro de um componente de móvel também se movem.
 // A hierarquia do GLB é a evidência; proximidade com um móvel não basta.
 export function completarPartesMoveis(analise, objetos = [], superficies = [], papeis = {}) {
+  // O editor renderiza a cena antes de inicializar seu mapeamento.
+  objetos = objetos ?? []
+  superficies = superficies ?? []
+  papeis = papeis ?? {}
   if (!analise) return objetos
   const porSup = new Map(superficies.flatMap(s => s.pecas.map(k => [k, s])))
   const donos = new Map(objetos.flatMap(o => o.pecas.map(k => [k, o.id])))

@@ -17,6 +17,13 @@ function fixture() {
   return { scene, analise, papeis }
 }
 
+test('editor pode carregar a cena antes de inicializar objetos e superfícies', () => {
+  const { analise } = fixture()
+  assert.deepEqual(completarPartesMoveis(analise, null, null, null), [])
+  assert.deepEqual(completarPartesMoveis(null, null, null, null), [])
+  assert.deepEqual(completarPartesMoveis(analise, undefined, undefined), [])
+})
+
 test('metal dentro do componente move junto; estrutura próxima permanece independente', () => {
   const { analise, papeis } = fixture()
   const os = detectarObjetos(analise, papeis)
