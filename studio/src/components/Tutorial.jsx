@@ -1,52 +1,79 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { montarTutorial, DURACOES } from '../lib/tutorial/motor.js'
+import '../lib/tutorial/tutorial.css'
 
 const PASSOS = [
-  { icone: '✓', titulo: 'Comece pelo que já está incluído', texto: 'Seu estande já tem paredes, piso e mobiliário. Confira a lista inicial e siga o passo a passo. Você pode manter o projeto sem acrescentar nada.' },
-  { icone: '🎨', titulo: 'Experimente suas escolhas', texto: 'Escolha uma cor ou envie sua imagem. Nos móveis liberados, use Ajustar posição. Desfazer e Refazer ajudam a experimentar; as alterações ficam salvas neste navegador.' },
-  { icone: '✓', titulo: 'Confira seus adicionais e envie', texto: 'A revisão mostra suas mudanças e o valor adicional. Clique em Enviar escolhas para a USET para encaminhar à equipe. Depois você pode salvar a proposta em PDF.' },
+  { titulo: 'Seu projeto já vem pronto', texto: 'Paredes, piso e mobiliário já fazem parte do estande que você contratou. Gire a cena com o mouse ou use as vistas prontas e siga o passo a passo.' },
+  { titulo: 'Coloque sua marca', texto: 'Escolha uma parede ou lona, toque numa cor da cartela ou envie a imagem da sua marca. O estande muda na hora, e o total acompanha.' },
+  { titulo: 'Piso e mobiliário', texto: 'Compare as cores do piso e, nos móveis liberados, use Ajustar posição para arrastar a peça. Não gostou? Desfazer volta um passo.' },
+  { titulo: 'Complementos e elétrica', texto: 'Inclua itens extras, como o painel de LED, e toque no piso onde precisa de um ponto de energia. O valor aparece antes de você confirmar.' },
+  { titulo: 'Revise e envie', texto: 'Confira suas mudanças e o valor adicional, envie as escolhas para a USET e baixe a proposta em PDF. Este guia fica sempre em “? Como funciona”.' },
 ]
+const PAUSA = 2.6 // segundos parados no quadro final antes de avançar sozinho
 
 export default function Tutorial({ aoFechar }) {
   const [i, setI] = useState(0)
-  const p = PASSOS[i]
+  const [manual, setManual] = useState(false)
+  const palco = useRef(null), motor = useRef(null), barra = useRef(null), principal = useRef(null)
+  const passo = useRef(0); passo.current = i
   const ultimo = i === PASSOS.length - 1
 
+  useEffect(() => {
+    motor.current = montarTutorial(palco.current)
+    principal.current?.focus()
+    return () => motor.current?.destruir()
+  }, [])
+
+  useEffect(() => {
+    const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const d = DURACOES[i], t0 = performance.now()
+    let raf
+    const quadro = agora => {
+      const t = reduz ? d : Math.min(d, (agora - t0) / 1000)
+      motor.current?.render(i, t)
+      if (barra.current) barra.current.style.width = (t / d) * 100 + '%'
+      if (!reduz && !manual && !ultimo && (agora - t0) / 1000 > d + PAUSA) { setI(i + 1); return }
+      if (!reduz || t < d) raf = requestAnimationFrame(quadro)
+    }
+    raf = requestAnimationFrame(quadro)
+    return () => cancelAnimationFrame(raf)
+  }, [i, manual, ultimo])
+
+  const ir = k => { setManual(true); setI(Math.max(0, Math.min(PASSOS.length - 1, k))) }
+
+  useEffect(() => {
+    const tecla = e => {
+      if (e.key === 'Escape') aoFechar()
+      if (e.key === 'ArrowRight') ir(passo.current + 1)
+      if (e.key === 'ArrowLeft') ir(passo.current - 1)
+    }
+    addEventListener('keydown', tecla)
+    return () => removeEventListener('keydown', tecla)
+  }, [aoFechar])
+
+  const p = PASSOS[i]
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 100, display: 'grid', placeItems: 'center',
-      background: 'rgba(4,6,13,.82)', backdropFilter: 'blur(6px)', padding: 24,
-    }}>
-      <div className="card card-pad fade-up" style={{ maxWidth: 460, width: '100%' }}>
-        <div className="row" style={{ justifyContent: 'space-between', marginBottom: 18 }}>
-          <span className="label">Como personalizar seu estande</span>
-          <button className="btn btn-ghost btn-sm" onClick={aoFechar}>Pular</button>
+    <div className="tutorial-fundo" role="dialog" aria-modal="true" aria-labelledby="tutorial-titulo">
+      <div className="tutorial-modal">
+        <div className="tutorial-topo">
+          <span>Como personalizar seu estande</span>
+          <button className="tutorial-pular" onClick={aoFechar}>Pular tutorial</button>
         </div>
-
-        <div style={{ textAlign: 'center', padding: '10px 0 22px' }}>
-          <div style={{ fontSize: 44, marginBottom: 14 }}>{p.icone}</div>
-          <h2 style={{ fontSize: 19, marginBottom: 9 }}>{p.titulo}</h2>
-          <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.65 }}>{p.texto}</p>
+        <div className="tutorial-palco"><div ref={palco} aria-hidden="true" /></div>
+        <div className="tutorial-tempo"><i ref={barra} /></div>
+        <div className="tutorial-legenda" aria-live="polite">
+          <small>Passo {i + 1} de {PASSOS.length}</small>
+          <h2 id="tutorial-titulo">{p.titulo}</h2>
+          <p>{p.texto}</p>
         </div>
-
-        <div className="row" style={{ gap: 6, justifyContent: 'center', marginBottom: 18 }}>
-          {PASSOS.map((_, k) => (
-            <button key={k} onClick={() => setI(k)} aria-label={`Passo ${k + 1}`}
-              style={{
-                width: k === i ? 22 : 7, height: 7, borderRadius: 99,
-                background: k === i ? 'var(--brand-green)' : 'var(--surface-3)',
-                transition: 'all var(--t) var(--ease)',
-              }} />
-          ))}
-        </div>
-
-        <div className="row" style={{ gap: 8 }}>
-          {i > 0 && (
-            <button className="btn" style={{ flex: 1 }} onClick={() => setI(i - 1)}>Voltar</button>
-          )}
-          <button className="btn btn-primary" style={{ flex: 2, padding: 11 }}
-            onClick={() => (ultimo ? aoFechar() : setI(i + 1))}>
-            {ultimo ? 'Começar a personalizar' : 'Próximo'}
-          </button>
+        <div className="tutorial-rodape">
+          <div className="tutorial-pontos">
+            {PASSOS.map((x, k) => <button key={k} aria-label={`Passo ${k + 1}: ${x.titulo}`} aria-current={k === i ? 'step' : undefined} onClick={() => ir(k)} />)}
+          </div>
+          {i > 0 && <button className="btn" onClick={() => ir(i - 1)}>Voltar</button>}
+          {ultimo
+            ? <button ref={principal} className="btn btn-primary tutorial-comecar" onClick={aoFechar}>Começar a personalizar meu estande →</button>
+            : <button ref={principal} className="btn btn-primary" onClick={() => ir(i + 1)}>Próximo →</button>}
         </div>
       </div>
     </div>

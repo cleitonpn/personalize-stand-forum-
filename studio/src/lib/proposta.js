@@ -1,5 +1,8 @@
 import { fmtBRL, fmtM2 } from './glb/precos.js'
 import { posicaoPonto,pontosEletricos } from './eletrica.js'
+import { LOGO_VIEWBOX, LOGO_PARTES } from './showreel/logo.js'
+
+const LOGO_SVG = `<svg viewBox="${LOGO_VIEWBOX}" role="img" aria-label="USET">${[LOGO_PARTES.anel, LOGO_PARTES.haste, LOGO_PARTES.s, LOGO_PARTES.e, LOGO_PARTES.t].map(d => `<path d="${d}"/>`).join('')}<path fill-rule="evenodd" d="${LOGO_PARTES.registro[0]}"/><path d="${LOGO_PARTES.registro[1]}"/></svg>`
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
@@ -43,9 +46,10 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
          color: #14181f; margin: 0; font-size: 12px; line-height: 1.55; }
   .topo { display: flex; justify-content: space-between; align-items: flex-start;
           border-bottom: 2px solid #14181f; padding-bottom: 14px; margin-bottom: 20px; }
-  .marca { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
-  .marca small { display: block; font-size: 10px; font-weight: 600; color: #6b7280;
-                 letter-spacing: .18em; text-transform: uppercase; margin-top: 2px; }
+  .marca { display: flex; align-items: center; gap: 12px; }
+  .marca svg { height: 30px; width: auto; fill: #01622f; }
+  .marca small { font-size: 10px; font-weight: 600; color: #6b7280; letter-spacing: .18em;
+                 text-transform: uppercase; border-left: 1px solid #d1d5db; padding-left: 12px; }
   .meta { text-align: right; font-size: 11px; color: #4b5563; }
   h1 { font-size: 16px; margin: 0 0 14px; }
   .dados { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
@@ -81,7 +85,7 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
   <div class="acoes"><button onclick="window.print()">Salvar em PDF</button></div>
 
   <div class="topo">
-    <div class="marca">Stand Studio<small>USET</small></div>
+    <div class="marca">${LOGO_SVG}<small>Stand Studio</small></div>
     <div class="meta">Proposta de personalização<br>${esc(data)}</div>
   </div>
 

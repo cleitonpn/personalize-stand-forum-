@@ -44,7 +44,8 @@ export default function Expositor() {
   const [supFoco, setSupFoco] = useState(null)
   const [objFoco, setObjFoco] = useState(null)
   const [objSel, setObjSel] = useState(null)
-  const [tutorial, setTutorial] = useState(false)
+  // abre sozinho no primeiro acesso de cada conta; depois, só pelo "? Como funciona"
+  const [tutorial, setTutorial] = useState(() => { try { return !localStorage.getItem(`psf.tutorial.${user?.uid}`) } catch { return false } })
   const [gravando, setGravando] = useState(false)
   const [gravado, setGravado] = useState(null)
   const [vista, setVista] = useState(null)

@@ -9,20 +9,10 @@
    inteira; os fundos vazam para cobrir o que sobra.
    ========================================================================== */
 import { LOGO_VIEWBOX, LOGO_PARTES } from './logo.js'
+import { clamp, seg, eo, ei, eio, eback, mix, shade } from '../movimento.js'
 
 export const DURACAO = 30
 
-const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v))
-const seg = (t, a, b) => clamp((t - a) / (b - a))
-const eo = p => 1 - Math.pow(1 - p, 3)
-const ei = p => p * p * p
-const eio = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2
-const eback = p => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2) }
-
-const HX = new Map()
-const hx = h => { if (!HX.has(h)) { const s = h.slice(1); HX.set(h, [0, 2, 4].map(i => parseInt(s.slice(i, i + 2), 16))) } return HX.get(h) }
-const mix = (a, b, p) => { if (p <= 0) return a; if (p >= 1) return b; const A = hx(a), B = hx(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * p).toString(16).padStart(2, '0')).join('') }
-const shade = (c, k) => k > 0 ? mix(c, '#ffffff', k) : mix(c, '#000000', -k)
 const brl = n => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
 
 const SANGRIA = 1500 // quanto o fundo vaza além da composição
