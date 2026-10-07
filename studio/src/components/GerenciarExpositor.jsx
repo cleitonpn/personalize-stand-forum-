@@ -45,7 +45,7 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
 
   const salvar = () => executar(
     () => updateDoc(doc(db, 'usuarios', cliente.id), {
-      nome: f.nome.trim(), feira: f.feira.trim() || null, modeloId: f.modeloId || null,
+      nome: f.nome.trim(), empresa: f.nome.trim(),
     }),
     'Dados atualizados.')
 
@@ -106,11 +106,11 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
           </div>
           <div className="field">
             <label className="label">Feira</label>
-            <input className="input" {...campo('feira')} placeholder="Eletrolar Show" />
+            <input className="input" value={cliente.feira || 'Use o botão Vincular feira e projeto'} readOnly />
           </div>
           <div className="field">
             <label className="label">Projeto do estande</label>
-            <select className="select" {...campo('modeloId')}>
+            <select className="select" value={cliente.modeloId || ''} disabled>
               <option value="">Sem projeto vinculado</option>
               {modelos.map((m) => (
                 <option key={m.id} value={m.id}>{m.nome}{m.feira ? ` — ${m.feira}` : ''}</option>

@@ -55,22 +55,12 @@ jobs:
           --project personalizacao-stand
           --non-interactive
 
-      - name: Deploy no Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: personalizacao-stand
-          channelId: live
-          entryPoint: studio
-
       # A CLI carrega functions/index.js na própria máquina para descobrir quais
       # gatilhos existem. Sem as dependências instaladas aqui, esse require
       # falha em "Cannot find module 'firebase-functions/v2/https'" antes mesmo
       # de tentar publicar — o build no servidor não chega a acontecer.
       - name: Instalar dependências das functions
         working-directory: studio/functions
-        continue-on-error: true
         run: npm ci
 
       # Antes de publicar, a CLI consulta o plano de faturamento do projeto. Se a
@@ -84,16 +74,27 @@ jobs:
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
           gcloud services enable cloudbilling.googleapis.com --project personalizacao-stand --quiet
 
-      # Functions exigem o plano Blaze. Num projeto no plano gratuito este passo
-      # falha, e isso não pode derrubar o resto — o app foi feito para funcionar
-      # sem elas.
+      # Cadastro e permissões dependem destas funções: não liberar o frontend
+      # se o backend não for publicado por completo.
       - name: Publicar Cloud Functions (requer plano Blaze)
         id: functions
-        continue-on-error: true
         run: npx --yes firebase-tools@13 deploy
           --only functions
           --project personalizacao-stand
           --non-interactive
+
+      - name: Deploy no Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: personalizacao-stand
+          channelId: live
+          entryPoint: studio
+
+      - name: Migrar permissões dos arquivos existentes
+        working-directory: studio/functions
+        run: node migrar-acessos.js
 
       - name: O que foi publicado
         run: |
@@ -115,5 +116,5 @@ jobs:
             echo "::warning::Regras do Storage NÃO publicadas. $FALTA"
           fi
           if [ "${{ steps.functions.outcome }}" != "success" ]; then
-            echo "::warning::Cloud Functions não publicadas por completo. O app funciona sem elas — só a exclusão do login do expositor fica pela metade. Se o log disser 'Failed to set invoker', as funções foram criadas mas ninguém pode chamá-las: o papel Editor não permite alterar políticas de IAM. Conceda também Cloud Run Admin à conta de serviço em console.cloud.google.com/iam-admin/iam e rode o workflow de novo."
+            echo "::warning::Cloud Functions não publicadas por completo. As Functions são obrigatórias para o cadastro, os vínculos e os pagamentos. Se o log disser 'Failed to set invoker', as funções foram criadas mas ninguém pode chamá-las: o papel Editor não permite alterar políticas de IAM. Conceda também Cloud Run Admin à conta de serviço em console.cloud.google.com/iam-admin/iam e rode o workflow de novo."
           fi

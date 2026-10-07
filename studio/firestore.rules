@@ -23,7 +23,7 @@ service cloud.firestore {
     }
 
     function ehAdmin() {
-      return temPerfil() && perfil().papel == 'admin';
+      return ativo() && perfil().papel == 'admin';
     }
 
     // Desativar precisa valer no SERVIDOR, não só na tela: sem isto, um
@@ -33,33 +33,64 @@ service cloud.firestore {
       return temPerfil() && perfil().get('ativo', true) == true;
     }
 
+    function organizadoraDo(dados) {
+      return ativo() && perfil().papel == 'organizadora'
+        && dados.get('organizadoraId', '') == perfil().organizadoraId;
+    }
+    function contatoValido(d) {
+      return d.contatoNome is string && d.contatoNome.size() > 0 && d.contatoNome.size() <= 180
+        && d.telefone is string && d.telefone.size() >= 10 && d.telefone.size() <= 30
+        && d.cargo is string && d.cargo.size() <= 180
+        && localizacaoValida(d) && d.cadastroCompleto == true;
+    }
+    function localizacaoValida(d) {
+      return d.localizacao is string && d.localizacao.size() <= 180
+        && d.localizacaoPendente == (d.localizacao.size() == 0);
+    }
+
     // Perfis. O admin cadastra expositores pelo painel; cada um lê o seu.
     //
     // O expositor NUNCA pode mexer no próprio papel — se pudesse, viraria admin
     // editando o próprio documento. A única escrita que ele faz é desligar o
     // aviso de senha provisória depois de trocá-la.
     match /usuarios/{uid} {
-      allow read:   if autenticado() && (request.auth.uid == uid || ehAdmin());
-      allow create: if ehAdmin() && request.resource.data.papel == 'expositor';
+      allow read: if autenticado() && request.auth.uid == uid || ehAdmin() || organizadoraDo(resource.data);
+      allow create: if false; // Cadastro de contas somente nas Functions.
       allow delete: if ehAdmin();
       allow update: if ehAdmin()
-        || (request.auth.uid == uid
+        || (ativo() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['precisaTrocarSenha'])
-            && request.resource.data.precisaTrocarSenha == false);
+            && request.resource.data.precisaTrocarSenha == false)
+        || (ativo() && request.auth.uid == uid && perfil().papel == 'expositor'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contatoNome','telefone','cargo','localizacao','localizacaoPendente','cadastroCompleto'])
+            && contatoValido(request.resource.data))
+        || (organizadoraDo(resource.data) && resource.data.papel == 'expositor'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['localizacao','localizacaoPendente'])
+            && localizacaoValida(request.resource.data));
     }
 
     // Propostas do expositor: ele cria e edita a sua; o admin lê todas.
     match /propostas/{propostaId} {
-      allow read:   if autenticado() && (resource.data.cliente == request.auth.uid || ehAdmin());
-      allow create: if ativo() && request.resource.data.cliente == request.auth.uid;
-      allow update, delete: if (ativo() && resource.data.cliente == request.auth.uid) || ehAdmin();
+      allow read:   if ativo() && (resource.data.cliente == request.auth.uid || ehAdmin() || organizadoraDo(resource.data));
+      allow create: if ativo() && perfil().papel == 'expositor' && perfil().get('cadastroCompleto', true)
+        && request.resource.data.cliente == request.auth.uid
+        && request.resource.data.modeloId == perfil().modeloId
+        && request.resource.data.get('organizadoraId', null) == perfil().get('organizadoraId', null)
+        && request.resource.data.get('feiraId', null) == perfil().get('feiraId', null)
+        && request.resource.data.clienteEmail == request.auth.token.email
+        && request.resource.data.arquivoPersonalizado.caminho == 'propostas/' + request.auth.uid + '/' + propostaId + '/estande.glb'
+        && request.resource.data.criadoEm == request.time
+        && request.resource.data.total is number && request.resource.data.total >= 0
+        && request.resource.data.quantidadePersonalizada is int && request.resource.data.quantidadePersonalizada >= 0 && request.resource.data.quantidadePersonalizada <= 10000;
+      allow update, delete: if ehAdmin();
     }
 
     // Modelos de estande: qualquer autenticado consulta (o expositor precisa
     // abrir o modelo dele); só o time da montadora cria, edita e apaga.
     match /modelos/{modeloId} {
-      allow read:  if ativo();
+      allow read: if ehAdmin() || (ativo() && perfil().papel == 'expositor' && perfil().modeloId == modeloId)
+        || (ativo() && perfil().papel == 'organizadora' && perfil().organizadoraId in resource.data.get('organizadoraIds', []));
       allow write: if ehAdmin();
     }
 
@@ -71,6 +102,26 @@ service cloud.firestore {
 
     match /mobiliario/{movelId} {
       allow read, write: if ehAdmin();
+    }
+
+    match /organizadoras/{id} {
+      allow read: if ehAdmin() || (ativo() && perfil().get('organizadoraId','') == id);
+      allow write: if false;
+    }
+    match /feiras/{id} {
+      allow read: if ehAdmin() || organizadoraDo(resource.data)
+        || (ativo() && perfil().papel == 'expositor' && perfil().get('feiraId','') == id);
+      allow write: if false;
+    }
+    match /pagamentos/{id} {
+      allow read: if ehAdmin() || (ativo() && exists(/databases/$(database)/documents/propostas/$(id))
+        && (get(/databases/$(database)/documents/propostas/$(id)).data.cliente == request.auth.uid
+          || organizadoraDo(get(/databases/$(database)/documents/propostas/$(id)).data)));
+      allow write: if false;
+    }
+    match /emailsSaida/{id} {
+      allow read: if ehAdmin();
+      allow write: if false;
     }
 
     function contador(n) { return n is number && n >= 0 && n <= 10000; }
@@ -108,7 +159,7 @@ service cloud.firestore {
 
     // Projetos do expositor: dono e admin.
     match /projetos/{projetoId} {
-      allow read, update, delete: if autenticado()
+      allow read, update, delete: if ativo()
         && (resource.data.dono == request.auth.uid || ehAdmin());
       allow create: if ativo() && request.resource.data.dono == request.auth.uid;
     }

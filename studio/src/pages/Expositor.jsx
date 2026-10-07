@@ -22,6 +22,7 @@ import { useHistorico } from '../lib/useHistorico.js'
 import { pontosEletricos,precoPonto } from '../lib/eletrica.js'
 import { reiniciarPersonalizacao } from '../lib/reiniciarPersonalizacao.js'
 import { mesmaVersao } from '../lib/salvarModelo.js'
+import { quantidadePersonalizada } from '../lib/quantidadePersonalizada.js'
 
 export default function Expositor() {
   const {catalogo,erro:erroCatalogo,carregando:carregandoCatalogo}=useNapas()
@@ -30,6 +31,7 @@ export default function Expositor() {
   const [metricas,setMetricas]=useState(()=>{try{return localStorage.getItem('psf.metricas')!=='nao'}catch{return false}})
   const registrar=useTelemetria(user?.uid,perfil?.modeloId,metricas&&perfil?.papel==='expositor')
   const [modelo, setModelo] = useState(null)
+  const [organizadora,setOrganizadora]=useState(null)
   const [erro, setErro] = useState(null)
   const historico = useHistorico({ acabamentos: {}, escolhas: {}, objetos: [] })
   const { acabamentos, escolhas, objetos, restaurar } = historico
@@ -48,6 +50,8 @@ export default function Expositor() {
   const [cenaCliente,setCenaCliente]=useState({})
   const [revisando,setRevisando]=useState(false)
   const [solicitarRevisao,setSolicitarRevisao]=useState(0)
+
+  useEffect(()=>{if(!perfil.organizadoraId)return;getDoc(doc(db,'organizadoras',perfil.organizadoraId)).then(s=>setOrganizadora(s.data())).catch(()=>setOrganizadora(null))},[perfil.organizadoraId])
 
   useEffect(() => {
     if (!perfil) return
@@ -169,8 +173,12 @@ export default function Expositor() {
       await setDoc(ref, {
         arquivoPersonalizado,
         cliente: user.uid,
-        clienteNome: perfil?.nome || user.email,
+        clienteNome: perfil?.empresa || perfil?.nome || user.email,
         clienteEmail: user.email,
+        organizadoraId: perfil.organizadoraId || null,
+        feiraId: perfil.feiraId || null,
+        contatoNome: perfil.contatoNome || '', telefone: perfil.telefone || '', localizacao: perfil.localizacao || '',
+        quantidadePersonalizada: quantidadePersonalizada(listarElementos(superficies,objetos,analise,modelo.recorte), acabamentos, ativas, pontosEletricos(escolhas), modelo.objetos || []),
         feira: perfil?.feira || null,
         modeloId: modelo.id,
         modeloNome: modelo.nome,
@@ -317,7 +325,7 @@ export default function Expositor() {
                 background: 'rgba(22,224,163,.08)', border: '1px solid var(--brand-green)' }}>
                 <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--brand-green)' }}>Proposta enviada</div>
                 <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
-                  A equipe da USET já recebeu sua personalização.
+                  {organizadora?.cobranca==='organizadora'?`${organizadora.nome} recebeu sua proposta e entrará em contato para combinar os próximos passos.`:'A USET recebeu sua personalização. O valor será revisado antes do pagamento.'}
                 </div>
               </div>
               <button className="btn btn-primary" style={{ width: '100%', padding: 12 }} onClick={baixarPDF}>
@@ -337,7 +345,7 @@ export default function Expositor() {
                   envio, não só o que gera valor. */}
               <button className={`btn ${revisando?'btn-primary':'btn-ghost btn-sm'}`} style={{ width: '100%', padding: 12 }}
                 disabled={gravando || enviandoArte || !analise || cenaCliente.compararOriginal || !!erroCatalogo || carregandoCatalogo} onClick={revisando?gravar:()=>setSolicitarRevisao(v=>v+1)}>
-                {gravando ? <><span className="spinner" /> Enviando…</> : revisando ? 'Enviar escolhas para a USET' : 'Ver resumo das escolhas'}
+                {gravando ? <><span className="spinner" /> Enviando…</> : revisando ? organizadora?.cobranca==='organizadora'?'Enviar proposta para a organizadora':'Enviar escolhas para a USET' : 'Ver resumo das escolhas'}
               </button>
               {erroCatalogo&&<p role="alert" className="dim">{erroCatalogo} O envio aguarda a consulta dos preços.</p>}
               {!orcamento.itens.length && !ativas.length && !objetos.some(o => o.transform?.dx || o.transform?.dz || o.transform?.rotY) && (

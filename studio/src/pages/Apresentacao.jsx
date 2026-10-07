@@ -3,8 +3,8 @@ import { useAuth } from '../store/AuthContext.jsx'
 import '../styles/apresentacao.css'
 
 export default function Apresentacao(){
-  const {user,ehAdmin}=useAuth()
-  const destino=user?(ehAdmin?'/modelos':'/meu-estande'):'/entrar'
+  const {user,ehAdmin,perfil}=useAuth()
+  const destino=user?(ehAdmin||perfil?.papel==='organizadora'?'/modelos':'/meu-estande'):'/entrar'
   return <div className="uset-home">
     <header className="uset-nav"><Link to="/" className="uset-assinatura" aria-label="USET Studio — início">uset<span>STUDIO</span></Link><nav aria-label="Conheça o Studio"><a href="#como-funciona">Como funciona</a><a href="#compromisso">Nosso compromisso</a><Link className="uset-acesso" to={destino}>{user?'Acessar meu painel':'Entrar no Studio'} ↗</Link></nav></header>
     <div>
