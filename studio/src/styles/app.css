@@ -302,3 +302,8 @@ details > summary { cursor: pointer; font-size: 12px; color: var(--text-mid); }
 .confirmacao-escolha > div { width:min(440px,100%); max-height:85dvh; overflow:auto; gap:12px; }
 .confirmacao-escolha p,.confirmacao-escolha li { font-size:13px; line-height:1.6; }
 @media(max-width:700px) { .jornada-cabecalho h2 {font-size:19px} .passos-cliente {gap:5px} }
+
+/* Logotipo oficial dentro da assinatura: acompanha o tamanho de fonte de cada contexto. */
+.uset-assinatura{display:flex;align-items:center}
+.uset-assinatura .logo-uset{height:.8em;width:auto;display:block;flex:none}
+.tema-cliente .uset-assinatura .logo-uset{color:#01622f}

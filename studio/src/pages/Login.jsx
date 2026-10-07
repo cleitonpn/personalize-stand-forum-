@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate,Link } from 'react-router-dom'
 import { destinoAposLogin } from '../lib/acesso.js'
 import ErroPerfil from '../components/ErroPerfil.jsx'
+import LogoUset from '../components/LogoUset.jsx'
 import { useAuth } from '../store/AuthContext.jsx'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
@@ -45,7 +46,7 @@ export default function Login() {
       <div className="ambient" />
       <div className="fade-up" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 400 }}>
         <Link className="btn btn-ghost btn-sm" to="/">← Conheça o USET Studio</Link>
-        <Link to="/" className="uset-assinatura" style={{ justifyContent: 'center', marginBottom: 26 }}>uset<span>STUDIO</span></Link>
+        <Link to="/" className="uset-assinatura" style={{ justifyContent: 'center', marginBottom: 26 }} aria-label="USET Studio — início"><LogoUset/><span>STUDIO</span></Link>
 
         <div className="card card-pad">
           <h1 style={{ fontSize: 21, marginBottom: 6 }}>

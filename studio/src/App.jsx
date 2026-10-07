@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './store/AuthContext.jsx'
 import Login from './pages/Login.jsx'
+import LogoUset from './components/LogoUset.jsx'
 import Modelos from './pages/Modelos.jsx'
 import Editor from './pages/Editor.jsx'
 import Clientes from './pages/Clientes.jsx'
@@ -24,7 +25,7 @@ import ProjetoConsulta from './pages/ProjetoConsulta.jsx'
 import CadastroInicial from './pages/CadastroInicial.jsx'
 
 function Marca() {
-  return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início">uset<span>STUDIO</span></Link>
+  return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início"><LogoUset/><span>STUDIO</span></Link>
 }
 
 function Topbar() {
