@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase.js'
 
 const Ctx = createContext(null)
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [perfil, setPerfil] = useState(null)
   const [carregando, setCarregando] = useState(true)
@@ -40,8 +42,10 @@ export function AuthProvider({ children }) {
     ehOrganizadora: perfil?.papel === 'organizadora',
     entrar: (email, senha) => signInWithEmailAndPassword(auth, email, senha),
     recarregarPerfil: () => lerPerfil(auth.currentUser),
-    sair: () => signOut(auth),
-  }), [user, perfil, carregando,erroPerfil])
+    // vai para a página inicial antes de encerrar a sessão; se saísse primeiro,
+    // a tela protegida aberta mandaria para o login
+    sair: () => { navigate('/', { replace: true }); return signOut(auth) },
+  }), [user, perfil, carregando,erroPerfil,navigate])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
