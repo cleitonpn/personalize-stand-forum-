@@ -58,6 +58,6 @@ export function projetarFrente(malhas, angulo) {
     d.pontos.forEach((p,i)=>{uv[i*2]=(p.dot(u)-x0)/w;uv[i*2+1]=1-(p.y-y0)/h})
     const grupos=[]
     d.frente.forEach((f,i)=>{const materialIndex=f?1:0, ultimo=grupos.at(-1);if(ultimo?.materialIndex===materialIndex)ultimo.count+=3;else grupos.push({start:i*3,count:3,materialIndex})})
-    return [d.m,{attr:new THREE.BufferAttribute(uv,2),proporcao:w/h,grupos}]
+    return [d.m,{attr:new THREE.BufferAttribute(uv,2),proporcao:w/h,largura:w,altura:h,grupos}]
   }))
 }

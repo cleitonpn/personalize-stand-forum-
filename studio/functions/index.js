@@ -13,6 +13,9 @@ const { getFirestore } = require('firebase-admin/firestore')
 
 initializeApp()
 
+exports.artesProposta = require('./producao').artesProposta
+exports.conversaCliente = require('./conversas').conversaCliente
+
 const REGIAO = 'southamerica-east1'
 
 /** O chamador é admin? Confere no Firestore, nunca no que o cliente afirma. */
@@ -142,7 +145,25 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
     if(atual.exists){if(atual.data().cliente!==req.auth.uid)throw new HttpsError('permission-denied','Envio indisponível.');return}
     const v=projeto.data()?.atualizadoEm,versao=req.data?.versao
     if(!projeto.exists||(v?.seconds||0)!==(versao?.seconds||0)||(v?.nanoseconds||0)!==(versao?.nanoseconds||0))throw new HttpsError('failed-precondition','O projeto ou seus preços mudaram. Recarregue antes de enviar.')
-    tx.create(ref,{...p,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
+    let entrada=p.areasArte
+    if(!Array.isArray(entrada)){
+      const grupos=new Map()
+      for(const [id,acab] of Object.entries(p.acabamentos||{})){
+        if((!acab.arte&&!acab.artePendente)||acab.removido)continue
+        const s=(projeto.data().superficies||[]).find(s=>s.id===id),grupo=s?.elementoId||id
+        if(!grupos.has(grupo))grupos.set(grupo,{id:grupo,superficieIds:[]})
+        grupos.get(grupo).superficieIds.push(id)
+      }
+      entrada=[...grupos.values()]
+    }
+    if(entrada.length>80||new Set(entrada.map(a=>a.id)).size!==entrada.length)throw new HttpsError('invalid-argument','Lista de áreas inválida.')
+    const areasArte=entrada.map(a=>{
+      const ids=Array.isArray(a.superficieIds)?a.superficieIds:[a.id],s=(projeto.data().superficies||[]).find(s=>s.id===ids[0])
+      if(!ids.length||ids.length>200||ids.some(id=>{const sup=(projeto.data().superficies||[]).find(s=>s.id===id);return !sup?.podeArte||(sup.elementoId||sup.id)!==a.id})||!ids.some(id=>{const acab=p.acabamentos?.[id];return acab&&!acab.removido&&(acab.arte||acab.artePendente)}))throw new HttpsError('invalid-argument','Área de arte inválida.')
+      const medida=(projeto.data().artesMedidas||[]).find(m=>m.id===a.id)||a
+      return{id:a.id,superficieIds:ids,nome:texto(medida.nome||s.nome),larguraCm:Number.isFinite(medida.larguraCm)?medida.larguraCm:0,alturaCm:Number.isFinite(medida.alturaCm)?medida.alturaCm:0,perfilId:medida.perfilId||'lona-parede',origem:'glb',confirmada:false}
+    })
+    tx.create(ref,{...p,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
       organizadoraId:perfil.organizadoraId||null,feiraId:perfil.feiraId||null,feira:perfil.feira||null,
       contatoNome:perfil.contatoNome||'',telefone:perfil.telefone||'',localizacao:perfil.localizacao||'',
       modeloNome:modelo.data().nome,cobranca:org?.data()?.cobranca||'organizadora',status:'recebida',criadoEm:FieldValue.serverTimestamp()})
