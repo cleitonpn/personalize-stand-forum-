@@ -17,7 +17,7 @@ import EscolhaComplemento from './EscolhaComplemento.jsx'
 export default function PainelExpositor({ analise, superficies, acabamentos, setAcabamentos,
   supFoco, setSupFoco, recorte, orcamento, precos, complementos = [], escolhas, setEscolhas,
   objetos = [], setObjetos, objFoco, setObjFoco, objSel, setObjSel,
-  enviarArquivo = enviarArte, aoEnviarArte, aoErroUpload, etapaGuiada, aoFocarElemento, aoVista, cena, elementosOrdenados }) {
+  enviarArquivo = enviarArte, aoEnviarArte, aoErroUpload, etapaGuiada, aoFocarElemento, aoVista, aoVoltarLista, cena, elementosOrdenados }) {
   const [filtroLivre, setFiltro] = useState('todos')
   const filtro = etapaGuiada || filtroLivre
   const [intencaoMoveis,setIntencaoMoveis]=useState('manter')
@@ -34,7 +34,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
     || complementos.some(g => e.superficies.some(s => s.id === g.ancora)))
   const atual = disponiveis.find(e => e.superficies.some(s => s.id === supFoco) || e.objetos.some(o => o.id === objFoco))
   const selecionar = e => { setSupFoco(e.superficies[0]?.id || null); setObjFoco(e.objetos[0]?.id || null); setObjSel(null); setErro(''); aoFocarElemento?.(e) }
-  const voltar = () => { setSupFoco(null); setObjFoco(null); setObjSel(null) }
+  const voltar = () => { if (aoVoltarLista) aoVoltarLista(); else { setSupFoco(null); setObjFoco(null); setObjSel(null) } }
   const aplicar = (ids, patch) => setAcabamentos(a => {
     const n = { ...a }; for (const id of ids) n[id] = { ...n[id], ...patch }; return n
   })
@@ -68,7 +68,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
     {erro && <p className="erro-inline" role="alert">{erro}</p>}
     {atual && (!etapaGuiada || pertenceEtapa(atual,etapaGuiada)) ? <article className="elemento-card selecionado">
       <div className="elemento-titulo"><span className="elemento-nome"><strong>{atual.nome}</strong><small>Item do projeto · mudanças opcionais</small></span>
-        <button className="btn btn-sm btn-ghost" onClick={voltar}>Voltar</button></div>
+        <button className="btn btn-sm btn-ghost" disabled={enviando} onClick={voltar}>{etapaGuiada==='marca'?'Ver paredes e logos':etapaGuiada==='mobiliario'?'Ver todos os móveis':etapaGuiada==='piso'?'Ver opções de piso':'Ver todos os itens'}</button></div>
       <div className="elemento-opcoes">
         {(() => {
           const sups = atual.superficies.filter(s => !escondidas.has(s.id))
@@ -124,7 +124,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
       {disponiveis.filter(e => etapaGuiada ? pertenceEtapa(e,etapaGuiada) && (etapaGuiada!=='mobiliario'||intencaoMoveis==='manter') : filtro === 'todos' || e.tipo===filtro || (filtro==='mobiliario' && intencaoMoveis==='manter' && e.tipo==='movel')).map(e =>
         <button className="elemento-card elemento-titulo" key={e.id} onClick={() => selecionar(e)}>
           <Miniatura cena={cena} elemento={e} numero={lista.indexOf(e)+1} />
-          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s=>acabamentos[s.id]?.artePendente&&!acabamentos[s.id]?.arte)?'Arte pendente':e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) ? 'Personalizado' : 'Já incluído · ver opções para mudar'}</small></span><span aria-hidden="true">→</span>
+          <span className="elemento-nome"><strong>{e.nome}</strong><small>{e.superficies.some(s=>acabamentos[s.id]?.artePendente&&!acabamentos[s.id]?.arte)?'Arte pendente':e.superficies.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte || acabamentos[s.id]?.removido) || e.objetos.some(o=>o.transform?.dx||o.transform?.dz||o.transform?.rotY) ? 'Personalizado' : escolhas?._itensRevisados?.[e.id] ? 'Mantido como no projeto' : 'Já incluído · ver opções para mudar'}</small></span><span aria-hidden="true">→</span>
         </button>)}
       {(etapaGuiada ? gruposVisiveis : filtro === 'adicionais' ? gruposVisiveis : filtro === 'todos' ? perguntasSoltas : []).map(opcoes)}
       {((filtro === 'mobiliario' && intencaoMoveis!=='manter') || (!etapaGuiada&&filtro==='todos')) && <CatalogoMobiliario
