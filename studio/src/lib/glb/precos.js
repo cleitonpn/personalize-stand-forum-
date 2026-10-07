@@ -12,6 +12,7 @@
 import { areaDaOpcao } from './complementos.js'
 import { NAPAS, nomeNapa } from '../napas.js'
 import { precoPonto } from '../eletrica.js'
+import {aplicarFranquia} from '../../../functions/franquia.mjs'
 
 export const UNIDADES = { m2: 'm²', peca: 'peça' }
 
@@ -102,7 +103,7 @@ export const tipoDoObjeto = (o) => o.tipoPreco || (o.nome || '').replace(/\s+\d+
 export function calcularOrcamento({
   analise, superficies, objetos, acabamentos, precos, precosObjeto, removidos, recorte, complementos, catalogo=NAPAS, eletrica=[],
 }) {
-  const itens = []
+  let itens = []
 
   // Superfície coberta por um complemento não é mais vista nem produzida: se o
   // expositor pintou a parede do depósito e depois levou o depósito para a ponta,
@@ -116,19 +117,21 @@ export function calcularOrcamento({
       itens.push({ id: s.id, grupo: 'superficie', nome: s.nomeManual ? s.nome : s.tipoElemento === 'logo' ? 'Logo / placa' : s.nome, detalhe: 'removido do estande', unidade: 'peca', quantidade: 1, valorUnitario: 0, total: 0 })
       continue
     }
-    if (!acab || (!acab.cor && !acab.arte)) continue
+    if (!acab || (!acab.cor && !acab.arte && !acab.artePendente)) continue
+    const comArte=!!(acab.arte||acab.artePendente)
     const material=catalogo.find(n=>n.id===acab.materialId)
-    const especifica = precos?.itens?.[s.id]?.[acab.arte ? 'arte' : 'cor']
-    const regra = especifica || (!acab.arte&&material?.preco!=null ? {unidade:'m2',valor:material.preco} : precos?.[s.papel] || (acab.materialId?{unidade:'m2',valor:0}:null))
+    const especifica = precos?.itens?.[s.id]?.[comArte ? 'arte' : 'cor']
+    const regra = especifica || (!comArte&&material?.preco!=null ? {unidade:'m2',valor:material.preco} : precos?.[s.papel] || (acab.materialId?{unidade:'m2',valor:0}:null))
     if (!regra) continue
 
-    const area = areaDaSuperficie(s, analise, recorte)
+    const area = comArte&&Number.isFinite(precos?.metragensArte?.[s.id])?precos.metragensArte[s.id]:areaDaSuperficie(s, analise, recorte)
     const qtd = regra.unidade === 'm2' ? area : 1
     itens.push({
       id: s.id,
       grupo: 'superficie',
+      tipoPersonalizacao:comArte?'arte':'cor',
       nome: s.nome,
-      detalhe: acab.materialNome ? `${acab.arte?'Arte aplicada sobre':'Revestimento'} ${nomeNapa({nome:acab.materialNome,codigo:acab.materialCodigo})}${acab.materialFornecedor?` — ${acab.materialFornecedor}`:''}` : acab.arte ? 'com arte aplicada' : 'troca de cor',
+      detalhe: acab.materialNome ? `${comArte?'Arte aplicada sobre':'Revestimento'} ${nomeNapa({nome:acab.materialNome,codigo:acab.materialCodigo})}${acab.materialFornecedor?` — ${acab.materialFornecedor}`:''}` : comArte ? acab.artePendente?'com arte a enviar':'com arte aplicada' : 'troca de cor',
       unidade: regra.unidade,
       quantidade: qtd,
       valorUnitario: regra.valor || 0,
@@ -177,11 +180,13 @@ export function calcularOrcamento({
 
   const valorEletrica=precoPonto(precos)
   if(eletrica.length&&valorEletrica!=null)itens.push({id:'pontos-eletricos',grupo:'eletrica',nome:'Pontos elétricos adicionais',detalhe:'Posições indicadas pelo cliente; conferir equipamentos e viabilidade',unidade:'peca',quantidade:eletrica.length,valorUnitario:valorEletrica,total:valorEletrica*eletrica.length})
+  const calculado=aplicarFranquia(itens,precos?.arteInclusa);itens=calculado.itens
   const total = itens.reduce((s, i) => s + i.total, 0)
   const soma = (g) => itens.filter((i) => i.grupo === g).reduce((s, i) => s + i.total, 0)
   return {
     itens,
     total,
+    franquia:calculado.franquia,
     porGrupo: {
       superficie: soma('superficie'),
       objeto: soma('objeto'),

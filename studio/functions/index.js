@@ -15,6 +15,9 @@ initializeApp()
 
 exports.artesProposta = require('./producao').artesProposta
 exports.conversaCliente = require('./conversas').conversaCliente
+const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
+exports.notificacoesUsuario=require('./notificacoes').notificacoesUsuario
+exports.processarNotificacoes=require('./notificacoes').processarNotificacoes
 
 const REGIAO = 'southamerica-east1'
 
@@ -105,6 +108,9 @@ exports.salvarProjetoAdmin = onCall({region:REGIAO,timeoutSeconds:300},async req
     if(!atual.exists)throw new HttpsError('not-found','O projeto foi removido.')
     const v=atual.data().atualizadoEm
     if((v?.seconds||0)!==(versao?.seconds||0)||(v?.nanoseconds||0)!==(versao?.nanoseconds||0))throw new HttpsError('failed-precondition','Este projeto mudou em outra tela. Recarregue antes de salvar.')
+    const dados={...atual.data(),...patch}
+    try{const {validarFranquia}=await import('./franquia.mjs');validarFranquia(dados.precos?.arteInclusa,dados.superficies,dados.precos)}catch(e){throw new HttpsError('invalid-argument',e.message)}
+    for(const a of dados.artesMedidas||[]){if(a.confirmada&&!a.semGabarito&&(![a.larguraCm,a.alturaCm].every(v=>Number.isFinite(v)&&v>0&&v<=10000)||![a.sangriaMm??3,a.margemMm??10].every(v=>Number.isFinite(v)&&v>=0&&v<=500)||(a.margemMm??10)*2>=Math.min(a.larguraCm,a.alturaCm)*10))throw new HttpsError('invalid-argument',`Confira as medidas e margem segura de ${a.nome}.`)}
     tx.update(ref,{...patch,atualizadoEm:agora})
   })
   await sincronizarArquivos()
@@ -129,7 +135,7 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
   if(typeof id!=='string'||!id||id.includes('/')||!p||p.modeloId!==perfil.modeloId||p.cliente!==req.auth.uid||(p.organizadoraId||null)!==(perfil.organizadoraId||null)||(p.feiraId||null)!==(perfil.feiraId||null))throw new HttpsError('permission-denied','Seu vínculo mudou. Recarregue o projeto antes de enviar.')
   if(!Number.isFinite(p.total)||p.total<0||!Number.isInteger(p.quantidadePersonalizada)||p.quantidadePersonalizada<0||p.quantidadePersonalizada>10000)throw new HttpsError('invalid-argument','Proposta inválida.')
   const ref=db.doc(`propostas/${id}`),existente=await ref.get()
-  if(existente.exists){if(existente.data().cliente!==req.auth.uid)throw new HttpsError('permission-denied','Envio indisponível.');return{id}}
+  if(existente.exists){if(existente.data().cliente!==req.auth.uid)throw new HttpsError('permission-denied','Envio indisponível.');return{id,orcamento:{itens:existente.data().itens||[],total:existente.data().total,franquia:existente.data().franquia||null}}}
   const modelo=await db.doc(`modelos/${perfil.modeloId}`).get()
   if(!modelo.exists)throw new HttpsError('failed-precondition','Projeto indisponível.')
   const esperado=`propostas/${req.auth.uid}/${id}/estande.glb`
@@ -138,6 +144,8 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
   if(Number(metadata.size)>=200*1024*1024||metadata.contentType!=='model/gltf-binary')throw new HttpsError('invalid-argument','Confira o arquivo 3D do envio.')
   await revogarLinks(arquivo)
   const org=perfil.organizadoraId?await db.doc(`organizadoras/${perfil.organizadoraId}`).get():null
+  const evento=await prepararEvento({id:`nova-proposta-${id}`,alvo:'equipe',autor:req.auth.uid,cliente:req.auth.uid,organizadoraId:perfil.organizadoraId,propostaId:id,tipo:'proposta_nova',titulo:'Nova proposta recebida',corpo:'Um expositor enviou suas escolhas. Confira a proposta no USET Studio.',url:'/propostas'})
+  let avisos=[]
   await db.runTransaction(async tx=>{
     const atual=await tx.get(ref),usuario=await tx.get(u.ref),projeto=await tx.get(modelo.ref)
     const atualizado=usuario.data()
@@ -161,14 +169,20 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
       const ids=Array.isArray(a.superficieIds)?a.superficieIds:[a.id],s=(projeto.data().superficies||[]).find(s=>s.id===ids[0])
       if(!ids.length||ids.length>200||ids.some(id=>{const sup=(projeto.data().superficies||[]).find(s=>s.id===id);return !sup?.podeArte||(sup.elementoId||sup.id)!==a.id})||!ids.some(id=>{const acab=p.acabamentos?.[id];return acab&&!acab.removido&&(acab.arte||acab.artePendente)}))throw new HttpsError('invalid-argument','Área de arte inválida.')
       const medida=(projeto.data().artesMedidas||[]).find(m=>m.id===a.id)||a
-      return{id:a.id,superficieIds:ids,nome:texto(medida.nome||s.nome),larguraCm:Number.isFinite(medida.larguraCm)?medida.larguraCm:0,alturaCm:Number.isFinite(medida.alturaCm)?medida.alturaCm:0,perfilId:medida.perfilId||'lona-parede',origem:'glb',confirmada:false}
+      return{id:a.id,superficieIds:ids,nome:texto(medida.nome||s.nome),larguraCm:Number.isFinite(medida.larguraCm)?medida.larguraCm:0,alturaCm:Number.isFinite(medida.alturaCm)?medida.alturaCm:0,perfilId:medida.perfilId||'lona-parede',origem:'glb',confirmada:!!(projeto.data().artesMedidas||[]).find(m=>m.id===a.id)?.confirmada,semGabarito:s.tipoElemento==='logo'||!!(projeto.data().artesMedidas||[]).find(m=>m.id===a.id)?.semGabarito,sangriaMm:medida.sangriaMm??3,margemMm:medida.margemMm??10}
     })
-    tx.create(ref,{...p,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
+    const {aplicarFranquia}=await import('./franquia.mjs'),prec=projeto.data().precos||{},superficies=projeto.data().superficies||[]
+    const linhas=(p.itens||[]).map(original=>{const i={...original,tipoPersonalizacao:null},s=superficies.find(s=>s.id===i.id),acab=p.acabamentos?.[i.id];if(s?.podeArte&&(acab?.arte||acab?.artePendente)&&!acab.removido){const regra=prec.itens?.[s.id]?.arte||prec[s.papel],area=prec.metragensArte?.[s.id];if(Number.isFinite(area)&&regra?.unidade==='m2')return {...i,tipoPersonalizacao:'arte',unidade:'m2',quantidade:area,valorUnitario:regra.valor,total:area*regra.valor,detalhe:('Arte em '+s.nome)}}return i})
+    for(const a of areasArte){for(const sid of a.superficieIds){const s=superficies.find(s=>s.id===sid),regra=prec.itens?.[sid]?.arte||prec[s.papel],area=prec.metragensArte?.[sid];if(p.acabamentos?.[sid]?.removido||!(p.acabamentos?.[sid]?.arte||p.acabamentos?.[sid]?.artePendente))continue;if(Number.isFinite(area)&&regra?.unidade==='m2'&&!linhas.some(i=>i.id===sid))linhas.push({id:sid,grupo:'superficie',nome:s.nome,detalhe:'Arte em '+s.nome,tipoPersonalizacao:'arte',unidade:'m2',quantidade:area,valorUnitario:regra.valor,total:area*regra.valor})}}
+    const calculado=aplicarFranquia(linhas,prec.arteInclusa),total=!Array.isArray(p.itens)&&!calculado.itens.length?p.total:calculado.itens.reduce((n,i)=>n+i.total,0)
+    tx.create(ref,{...p,itens:calculado.itens,total,franquia:calculado.franquia,franquiaConfiguracao:prec.arteInclusa||null,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
       organizadoraId:perfil.organizadoraId||null,feiraId:perfil.feiraId||null,feira:perfil.feira||null,
       contatoNome:perfil.contatoNome||'',telefone:perfil.telefone||'',localizacao:perfil.localizacao||'',
       modeloNome:modelo.data().nome,cobranca:org?.data()?.cobranca||'organizadora',status:'recebida',criadoEm:FieldValue.serverTimestamp()})
+    avisos=gravarEvento(tx,evento)
   })
-  return{id}
+  await entregarEventos(avisos)
+  const salva=(await ref.get()).data();return{id,orcamento:{itens:salva.itens||[],total:salva.total,franquia:salva.franquia||null}}
 })
 
 function texto(v, max = 180) {
@@ -412,6 +426,10 @@ exports.prepararPagamento = onCall({ region: REGIAO }, async (req) => {
       'Informe um valor aprovado válido em centavos.',
     )
   const db = getFirestore()
+  const pInicial=await db.doc(`propostas/${propostaId}`).get()
+  if(!pInicial.exists)throw new HttpsError('not-found','Proposta não encontrada.')
+  const evento=await prepararEvento({id:`valor-liberado-${propostaId}-${valorCentavos}`,alvo:'cliente',autor:req.auth.uid,cliente:pInicial.data().cliente,organizadoraId:pInicial.data().organizadoraId,propostaId,tipo:'proposta_liberada',titulo:'Valor da proposta liberado',corpo:'A USET revisou o valor da sua proposta. Confira os próximos passos no site.',url:`/artes/${propostaId}`})
+  let avisos=[]
   await db.runTransaction(async (tx) => {
     const p = await tx.get(db.doc(`propostas/${propostaId}`))
     if (!p.exists || !p.data().organizadoraId)
@@ -421,6 +439,7 @@ exports.prepararPagamento = onCall({ region: REGIAO }, async (req) => {
       )
     const org = await tx.get(db.doc(`organizadoras/${p.data().organizadoraId}`))
     const existente = await tx.get(db.doc(`pagamentos/${propostaId}`))
+    const aviso=await tx.get(db.doc(`notificacoes/${require('./notificacaoPolitica').chave(evento.id,p.data()?.cliente)}`))
     if (org.data()?.cobranca !== 'montadora')
       throw new HttpsError(
         'failed-precondition',
@@ -443,7 +462,9 @@ exports.prepararPagamento = onCall({ region: REGIAO }, async (req) => {
       aprovadoPor: req.auth.uid,
       atualizadoEm: FieldValue.serverTimestamp(),
     })
+    if(!aviso.exists)avisos=gravarEvento(tx,evento)
   })
+  await entregarEventos(avisos)
   return { ok: true, status: 'aguardando_integracao' }
 })
 
@@ -470,4 +491,15 @@ exports.definirSenhaProvisoria = onCall({ region: REGIAO }, async (req) => {
     .update({ precisaTrocarSenha: true })
 
   return { ok: true }
+})
+
+exports.liberarProposta=onCall({region:REGIAO},async req=>{
+ await exigirAdmin(req.auth)
+ const id=req.data?.propostaId
+ if(typeof id!=='string'||!id||id.includes('/'))throw new HttpsError('invalid-argument','Proposta inválida.')
+ const db=getFirestore(),ref=db.doc(`propostas/${id}`),p=await ref.get()
+ if(!p.exists)throw new HttpsError('not-found','Proposta não encontrada.')
+ const evento=await prepararEvento({id:`proposta-liberada-${id}`,alvo:'cliente',autor:req.auth.uid,cliente:p.data().cliente,organizadoraId:p.data().organizadoraId,propostaId:id,tipo:'proposta_liberada',titulo:'Sua proposta foi liberada',corpo:'A USET liberou sua proposta. Consulte as informações e acompanhe seu projeto.',url:`/artes/${id}`});let ids=[]
+ await db.runTransaction(async tx=>{const s=await tx.get(ref),u=await tx.get(db.doc(`usuarios/${req.auth.uid}`));if(u.data()?.papel!=='admin'||u.data().ativo===false)throw new HttpsError('permission-denied','Acesso restrito.');if(!s.exists)throw new HttpsError('not-found','Proposta removida.');if(s.data().liberadaEm)return;tx.update(ref,{liberadaEm:FieldValue.serverTimestamp(),liberadaPor:req.auth.uid});ids=gravarEvento(tx,evento)})
+ await entregarEventos(ids);return{ok:true}
 })

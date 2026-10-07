@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './store/AuthContext.jsx'
+import Notificacoes, {SinoNotificacoes} from './pages/Notificacoes.jsx'
 import Login from './pages/Login.jsx'
 import LogoUset from './components/LogoUset.jsx'
 import Modelos from './pages/Modelos.jsx'
@@ -45,7 +46,7 @@ function Topbar() {
         {perfil?.papel === 'admin' ? 'Admin' : perfil?.papel === 'organizadora' ? 'Organizadora' : 'Expositor'}
       </span>
       <Link to="/conta" className="btn btn-ghost btn-sm" style={{ fontWeight: 400 }}>{user.email}</Link>
-      <button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
+      <SinoNotificacoes/><button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
     </header>
     {perfil?.papel==='expositor'&&<nav className="cliente-nav" aria-label="Seu projeto"><Link to="/meu-estande" aria-current={pathname==='/meu-estande'?'page':undefined}>Personalizar estande</Link><Link to="/artes" aria-current={pathname.startsWith('/artes')?'page':undefined}>Artes e aprovação</Link><ChatAtalho/></nav>}
     {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
@@ -126,6 +127,7 @@ function Rotas() {
           <Route path="/mobiliario" element={<Protegida exigeAdmin><BibliotecaMobiliario /></Protegida>} />
           <Route path="/analise" element={<Protegida exigeAdmin><AnaliseUso /></Protegida>} />
           <Route path="/meu-estande" element={<Protegida expositor><Expositor /></Protegida>} />
+          <Route path="/notificacoes" element={<Protegida><Notificacoes /></Protegida>} />
           <Route path="/conta" element={<Protegida><Conta /></Protegida>} />
           <Route path="*" element={<Inicio />} />
         </Routes>

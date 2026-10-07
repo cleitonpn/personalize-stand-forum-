@@ -12,6 +12,7 @@ function CartaoUpload({ aoConcluir }) {
   const [arquivo, setArquivo] = useState(null)
   const [nome, setNome] = useState('')
   const [feira, setFeira] = useState('')
+  const [limiteArte,setLimiteArte]=useState(0)
   const [progresso, setProgresso] = useState(null)
   const [erro, setErro] = useState(null)
 
@@ -48,6 +49,7 @@ function CartaoUpload({ aoConcluir }) {
             arquivo: { caminho, url, bytes: arquivo.size, nomeOriginal: arquivo.name },
             status: 'novo',        // novo → mapeado → publicado
             papeis: {},            // material → papel
+            precos:{arteInclusa:{ativo:false,limiteM2:Number(limiteArte)||0,itens:[]}},
             recorte: null,         // área do estande
           })
           setArquivo(null); setNome(''); setFeira(''); setProgresso(null)
@@ -107,6 +109,7 @@ function CartaoUpload({ aoConcluir }) {
         </div>
       </div>
 
+      <label className="field">Franquia de arte prevista (m²)<input className="input" type="number" min="0" max="10000" step="0.01" value={limiteArte} onChange={e=>setLimiteArte(e.target.value)} disabled={enviando}/><small>Depois de mapear o projeto, selecione as áreas e ative a franquia em Preços.</small></label>
       {erro && (
         <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 'var(--r)', fontSize: 13,
           background: 'rgba(244,63,94,.1)', border: '1px solid rgba(244,63,94,.3)', color: '#fda4af' }}>{erro}</div>
@@ -179,7 +182,8 @@ export default function Modelos() {
             <div className="card card-pad row"><span className="spinner" /><span className="muted">Carregando modelos…</span></div>
           )}
 
-          {erro && (
+          <label className="field">Franquia de arte prevista (m²)<input className="input" type="number" min="0" max="10000" step="0.01" value={limiteArte} onChange={e=>setLimiteArte(e.target.value)} disabled={enviando}/><small>Depois de mapear o projeto, selecione as áreas e ative a franquia em Preços.</small></label>
+      {erro && (
             <div className="card card-pad" style={{ borderColor: 'rgba(244,63,94,.35)' }}>
               <div style={{ color: '#fda4af', fontWeight: 600, marginBottom: 4 }}>Não foi possível carregar</div>
               <div className="muted" style={{ fontSize: 13 }}>{erro}</div>

@@ -71,7 +71,7 @@ jobs:
       - name: Publicar regras do Firestore
         id: firestore
         run: npx --yes firebase-tools@13 deploy
-          --only firestore:rules
+          --only firestore:rules,firestore:indexes
           --project personalizacao-stand
           --non-interactive
 

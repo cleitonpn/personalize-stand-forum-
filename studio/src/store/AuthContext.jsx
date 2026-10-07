@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
+import {desativarPush} from '../lib/push.js'
 import { auth, db } from '../lib/firebase.js'
 
 const Ctx = createContext(null)
@@ -44,7 +45,7 @@ export function AuthProvider({ children }) {
     recarregarPerfil: () => lerPerfil(auth.currentUser),
     // vai para a página inicial antes de encerrar a sessão; se saísse primeiro,
     // a tela protegida aberta mandaria para o login
-    sair: () => { navigate('/', { replace: true }); return signOut(auth) },
+    sair: async () => { try{await desativarPush()}catch{} navigate('/', { replace: true }); await signOut(auth) },
   }), [user, perfil, carregando,erroPerfil,navigate])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

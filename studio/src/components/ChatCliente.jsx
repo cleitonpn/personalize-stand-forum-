@@ -30,10 +30,11 @@ export default function ChatCliente({clienteId,propostaId}){
 }
 
 export function ChatFlutuante(){
-  const {user,perfil}=useAuth(),{pathname}=useLocation(),[aberto,setAberto]=useState(false),[pendente,setPendente]=useState(false)
+  const {user,perfil}=useAuth(),{pathname,search}=useLocation(),[aberto,setAberto]=useState(false),[pendente,setPendente]=useState(false)
   const disponivel=user&&perfil?.papel==='expositor'&&perfil.ativo!==false&&!perfil.precisaTrocarSenha&&perfil.cadastroCompleto!==false&&pathname!=='/'&&pathname!=='/entrar'
   useEffect(()=>{if(!disponivel)return;return onSnapshot(doc(db,'conversas',user.uid),s=>setPendente(s.data()?.pendenteCliente===true),()=>{})},[disponivel,user?.uid])
   useEffect(()=>{const abrir=()=>setAberto(true);window.addEventListener('uset:chat',abrir);return()=>window.removeEventListener('uset:chat',abrir)},[])
+  useEffect(()=>{if(disponivel&&new URLSearchParams(search).get('chat')==='1')setAberto(true)},[disponivel,search])
   if(!disponivel)return null
   return <div className="chat-flutuante">{aberto&&<section className="card chat-painel" aria-label="Atendimento USET"><header><h2>Precisa de ajuda?</h2><button className="btn btn-sm" onClick={()=>setAberto(false)} aria-label="Fechar atendimento">Fechar</button></header><ChatCliente clienteId={user.uid} propostaId={pathname.startsWith('/artes/')?pathname.split('/')[2]:null}/></section>}</div>
 }

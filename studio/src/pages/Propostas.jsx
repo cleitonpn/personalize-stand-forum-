@@ -1,3 +1,4 @@
+import LiberarProposta from '../components/LiberarProposta.jsx'
 import { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
@@ -36,7 +37,7 @@ export default function Propostas() {
   const abrirPDF = (p) => {
     const html = gerarPropostaHTML({
       cliente: p.clienteNome, email: p.clienteEmail, feira: p.feira,
-      modelo: p.modeloNome, itens: p.itens, total: p.total, imagem: null, complementos: p.complementos, pendenciasArte:p.pendenciasArte,eletrica:p.eletrica,
+      modelo: p.modeloNome, itens: p.itens, total: p.total,franquia:p.franquia, imagem: null, complementos: p.complementos, pendenciasArte:p.pendenciasArte,eletrica:p.eletrica,
     })
     const w = window.open('', '_blank')
     if (w) { w.document.write(html); w.document.close() }
@@ -111,9 +112,11 @@ export default function Propostas() {
                     ))}
                   </div>
                   <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{p.clienteEmail}</div>
+                  {p.franquia?.ativo&&<p>Arte incluída: {fmtM2(p.franquia.utilizadaM2)} de {fmtM2(p.franquia.limiteM2)} · extras: {fmtM2(p.franquia.extraM2)}</p>}
                   <p>{p.contatoNome}{p.telefone?` · ${p.telefone}`:''} · {p.localizacao||'Localização do estande pendente'}</p>
                   <a className="btn" href={`mailto:${p.clienteEmail}`}>Entrar em contato com o expositor</a>
                   <p>{p.cobranca==='montadora'?'Pagamento direto à montadora após aprovação do valor.':'Proposta para contato e negociação com o expositor.'}</p>
+                  <LiberarProposta proposta={p} ehAdmin={ehAdmin}/>
                   {p.organizadoraId&&<PagamentoProposta proposta={p} ehAdmin={ehAdmin}/>}
                   {pontosEletricos({_eletrica:p.eletrica?.pontos}).length>0&&<section><h4>Pontos elétricos adicionais</h4><ol>{p.eletrica.pontos.map(pt=><li key={pt.id}>{pt.uso||'Uso a informar'} · {pt.tensao||'A confirmar'} · {posicaoPonto(pt,p.eletrica.limites)}</li>)}</ol></section>}
                 </>

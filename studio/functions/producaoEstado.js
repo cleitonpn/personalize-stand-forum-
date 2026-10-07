@@ -14,8 +14,9 @@ function transicao(area, acao, papel, dados={}) {
     exigir(dados.revisao===area.revisao&&dados.versao===(area.versao||0),'O gabarito ou o envio mudou. Recarregue.')
     return {status:dados.contestar?'contestada':'recebida',versao:(area.versao||0)+1,prova:null}
   }
+  if(acao==='logoPronto'){exigir(admin&&area.semGabarito&&['aguardando','devolvida','reprovada','recebida'].includes(area.status),'Esta área não está aguardando um logo.');return {status:'recebida',versao:(area.versao||0)+1,prova:null}}
   if(acao==='prova'){
-    exigir(admin&&['recebida','contestada','reprovada','em_prova'].includes(area.status)&&area.arquivo,'Envie uma arte antes da prova.')
+    exigir(admin&&['recebida','contestada','reprovada','em_prova'].includes(area.status)&&(area.arquivo||area.semGabarito),'Envie uma arte antes da prova.')
     return {status:'em_prova',prova:dados.prova}
   }
   if(acao==='devolver'){

@@ -4,8 +4,10 @@ const {getStorage}=require('firebase-admin/storage')
 const {randomUUID,createHash}=require('node:crypto')
 const {revogarLinks}=require('./acessos')
 const {transicao}=require('./producaoEstado')
+const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
 const REGIAO='southamerica-east1'
 const id=(v)=>{if(typeof v!=='string'||!v||v.length>180||v.includes('/'))throw new HttpsError('invalid-argument','Identificador inválido.');return v}
+const {arquivosApoio}=require('./apoio')
 const limpo=(v,max=2000)=>String(v||'').trim().slice(0,max)
 function podeLer(perfil,uid,p){return perfil&&perfil.ativo!==false&&(perfil.papel==='admin'||(perfil.papel==='expositor'&&p.cliente===uid)||(perfil.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===p.organizadoraId))}
 async function contexto(req){
@@ -43,20 +45,22 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
       const escolhidas=Array.isArray(p.areasArte)?p.areasArte.map(a=>a.id):Object.entries(p.acabamentos||{}).filter(([,a])=>(a.arte||a.artePendente)&&!a.removido).map(([k])=>k)
       const areas=escolhidas.map(k=>{
         const s=modelo.data()?.superficies?.find(s=>s.id===k),medida=(p.areasArte||[]).find(a=>a.id===k)||modelo.data()?.artesMedidas?.find(a=>a.id===k)
-        return{id:k,nome:limpo(medida?.nome||s?.nome||'Área de arte',180),larguraCm:Number(medida?.larguraCm)||0,alturaCm:Number(medida?.alturaCm)||0,perfilId:medida?.perfilId||'lona-parede'}
+        return{id:k,nome:limpo(medida?.nome||s?.nome||'Área de arte',180),larguraCm:Number(medida?.larguraCm)||0,alturaCm:Number(medida?.alturaCm)||0,perfilId:medida?.perfilId||'lona-parede',confirmada:medida?.confirmada===true||medida?.semGabarito===true,semGabarito:medida?.semGabarito===true,sangriaMm:medida?.sangriaMm??3,margemMm:medida?.margemMm??10}
       })
       if(!areas.length)for(const [i,nome] of (p.pendenciasArte||[]).entries())areas.push({id:`legado-${i}`,nome:limpo(nome,180),larguraCm:0,alturaCm:0,perfilId:'lona-parede'})
       if(areas.length>80)throw new HttpsError('failed-precondition','Divida as áreas de arte em até 80 itens.')
       tx.create(c.ref,{propostaId:c.propostaId,cliente:p.cliente,clienteNome:limpo(p.clienteNome,180)||'Expositor',organizadoraId:p.organizadoraId||null,feiraId:p.feiraId||null,criadoEm:FieldValue.serverTimestamp(),prazo:null})
-      for(const a of areas)tx.create(c.ref.collection('areas').doc(id(a.id)),{...a,confirmada:false,revisao:0,versao:0,status:'aguardando',arquivo:null,prova:null})
+      for(const a of areas)tx.create(c.ref.collection('areas').doc(id(a.id)),{...a,confirmada:!!a.confirmada,revisao:0,versao:0,status:'aguardando',arquivo:null,prova:null})
     });return{ok:true}
   }
   if(acao==='prazo'){
     if(c.perfil.papel!=='admin')throw new HttpsError('permission-denied','Somente o admin define o prazo.')
     const prazo=d.prazo?new Date(d.prazo):null
     if(prazo&&!Number.isFinite(prazo.getTime()))throw new HttpsError('invalid-argument','Prazo inválido.')
-    await c.db.runTransaction(async tx=>{const perfil=await validarContexto(tx,c,req);if(perfil.papel!=='admin')throw new HttpsError('permission-denied','Acesso restrito.');const s=await tx.get(c.ref);if(!s.exists)throw new HttpsError('failed-precondition','Abra as artes da proposta primeiro.');tx.update(c.ref,{prazo:prazo?Timestamp.fromDate(prazo):null})});return{ok:true}
+    const evento=await prepararEvento({id:randomUUID(),alvo:'cliente',autor:req.auth.uid,cliente:c.p.data().cliente,organizadoraId:c.p.data().organizadoraId,propostaId:c.propostaId,tipo:'prazo_arte',titulo:'Prazo de envio de artes atualizado',corpo:'Consulte o prazo atualizado na área de artes do seu estande.',url:`/artes/${c.propostaId}`});let ids=[]
+    await c.db.runTransaction(async tx=>{const perfil=await validarContexto(tx,c,req);if(perfil.papel!=='admin')throw new HttpsError('permission-denied','Acesso restrito.');const s=await tx.get(c.ref);if(!s.exists)throw new HttpsError('failed-precondition','Abra as artes da proposta primeiro.');if((s.data().prazo?.toMillis()||null)===(prazo?.getTime()||null))return;tx.update(c.ref,{prazo:prazo?Timestamp.fromDate(prazo):null});ids=gravarEvento(tx,evento)});await entregarEventos(ids);return{ok:true}
   }
+  if(['reservarApoio','enviarApoio'].includes(acao))return arquivosApoio(c,req,validarContexto)
   const areaId=id(d.areaId),areaRef=c.ref.collection('areas').doc(areaId)
   if(acao==='reservar'){
     const tipo=d.tipo,bytes=d.bytes,mime=d.mime
@@ -72,9 +76,15 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
   }
   let envio=null
   if(acao==='enviar'||acao==='prova')envio=await conferirArquivo(c,req,d.uploadId,acao==='enviar'?'arte':'prova')
+  const tipos={configurar:['gabarito_liberado','Gabarito liberado','As medidas de uma área foram confirmadas. Você já pode preparar e enviar a arte.'],enviar:['arte_nova','Nova arte recebida','Um expositor enviou uma nova versão da arte para conferência.'],prova:['prova_nova','Nova prova para aprovação','A prova da sua arte está pronta. Confira e aprove ou peça ajustes.'],devolver:['arte_reprovada','Sua arte precisa de ajustes','A produção deixou uma orientação para corrigir o arquivo.'],responder:[d.aprovar?'prova_aprovada':'prova_reprovada',d.aprovar?'Cliente aprovou a prova':'Cliente pediu ajustes na prova','Consulte a decisão do cliente na área de artes.'],impressao:['arte_producao','Produção da arte atualizada',d.status==='impressa'?'Sua arte foi marcada como impressa.':'Sua arte entrou em impressão.']}
+  const descricao=tipos[acao],eventoId=randomUUID()
+  const evento=descricao?await prepararEvento({id:eventoId,alvo:['enviar','responder'].includes(acao)?'equipe':'cliente',autor:req.auth.uid,cliente:c.p.data().cliente,organizadoraId:c.p.data().organizadoraId,propostaId:c.propostaId,tipo:descricao[0],titulo:descricao[1],corpo:descricao[2],url:`/artes/${c.propostaId}`}):null
+  let avisos=[]
   await c.db.runTransaction(async tx=>{
     const perfil=await validarContexto(tx,c,req),s=await tx.get(areaRef),workspace=await tx.get(c.ref),a=s.data()
     if(!a)throw new HttpsError('not-found','Área não encontrada.')
+    const apoios=acao==='logoPronto'?await tx.get(c.ref.collection('apoio').where('categoria','==','logo')):null
+    if(apoios?.empty)throw new HttpsError('failed-precondition','O cliente precisa enviar um logo nos arquivos de apoio primeiro.')
     let reserva=null;if(envio)reserva=await tx.get(envio.reservaRef)
     if(envio&&(reserva.data()?.usado||envio.r.areaId!==areaId||envio.r.revisao!==a.revisao||envio.r.versao!==a.versao))throw new HttpsError('failed-precondition','A área mudou durante o envio. Recarregue.')
     if(acao==='enviar'&&workspace.data()?.prazo?.toMillis()<Date.now())throw new HttpsError('failed-precondition','Peça extensão do prazo pelo chat.')
@@ -82,6 +92,7 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
     const prova=acao==='prova'?{...envio.arquivo,id:envio.reservaRef.id,versao:a.versao,revisao:a.revisao}:null
     let patch
     try{patch=transicao(a,acao,perfil.papel,{...d,prova})}catch(e){throw new HttpsError('failed-precondition',e.message)}
+    if(acao==='logoPronto'){patch.apoio=apoios.docs.map(s=>({id:s.id,arquivo:s.data().arquivo}));tx.create(areaRef.collection('versoes').doc(String(patch.versao)),{...patch,enviadoPor:req.auth.uid,enviadoEm:FieldValue.serverTimestamp()})}
     if(acao==='configurar'){
       if(![d.larguraCm,d.alturaCm].every(v=>Number.isFinite(v)&&v>0&&v<=10000)||!['lona-parede','testeira','adesivo-balcao','vinil-piso','placa','livre'].includes(d.perfilId)||![d.sangriaMm,d.margemMm].every(v=>Number.isFinite(v)&&v>=0&&v<=500)||d.margemMm*2>=Math.min(d.larguraCm,d.alturaCm)*10)throw new HttpsError('invalid-argument','Confira dimensões, sangria e margem. A margem segura deve caber dentro da peça.')
       patch={...patch,larguraCm:d.larguraCm,alturaCm:d.alturaCm,perfilId:d.perfilId,sangriaMm:d.sangriaMm,margemMm:d.margemMm,confirmada:true}
@@ -96,7 +107,8 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
     if(envio)tx.update(envio.reservaRef,{usado:true})
     tx.update(areaRef,{...patch,atualizadoEm:FieldValue.serverTimestamp()})
     tx.create(areaRef.collection('eventos').doc(),{acao,autor:req.auth.uid,papel:perfil.papel,versao:patch.versao??a.versao,revisao:patch.revisao??a.revisao,prova:prova||null,motivo:limpo(d.motivo),aprovou:d.aprovar===true,em:FieldValue.serverTimestamp()})
-  });return{ok:true}
+    if(evento)avisos=gravarEvento(tx,evento)
+  });await entregarEventos(avisos);return{ok:true}
 })
 
 exports.contextoProposta=contexto

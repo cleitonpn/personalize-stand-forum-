@@ -10,7 +10,7 @@ export default function ArquivoProducao({arquivo,titulo='Arquivo'}){
   },[arquivo?.caminho,ver])
   if(!arquivo)return null
   return <section className="arte-arquivo"><h4>{titulo}</h4><p className="muted">{arquivo.nome}</p>{erro&&<p role="alert">{erro}</p>}
-    <button className="btn" onClick={()=>setVer(!ver)}>{ver?'Fechar prévia':'Abrir prévia do arquivo'}</button>{ver&&!url&&!erro&&<p role="status">Carregando arquivo…</p>}
+    {['application/pdf','image/png','image/jpeg'].includes(arquivo.mime)&&<button className="btn" onClick={()=>setVer(!ver)}>{ver?'Fechar prévia':'Abrir prévia do arquivo'}</button>}{ver&&!url&&!erro&&<p role="status">Carregando arquivo…</p>}
     {url&&(arquivo.mime==='application/pdf'?<iframe title={titulo} src={url} sandbox="allow-same-origin"/>:<img src={url} alt={titulo}/>)}
     <button className="btn" onClick={()=>baixarPrivado(arquivo).catch(e=>setErro(e.message))}>Baixar {titulo.toLowerCase()}</button>
   </section>

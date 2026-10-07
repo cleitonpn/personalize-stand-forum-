@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {createRequire} from 'node:module'
 import * as THREE from 'three'
 import {analisar} from '../src/lib/glb/analyze.js'
-import {medirAreas,areasEscolhidas} from '../src/lib/producao/medidas.js'
+import {medirAreas,areasEscolhidas,metragensArte} from '../src/lib/producao/medidas.js'
 const {transicao}=createRequire(import.meta.url)('../functions/producaoEstado.js')
 const area={status:'recebida',confirmada:true,revisao:1,versao:2,arquivo:{caminho:'arte'}}
 test('aprovação e impressão exigem a prova e a versão atuais',()=>{
@@ -48,4 +48,19 @@ test('materiais diferentes da mesma parede formam um gabarito físico único',()
   const medidas=medirAreas(superficies,analise,root);assert.equal(medidas.length,1);assert.equal(medidas[0].larguraCm,200);assert.equal(medidas[0].alturaCm,300)
   assert.deepEqual(medidas[0].superficieIds,['s0','s1'])
   assert.equal(areasEscolhidas(medidas,{s0:{artePendente:true},s1:{artePendente:true}},new Set(['s0','s1'])).length,0)
+})
+
+test('mapeamento preserva medidas confirmadas, sangria e área única entre materiais',()=>{
+ const root=new THREE.Group(),a=new THREE.Mesh(new THREE.BoxGeometry(1,3,.05),new THREE.MeshStandardMaterial({name:'A'})),b=new THREE.Mesh(new THREE.BoxGeometry(1,3,.05),new THREE.MeshStandardMaterial({name:'B'}));b.position.x=1;root.add(a,b)
+ const analise=analisar(root),superficies=analise.pecas.map((p,i)=>({id:`s${i}`,elementoId:'parede',nome:'Parede',tipoElemento:'parede',podeArte:true,pecas:[p.chave],producaoArte:{larguraCm:210,alturaCm:300,confirmada:true,sangriaMm:50,margemMm:100,perfilId:'lona-parede'}}))
+ const [medida]=medirAreas(superficies,analise,root),m2=metragensArte(superficies,analise,root)
+ assert.equal(medida.larguraCm,210);assert.equal(medida.confirmada,true);assert.equal(medida.sangriaMm,50);assert.ok(Math.abs(Object.values(m2).reduce((a,b)=>a+b,0)-6.3)<1e-9)
+})
+test('logo dispensa gabarito mas continua exigindo prova atual para impressão',()=>{
+ const a={status:'aguardando',semGabarito:true,confirmada:true,versao:0,revisao:0}
+ assert.throws(()=>transicao(a,'logoPronto','expositor'))
+ const preparada={...a,...transicao(a,'logoPronto','admin')};assert.equal(preparada.versao,1)
+ const prova={id:'logo-prova'},emProva={...preparada,...transicao(preparada,'prova','admin',{prova})}
+ assert.throws(()=>transicao(emProva,'impressao','admin',{status:'em_impressao'}))
+ assert.equal(transicao(emProva,'responder','expositor',{versao:1,provaId:'logo-prova',aprovar:true}).status,'aprovada')
 })
