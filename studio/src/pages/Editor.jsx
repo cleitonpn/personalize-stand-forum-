@@ -484,7 +484,7 @@ export default function Editor() {
       </div>
 
       {/* ---------------- painel ---------------- */}
-      <aside className="studio-painel">
+      <aside className={`studio-painel${aba === 'personalizar' ? ' previa-expositor' : ''}`}>
         <div style={{ padding: '18px 18px 0' }}>
           <Link className="dim" to="/modelos" style={{ fontSize: 12.5 }}>← Modelos</Link>
           <h1 style={{ fontSize: 19, margin: '8px 0 3px' }}>{modelo?.nome || '…'}</h1>
@@ -588,19 +588,17 @@ export default function Editor() {
         )}
 
         {/* rodapé fixo */}
-        <div style={{
-          position: 'sticky', bottom: 0, padding: 18, background: 'rgba(4,6,13,.94)',
-          backdropFilter: 'blur(10px)', borderTop: '1px solid var(--line)',
-        }}>
+        <div className="editor-rodape">
           {personalizaveis.length > 0 && (
             <div className="dim" style={{ fontSize: 11.5, marginBottom: 10 }}>
-              {personalizaveis.length} {personalizaveis.length === 1 ? 'acabamento liberado' : 'acabamentos liberados'} definidas
+              {personalizaveis.length} {personalizaveis.length === 1 ? 'acabamento liberado' : 'acabamentos liberados'} no projeto
             </div>
           )}
           <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
             disabled={salvando || !analise} onClick={salvar}>
-            {salvando ? <><span className="spinner" /> Salvando…</> : salvo ? '✓ Salvo' : 'Salvar configuração'}
+            {salvando ? <><span className="spinner" /> Salvando…</> : salvo ? '✓ Projeto salvo' : 'Salvar configuração do projeto'}
           </button>
+          {aba === 'personalizar' && <p className="dim" style={{fontSize:12,marginBottom:0}}>As cores, artes e posições testadas nesta prévia são apenas uma simulação do cliente.</p>}
         </div>
       </aside>
     </div>

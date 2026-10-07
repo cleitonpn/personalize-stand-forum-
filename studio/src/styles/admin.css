@@ -27,6 +27,10 @@
 .admin-check span{flex:1;min-width:0}.admin-check small{display:block;color:var(--text-mid);margin-top:5px}
 .tema-admin h2{font-size:20px;letter-spacing:-.025em}.tema-admin h3{font-size:16px}
 .tema-admin .studio-painel{background:var(--bg)}
+.editor-rodape{position:sticky;bottom:0;padding:18px;background:var(--bg-deep);border-top:1px solid var(--line);z-index:4}
+/* A prévia já tem um rodapé de salvar do admin. A navegação de etapas fica
+   no fluxo para que dois rodapés fixos não se sobreponham ao rolar. */
+.previa-expositor .jornada-navegar{position:static}
 .tema-admin [style*="color: rgb(253, 164, 175)"]{color:#94342c!important}
 .tema-admin .elemento-icone{background:#e4ebda;color:#37644b}
 @media(max-width:700px){.admin-nav{padding-inline:12px}.admin-pagina{padding:26px 16px 60px}.admin-duas-colunas{grid-template-columns:1fr}.admin-indicadores{grid-template-columns:1fr 1fr}.admin-regra>span{width:100%}.tema-admin .topbar a[href='/conta']{max-width:140px;overflow:hidden;text-overflow:ellipsis}.tema-admin .studio-workspace{height:auto;min-height:calc(100dvh - 120px)}}
