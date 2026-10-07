@@ -72,12 +72,15 @@ service firebase.storage {
     match /producao/{propostaId}/{uploadId}/arquivo {
       function reserva() { return firestore.get(/databases/(default)/documents/artesPropostas/$(propostaId)/uploads/$(uploadId)).data; }
       allow read: if acessoProposta(propostaId);
-      allow create: if resource == null && acessoProposta(propostaId) && reserva().uid == request.auth.uid
+      // A reserva já foi autorizada pela Function. Aqui consultamos somente
+      // o perfil e a reserva: Storage permite no máximo dois documentos Firestore.
+      allow create: if resource == null && ativo() && reserva().uid == request.auth.uid
         && reserva().usado == false && reserva().expiraEm > request.time
         && request.resource.size == reserva().bytes && request.resource.contentType == reserva().mime
         && ((reserva().tipo == 'arte' && perfil().papel == 'expositor' && request.resource.size <= 300 * 1024 * 1024)
+          || (reserva().tipo == 'apoio' && perfil().papel == 'expositor' && request.resource.size <= 30 * 1024 * 1024)
           || (reserva().tipo == 'prova' && ehAdmin() && request.resource.size <= 30 * 1024 * 1024))
-        && request.resource.contentType in ['application/pdf','image/png','image/jpeg'];
+        && request.resource.contentType in ['application/pdf','image/png','image/jpeg','image/svg+xml','application/postscript'];
       // Versões e provas são imutáveis: nem uma aprovação antiga permite
       // substituir silenciosamente o arquivo já aprovado.
       allow update, delete: if false;

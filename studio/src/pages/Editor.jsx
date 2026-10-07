@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { salvarModelo } from '../lib/salvarModelo.js'
-import { medirAreas } from '../lib/producao/medidas.js'
+import { medirAreas, metragensArte } from '../lib/producao/medidas.js'
 import { db } from '../lib/firebase.js'
 import Viewer, { useGLB } from '../components/Viewer.jsx'
 import { analisar } from '../lib/glb/analyze.js'
@@ -328,7 +328,7 @@ export default function Editor() {
         objetos: objetos || [],
         complementos: grupos || [],
         assinaturaObjetos: assinaturaObj,
-        precos, precosObjeto,
+        precos:{...precos,metragensArte:metragensArte(superficies,analise,cena,objetos,recorte)}, precosObjeto,
         status: Object.keys(papeis).length ? 'mapeado' : 'novo',
       })
       setModelo(atualizado)
@@ -520,7 +520,7 @@ export default function Editor() {
             </div>
             <div style={{ padding: 18 }}>
               {aba === 'elementos' ? (
-                superficies && objetos && <PainelElementos analise={analise} superficies={superficies} objetos={objetos} recorte={recorte}
+                superficies && objetos && <PainelElementos cena={cena} analise={analise} superficies={superficies} objetos={objetos} recorte={recorte}
                   setSuperficies={v => { setSuperficies(v); setSalvo(false) }} setObjetos={v => { setObjetos(v); setSalvo(false) }}
                   supFoco={supFoco} objFoco={objFoco} aoSelecionar={(s, o) => { setSupFoco(s); setObjFoco(o) }}
                   aoNovaOpcao={e=>{setGrupos(gs=>[...gs,novoGrupo({nome:`Opções — ${e.nome}`,ancora:e.superficies[0]?.id})]);setAba('complementos');setAvancado(false);setSalvo(false)}}

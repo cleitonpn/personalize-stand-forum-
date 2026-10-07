@@ -4,6 +4,7 @@ import {collection,doc,onSnapshot,query,where} from 'firebase/firestore'
 import {db} from '../lib/firebase.js'
 import {useAuth} from '../store/AuthContext.jsx'
 import {executarComercial} from '../lib/comercial.js'
+import ArquivosApoio from '../components/ArquivosApoio.jsx'
 import AreaArte from '../components/AreaArte.jsx'
 import ChatCliente from '../components/ChatCliente.jsx'
 
@@ -25,10 +26,12 @@ export default function Artes(){
     {!id&&<div className="artes-lista">{propostas===null&&!erro&&<p>Carregando propostas…</p>}{propostas?.length===0&&<p>Envie sua proposta de personalização para abrir o envio de artes.</p>}{propostas?.map(p=><Link className="card card-pad arte-proposta" key={p.id} to={`/artes/${p.id}`}><span><strong>{p.modeloNome}</strong><small>{p.clienteNome} · {p.feira||'Feira'} · {p.criadoEm?.toDate?.().toLocaleDateString('pt-BR')}</small></span><span>Ver artes e provas →</span></Link>)}</div>}
     {id&&!pronto&&!erro&&<p role="status">Preparando as áreas da proposta…</p>}
     {id&&pronto&&<><div className="arte-resumo"><span>{proposta?.clienteNome} · {proposta?.modeloNome}</span><strong>{areas.length-pendentes}/{areas.length} áreas com prova aprovada</strong>{workspace?.prazo&&<span>Prazo de envio: {workspace.prazo.toDate().toLocaleString('pt-BR')}</span>}</div>
+      {proposta?.liberadaEm&&<p className="orientacao">Proposta liberada pela USET. {proposta.cobranca==='montadora'?'O pagamento será disponibilizado após aprovação do valor.':'Sua organizadora dará continuidade ao contato e à negociação.'}</p>}
       {vencido&&<p className="orientacao">O prazo de envio terminou. Peça uma extensão pelo chat; você ainda pode consultar os arquivos e responder às provas.</p>}
       {perfil.papel==='admin'&&<details className="card card-pad"><summary>Prazo para envio de artes</summary><label>Data e hora limite<input className="input" type="datetime-local" value={prazo} onChange={e=>setPrazo(e.target.value)}/></label><button className="btn" disabled={ocupado} onClick={async()=>{setOcupado(true);setErro('');try{await executarComercial('artesProposta',{acao:'prazo',propostaId:id,prazo:prazo?new Date(prazo).toISOString():null})}catch(e){setErro(e.message)}finally{setOcupado(false)}}}>Salvar prazo{prazo?'':' sem limite'}</button></details>}
       {!areas.length&&<p className="orientacao">Esta proposta não tem áreas com arte escolhida. Não é necessário enviar arquivos finais. Para incluir arte, personalize o estande e envie uma nova proposta.</p>}
       <div className="artes-lista">{areas.map(a=><AreaArte key={a.id} area={a} propostaId={id} papel={perfil.papel} prazoVencido={vencido}/>)}</div>
+      <ArquivosApoio propostaId={id} papel={perfil.papel} prazoVencido={vencido}/>
       {perfil.papel!=='expositor'&&proposta?.cliente&&<section className="card card-pad"><h2>Conversa com {proposta.clienteNome}</h2><ChatCliente clienteId={proposta.cliente} propostaId={id}/></section>}
     </>}
   </div>

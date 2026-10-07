@@ -174,7 +174,7 @@ export default function Expositor() {
       arquivoEnviado=arquivoRef(storage,caminho)
       await uploadBytes(arquivoEnviado,glb,{contentType:'model/gltf-binary'})
       const arquivoPersonalizado={caminho,url:await getDownloadURL(arquivoEnviado),bytes:glb.size,nomeOriginal:'estande-personalizado.glb'}
-      await executarComercial('registrarProposta', {id:ref.id,versao:{seconds:modelo.atualizadoEm?.seconds||0,nanoseconds:modelo.atualizadoEm?.nanoseconds||0},proposta:{
+      const envio=await executarComercial('registrarProposta', {id:ref.id,versao:{seconds:modelo.atualizadoEm?.seconds||0,nanoseconds:modelo.atualizadoEm?.nanoseconds||0},proposta:{
         arquivoPersonalizado,
         cliente: user.uid,
         clienteNome: perfil?.empresa || perfil?.nome || user.email,
@@ -197,7 +197,7 @@ export default function Expositor() {
         total: orcamento.total,
       }})
       registrada=true;registrar('envio')
-      setGravado({ id: ref.id, imagem, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo}, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
+      setGravado({ id: ref.id, imagem, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo}, itens: envio.orcamento?.itens||orcamento.itens, total: envio.orcamento?.total??orcamento.total,franquia:envio.orcamento?.franquia||orcamento.franquia, complementos: ativas.map(registroComplemento) })
     } catch (ex) {
       registrar('envio_erro')
       if(arquivoEnviado&&!registrada)try{await deleteObject(arquivoEnviado)}catch{/* O arquivo fica sem proposta; um novo envio usa outro ID. */}
@@ -214,7 +214,7 @@ export default function Expositor() {
       feira: perfil?.feira,
       modelo: modelo?.nome, pendenciasArte:gravado?.pendenciasArte || pendenciasArte,
       itens: gravado?.itens || orcamento.itens,
-      total: gravado?.total ?? orcamento.total,
+      total: gravado?.total ?? orcamento.total,franquia:gravado?.franquia||orcamento.franquia,
       complementos: gravado?.complementos || ativas.map(registroComplemento),
       imagem: gravado?.imagem || window.__psfShot?.() || null,
       eletrica:gravado?.eletrica || {pontos:pontosEletricos(escolhas),limites:limitesGizmo},

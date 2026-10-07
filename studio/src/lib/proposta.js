@@ -15,7 +15,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) =>
  * texto selecionável e na fonte certa. Quando o fluxo virar envio automático por
  * e-mail, isso passa para o servidor.
  */
-export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem, complementos, pendenciasArte=[],eletrica }) {
+export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total, imagem, complementos, pendenciasArte=[],eletrica,franquia }) {
   const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
   const linhas = (itens || []).map((i) => `
@@ -24,7 +24,7 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
         <div class="nome">${esc(i.nome)}</div>
         <div class="det">${esc(i.detalhe || '')}</div>
       </td>
-      <td class="num">${i.unidade === 'm2' ? fmtM2(i.quantidade) : `${esc(i.quantidade??1)} un.`}</td>
+      <td class="num">${i.unidade === 'm2' ? fmtM2(i.quantidade)+(i.incluidoM2>0?' extras':'') : `${esc(i.quantidade??1)} un.`}</td>
       <td class="num">${fmtBRL(i.valorUnitario)}</td>
       <td class="num forte">${fmtBRL(i.total)}</td>
     </tr>`).join('')
@@ -100,6 +100,7 @@ export function gerarPropostaHTML({ cliente, email, feira, modelo, itens, total,
   ${imagem ? `<img class="render" src="${imagem}" alt="Estande personalizado">` : ''}
   ${blocoEletrica(eletrica)}
 
+  ${franquia?.ativo?`<p><b>Arte incluída no pacote:</b> ${fmtM2(franquia.utilizadaM2)} utilizados de ${fmtM2(franquia.limiteM2)}. Saldo: ${fmtM2(franquia.restanteM2)}. Área de arte cobrada à parte: ${fmtM2(franquia.extraM2)}.</p>`:''}
   <table>
     <thead><tr>
       <th>Item</th><th class="num">Quantidade</th><th class="num">Unitário</th><th class="num">Total</th>

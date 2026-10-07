@@ -180,6 +180,10 @@ service cloud.firestore {
       allow create: if ativo() && request.resource.data.dono == request.auth.uid;
     }
 
+    match /notificacoes/{id} {
+      allow read: if ativo() && resource.data.destinatario == request.auth.uid;
+      allow write: if false;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

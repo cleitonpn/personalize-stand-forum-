@@ -1,12 +1,18 @@
 const {onCall,HttpsError}=require('firebase-functions/v2/https')
 const {getFirestore,FieldValue,Timestamp}=require('firebase-admin/firestore')
 const {randomUUID}=require('node:crypto')
+const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
 function acesso(perfil,uid,clienteId,cliente){return perfil?.ativo!==false&&cliente?.papel==='expositor'&&(perfil?.papel==='admin'||(perfil?.papel==='expositor'&&uid===clienteId)||(perfil?.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===cliente.organizadoraId))}
 exports.conversaCliente=onCall({region:'southamerica-east1'},async req=>{
   if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
   const db=getFirestore(),d=req.data||{},clienteId=d.clienteId||req.auth.uid
   if(typeof clienteId!=='string'||!clienteId||clienteId.includes('/'))throw new HttpsError('invalid-argument','Cliente inválido.')
   const ref=db.doc(`conversas/${clienteId}`)
+  const perfilInicial=(await db.doc(`usuarios/${req.auth.uid}`).get()).data(),clienteInicial=(await db.doc(`usuarios/${clienteId}`).get()).data()
+  if(!acesso(perfilInicial,req.auth.uid,clienteId,clienteInicial))throw new HttpsError('permission-denied','Conversa indisponível.')
+  const mensagemId=typeof d.mensagemId==='string'&&/^[a-zA-Z0-9-]{10,80}$/.test(d.mensagemId)?d.mensagemId:randomUUID()
+  const evento=d.acao==='enviar'?await prepararEvento({id:`mensagem-${clienteId}-${mensagemId}`,alvo:perfilInicial.papel==='expositor'?'equipe':'cliente',autor:req.auth.uid,cliente:clienteId,organizadoraId:clienteInicial.organizadoraId,tipo:'mensagem_nova',titulo:'Nova mensagem no USET Studio',corpo:'Você recebeu uma mensagem da equipe ou de um expositor.',url:perfilInicial.papel==='expositor'?`/atendimento?cliente=${clienteId}`:'/meu-estande?chat=1'}):null
+  let avisos=[]
   await db.runTransaction(async tx=>{
     const [u,c,s]=await Promise.all([tx.get(db.doc(`usuarios/${req.auth.uid}`)),tx.get(db.doc(`usuarios/${clienteId}`)),tx.get(ref)])
     const perfil=u.data(),cliente=c.data()
@@ -15,12 +21,13 @@ exports.conversaCliente=onCall({region:'southamerica-east1'},async req=>{
     if(d.acao==='enviar'){
       const texto=typeof d.texto==='string'?d.texto.trim():''
       if(!texto||texto.length>2000)throw new HttpsError('invalid-argument','Escreva uma mensagem de até 2.000 caracteres.')
-      const mensagemId=typeof d.mensagemId==='string'&&/^[a-zA-Z0-9-]{10,80}$/.test(d.mensagemId)?d.mensagemId:randomUUID(),msgRef=ref.collection('mensagens').doc(mensagemId)
+      const msgRef=ref.collection('mensagens').doc(mensagemId)
       const existente=await tx.get(msgRef);if(existente.exists)return
       if(antigo.ultimoUid===req.auth.uid&&antigo.ultimaEm?.toMillis()>Date.now()-1000)throw new HttpsError('resource-exhausted','Aguarde um instante antes de enviar outra mensagem.')
       let propostaId=null
       if(d.propostaId){if(typeof d.propostaId!=='string'||d.propostaId.includes('/'))throw new HttpsError('invalid-argument','Proposta inválida.');const p=await tx.get(db.doc(`propostas/${d.propostaId}`));if(!p.exists||p.data().cliente!==clienteId)throw new HttpsError('permission-denied','Proposta não pertence à conversa.');propostaId=p.id}
       tx.create(msgRef,{texto,autor:req.auth.uid,papel:perfil.papel,nome:equipe?(perfil.nome||'Equipe USET'):(cliente.contatoNome||cliente.empresa||cliente.nome),propostaId,em:FieldValue.serverTimestamp()})
+      avisos=gravarEvento(tx,evento)
       Object.assign(dados,{ultimaMensagem:texto.slice(0,180),ultimoUid:req.auth.uid,ultimaEm:FieldValue.serverTimestamp(),pendenteCliente:equipe,pendenteEquipe:!equipe})
     }else if(d.acao==='ler'){
       // Só marca como lida a mensagem efetivamente exibida, nunca uma resposta
@@ -29,5 +36,5 @@ exports.conversaCliente=onCall({region:'southamerica-east1'},async req=>{
     }else if(d.acao!=='iniciar')throw new HttpsError('invalid-argument','Ação inválida.')
     if(!s.exists)Object.assign(dados,{criadoEm:Timestamp.now(),pendenteCliente:false,pendenteEquipe:false,...(d.acao==='enviar'?{pendenteCliente:equipe,pendenteEquipe:!equipe}:{})})
     tx.set(ref,dados,{merge:true})
-  });return{ok:true,clienteId}
+  });await entregarEventos(avisos);return{ok:true,clienteId}
 })

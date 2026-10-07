@@ -1,3 +1,4 @@
+import {useNapas} from '../store/NapasContext.jsx'
 import Miniatura from './Miniatura.jsx'
 import CartelaNapas from './CartelaNapas.jsx'
 import EditorArte from './EditorArte.jsx'
@@ -18,6 +19,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
   supFoco, setSupFoco, recorte, orcamento, precos, complementos = [], escolhas, setEscolhas,
   objetos = [], setObjetos, objFoco, setObjFoco, objSel, setObjSel,
   enviarArquivo = enviarArte, aoEnviarArte, aoErroUpload, etapaGuiada, aoFocarElemento, aoVista, aoVoltarLista, cena, elementosOrdenados }) {
+  const {catalogo}=useNapas()
   const [filtroLivre, setFiltro] = useState('todos')
   const filtro = etapaGuiada || filtroLivre
   const [intencaoMoveis,setIntencaoMoveis]=useState('manter')
@@ -57,7 +59,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
   const gruposVisiveis=ordenarCliente(complementos.filter(g=>g.tipo!=='mobiliario' && (!etapaGuiada || etapaGrupo(g)===etapaGuiada)))
   const opcoes = g => <EscolhaComplemento key={g.id} grupo={g} escolhido={escolhas?.[g.id]}
     aoEscolher={oid => setEscolhas(e => ({ ...e, [g.id]: oid }))} />
-  return <div className="elementos-painel">
+  return <div className="elementos-painel">{orcamento?.franquia?.ativo&&<section className="orientacao" aria-live="polite"><strong>Arte incluída no pacote: {orcamento.franquia.limiteM2.toLocaleString('pt-BR')} m²</strong><p>{orcamento.franquia.utilizadaM2.toLocaleString('pt-BR',{maximumFractionDigits:2})} m² utilizados · {orcamento.franquia.restanteM2.toLocaleString('pt-BR',{maximumFractionDigits:2})} m² disponíveis.</p><small>O saldo vale para as áreas selecionadas pela organizadora. Arte fora do saldo é cobrada pelo preço de cada área.</small></section>}
     {!etapaGuiada && <div className="orientacao"><strong>Deixe o estande do seu jeito</strong>
       <p>Clique em uma parte do estande ou escolha abaixo. Você verá apenas as opções disponíveis.</p></div>}
     {!etapaGuiada && <div className="filtros-elementos" aria-label="O que personalizar">
@@ -78,7 +80,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
           const removido = removiveis.length > 0 && removiveis.every(id => acabamentos[id]?.removido)
           const modificado = sups.some(s => acabamentos[s.id]?.cor || acabamentos[s.id]?.arte)
           const valor = (orcamento?.itens || []).filter(i => atual.superficies.some(s => s.id === i.id)).reduce((n, i) => n + i.total, 0)
-          const estimar=(ids,patch,catalogo)=>calcularOrcamento({analise,superficies:sups.filter(s=>ids.includes(s.id)),recorte,precos,catalogo,acabamentos:Object.fromEntries(ids.map(id=>[id,{...acabamentos[id],...patch}]))}).total
+          const estimar=(ids,patch,novas=[])=>calcularOrcamento({analise,superficies,recorte,precos,catalogo:[...catalogo,...novas],complementos:{escondidas:superficiesEscondidas(opcoesAtivas(complementos,escolhas))},acabamentos:{...acabamentos,...Object.fromEntries(ids.map(id=>[id,{...acabamentos[id],...patch}]))}}).itens.filter(i=>ids.includes(i.id)).reduce((n,i)=>n+i.total,0)
           return <>
             <p className="dim">Manter o acabamento original não gera adicional. Veja o valor da personalização antes de escolher.</p>
             {removiveis.length > 0 && <button className="btn" onClick={() => aplicar(removiveis, { removido: !removido })}>{removido ? 'Restaurar no estande' : atual.tipo === 'logo' ? 'Remover logo do estande' : 'Remover do estande'}</button>}
@@ -92,7 +94,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
                   <span style={{ background: c.hex }} /><small>{c.nome}</small></button>
               })}</div></div>}
             {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">{(atual.superficies[0]?.arteFrontal ?? ehBalcao(atual)) ? 'Sua arte — somente na frente' : 'Sua arte'}</div>
-              <small className="dim">Personalização com arte: {fmtBRL(estimar(artes,{arte:'previa'}))} neste elemento</small>
+              <small className="dim">Arte neste elemento, considerando o saldo compartilhado do pacote: {fmtBRL(estimar(artes,{arte:'previa'}))} neste elemento</small>
               <button className="btn" disabled={enviando} onClick={() => { destinosArte.current = artes; arquivo.current?.click() }}>
                 {enviando ? 'Enviando…' : artes.some(id => acabamentos[id]?.arte) ? 'Trocar imagem' : 'Enviar imagem'}</button>
               {artes.some(id => acabamentos[id]?.arte) && <button className="btn btn-sm btn-ghost" onClick={() => setAcabamentos(a => {

@@ -1,3 +1,5 @@
+import {medirAreas} from '../lib/producao/medidas.js'
+import {PERFIS_PADRAO} from '../lib/producao/perfis.js'
 import DadosCliente from './DadosCliente.jsx'
 import PermissoesNapas from './PermissoesNapas.jsx'
 import { ehBalcao } from '../lib/glb/frente.js'
@@ -8,7 +10,7 @@ import { aplicarGrupos } from '../lib/glb/agrupamento.js'
 import { Interruptor } from './Interruptor.jsx'
 
 const icones = { logo: '▧', parede: '▥', piso: '▦', movel: '▤', estrutura: '◇', outro: '◈' }
-export default function PainelElementos({ analise, superficies, objetos, recorte,
+export default function PainelElementos({ cena, analise, superficies, objetos, recorte,
   setSuperficies, setObjetos, supFoco, objFoco, aoSelecionar, aoAvancado, aoOrganizar, aoDesfazer, aoFocarPartes, complementos = [], setComplementos, aoAgrupar, acabamentos = {}, setAcabamentos, aoNovaOpcao }) {
   const [edicao, setEdicao] = useState(null)
   const [anterior, setAnterior] = useState(null)
@@ -16,6 +18,9 @@ export default function PainelElementos({ analise, superficies, objetos, recorte
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState('todos')
   const lista = useMemo(() => listarElementos(superficies, objetos, analise, recorte), [superficies, objetos, analise, recorte])
+  const chaveGeometria=JSON.stringify((superficies||[]).map(({producaoArte,...s})=>s))
+  const medidasBase=useMemo(()=>medirAreas((superficies||[]).map(({producaoArte,...s})=>s),analise,cena,objetos,recorte),[chaveGeometria,analise,cena,objetos,recorte])
+  const medidas=medidasBase.map(a=>({...a,...superficies.find(s=>(a.superficieIds||[]).includes(s.id))?.producaoArte}))
   const visiveis = lista.filter(e => (filtro === 'todos' || (filtro === 'revisar' ? !e.revisado : e.tipo === filtro))
     && e.nome.toLocaleLowerCase('pt-BR').includes(busca.toLocaleLowerCase('pt-BR')))
   const alterar = (e, patch) => {
@@ -104,6 +109,7 @@ export default function PainelElementos({ analise, superficies, objetos, recorte
               <button className="btn btn-sm" onClick={() => alterar(e,{arteFrontal:true,podeCor:true,podeArte:true,permsManuais:true})}>Liberar cor e arte frontal</button>
               <label className="field"><span>Direção da frente (graus)</span><input className="input" type="number" step="1" placeholder="Automática pelo modelo" value={e.superficies[0]?.anguloFrente ?? ''} onChange={ev => alterar(e,{arteFrontal:true,anguloFrente:ev.target.value === '' ? null : Number(ev.target.value)})}/></label></>}
           </div>}
+          {e.superficies.some(s=>s.podeArte)&&(()=>{const a=medidas.find(a=>a.id===e.id)||{},salvar=patch=>alterar(e,{producaoArte:{larguraCm:a.larguraCm||0,alturaCm:a.alturaCm||0,perfilId:a.perfilId||'lona-parede',sangriaMm:a.sangriaMm??100,margemMm:a.margemMm??100,...e.superficies[0]?.producaoArte,...patch}});return e.tipo==='logo'?<p className="orientacao">Área de logo: não gera gabarito. O cliente enviará o logo vetorizado nos arquivos de apoio.</p>:<details open={!a.confirmada}><summary>Medidas da arte e gabarito deste projeto</summary><p>Confira uma vez aqui. As próximas propostas já receberão o gabarito confirmado. As dimensões são em centímetros.</p><div className="arte-form-grid"><label>Largura (cm)<input className="input" type="number" min="0.01" step="0.01" value={a.larguraCm||''} onChange={ev=>salvar({larguraCm:Number(ev.target.value),confirmada:false})}/></label><label>Altura (cm)<input className="input" type="number" min="0.01" step="0.01" value={a.alturaCm||''} onChange={ev=>salvar({alturaCm:Number(ev.target.value),confirmada:false})}/></label><label>Tipo de impressão<select className="select" value={a.perfilId||'lona-parede'} onChange={ev=>{const p=PERFIS_PADRAO.find(p=>p.id===ev.target.value);salvar({perfilId:p.id,sangriaMm:p.sangriaMm,margemMm:p.margemMm,confirmada:false})}}>{PERFIS_PADRAO.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}</select></label><label>Sangria (mm)<input className="input" type="number" min="0" max="500" value={a.sangriaMm??100} onChange={ev=>salvar({sangriaMm:Number(ev.target.value),confirmada:false})}/></label><label>Margem segura (mm)<input className="input" type="number" min="0" max="500" value={a.margemMm??100} onChange={ev=>salvar({margemMm:Number(ev.target.value),confirmada:false})}/></label></div><button className="btn" disabled={!(a.larguraCm>0&&a.alturaCm>0)} onClick={()=>salvar({confirmada:true})}>{a.confirmada?'✓ Medidas confirmadas no projeto':'Confirmar medidas para todas as novas propostas'}</button></details>})()}
           {aoNovaOpcao && <button className="btn" onClick={() => aoNovaOpcao(e)}>Incluir ou substituir por outro GLB</button>}
           <button className="btn btn-primary" onClick={() => confirmar([e])}>{e.revisado ? '✓ Confirmado' : 'Confirmar elemento'}</button>
           <details><summary>Corrigir agrupamento</summary>
