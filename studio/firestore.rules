@@ -70,19 +70,10 @@ service cloud.firestore {
             && localizacaoValida(request.resource.data));
     }
 
-    // Propostas do expositor: ele cria e edita a sua; o admin lê todas.
+    // Envios criados no servidor após validar vínculo e proteger o GLB.
     match /propostas/{propostaId} {
       allow read:   if ativo() && (resource.data.cliente == request.auth.uid || ehAdmin() || organizadoraDo(resource.data));
-      allow create: if ativo() && perfil().papel == 'expositor' && perfil().get('cadastroCompleto', true)
-        && request.resource.data.cliente == request.auth.uid
-        && request.resource.data.modeloId == perfil().modeloId
-        && request.resource.data.get('organizadoraId', null) == perfil().get('organizadoraId', null)
-        && request.resource.data.get('feiraId', null) == perfil().get('feiraId', null)
-        && request.resource.data.clienteEmail == request.auth.token.email
-        && request.resource.data.arquivoPersonalizado.caminho == 'propostas/' + request.auth.uid + '/' + propostaId + '/estande.glb'
-        && request.resource.data.criadoEm == request.time
-        && request.resource.data.total is number && request.resource.data.total >= 0
-        && request.resource.data.quantidadePersonalizada is int && request.resource.data.quantidadePersonalizada >= 0 && request.resource.data.quantidadePersonalizada <= 10000;
+      allow create: if false;
       allow update, delete: if ehAdmin();
     }
 
@@ -91,7 +82,7 @@ service cloud.firestore {
     match /modelos/{modeloId} {
       allow read: if ehAdmin() || (ativo() && perfil().papel == 'expositor' && perfil().modeloId == modeloId)
         || (ativo() && perfil().papel == 'organizadora' && perfil().organizadoraId in resource.data.get('organizadoraIds', []));
-      allow write: if ehAdmin();
+      allow write: if false; // Functions validam admin, versão e acessos aos GLBs.
     }
 
     // Biblioteca comercial compartilhada. Só a montadora altera o catálogo.

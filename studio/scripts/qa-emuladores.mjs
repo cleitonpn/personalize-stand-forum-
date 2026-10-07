@@ -6,6 +6,7 @@ import { initializeApp,deleteApp } from 'firebase/app'
 import { getAuth,connectAuthEmulator,createUserWithEmailAndPassword,signInWithEmailAndPassword } from 'firebase/auth'
 import { getFirestore,connectFirestoreEmulator,doc,setDoc,getDoc,updateDoc,serverTimestamp } from 'firebase/firestore'
 import { getStorage,connectStorageEmulator,ref,uploadBytes,getBytes,deleteObject } from 'firebase/storage'
+import { getFunctions,connectFunctionsEmulator,httpsCallable } from 'firebase/functions'
 import { criarCenaExemplo } from '../dev/exemplo.js'
 import { exportarGLB } from '../src/lib/exportarGLB.js'
 import { analisar } from '../src/lib/glb/analyze.js'
@@ -29,7 +30,6 @@ const movel=new THREE.Scene();movel.add(new THREE.Mesh(new THREE.BoxGeometry(1,.
 await writeFile(new URL('../dev/qa.local/mesa.glb',import.meta.url),Buffer.from(await (await exportarGLB([movel])).arrayBuffer()))
 const modelo={nome:'Estande QA',arquivo:{url:'http://127.0.0.1:4501/dev/qa.local/estande.glb'},papeis,superficies,objetos,complementos:[],recorte:{x0:-4.1,x1:4.1,z0:-2.1,z1:2.1},precos:{bagum:{unidade:'m2',valor:30},madeira:{unidade:'m2',valor:45},eletrica:{unidade:'peca',valor:100,ativo:true}},status:'mapeado'}
 await seed('modelos/qa-estande',modelo);await seed('modelos/qa-outro',{...modelo,nome:'Outro projeto QA'})
-for(const id of ['qa-estande','qa-outro'])await updateDoc(doc(admin.db,'modelos',id),{criadoEm:serverTimestamp()})
 const metrica={uid:cliente.uid,modeloId:'qa-estande',dispositivo:'desktop',segundos:20,enviou:false,ultimaEtapa:'marca',acoes:{reinicio:1},etapas:Object.fromEntries(ETAPAS.map(e=>[e.id,{visitas:1,segundos:2,erros:0,concluiu:false}])),atualizadoEm:serverTimestamp()}
 await setDoc(doc(cliente.db,'sessoesUso','qa-sessao'),metrica)
 await assert.rejects(getDoc(doc(outro.db,'sessoesUso','qa-sessao')))
@@ -40,7 +40,8 @@ assert.equal((await getDoc(doc(admin.db,'sessoesUso','qa-sessao'))).exists(),tru
 const propostaId=`qa-${Date.now()}`,caminho=`propostas/${cliente.uid}/${propostaId}/estande.glb`
 await uploadBytes(ref(cliente.storage,caminho),new Uint8Array(await glb.arrayBuffer()),{contentType:'model/gltf-binary'})
 await assert.rejects(getBytes(ref(outro.storage,caminho)))
-await setDoc(doc(cliente.db,'propostas',propostaId),{cliente:cliente.uid,clienteEmail:'cliente@uset.test',arquivoPersonalizado:{caminho},criadoEm:serverTimestamp(),clienteNome:'QA — regra de imutabilidade',modeloNome:'Estande QA',modeloId:'qa-estande',total:0,quantidadePersonalizada:0})
+const fn=getFunctions(apps[1],'southamerica-east1');connectFunctionsEmulator(fn,'127.0.0.1',5001)
+await httpsCallable(fn,'registrarProposta')({id:propostaId,proposta:{cliente:cliente.uid,clienteEmail:'cliente@uset.test',arquivoPersonalizado:{caminho},clienteNome:'QA — regra de imutabilidade',modeloNome:'Estande QA',modeloId:'qa-estande',total:0,quantidadePersonalizada:0}})
 await assert.rejects(uploadBytes(ref(cliente.storage,caminho),new Uint8Array([1]),{contentType:'model/gltf-binary'}))
 await assert.rejects(deleteObject(ref(cliente.storage,caminho)))
 assert.ok((await getBytes(ref(admin.storage,caminho))).byteLength>0)

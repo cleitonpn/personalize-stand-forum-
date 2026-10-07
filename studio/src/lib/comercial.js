@@ -3,7 +3,7 @@ import { httpsCallable } from 'firebase/functions'
 import { functions, db } from './firebase.js'
 
 export const executarComercial = async (nome, dados) =>
-  (await httpsCallable(functions, nome)(dados)).data
+  (await httpsCallable(functions, nome, {timeout:300000})(dados)).data
 
 export async function listarComercial(nome, perfil) {
   const base = collection(db, nome)

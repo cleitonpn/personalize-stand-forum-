@@ -26,6 +26,8 @@ O carregador GLB usa download autenticado. `arquivosModelo` contém a união dos
 
 A remoção dos tokens em produção usa a semântica de exclusão de metadata com `null` da [API oficial do Cloud Storage](https://docs.cloud.google.com/storage/docs/json_api#semantics_of_a_patch_request), seguida de releitura para confirmar a remoção. O emulador mantém os tokens numa lista interna separada e precisa de seu endpoint local de revogação; essa adaptação só executa quando `FIREBASE_STORAGE_EMULATOR_HOST` está definido.
 
+Projetos e propostas são gravados por funções HTTPS autenticadas. O servidor valida a versão dos preços, sincroniza os acessos a arquivos após salvar projetos/vínculos e revoga os links do GLB antes de registrar a proposta. Não são necessários gatilhos Eventarc nem novas concessões de IAM para esse fluxo.
+
 ## Verificação local
 
 Iniciar emuladores com `firebase emulators:start --project demo-uset --only auth,firestore,storage,functions --config firebase.test.json`. Executar `node scripts/qa-comercial.mjs` para testar cadastros por callable, duas organizadoras, tentativas de acesso cruzado e alteração de vínculos, cadastro inicial, localização pendente e aprovação de pagamento. Também executar `npm test`, `npm run build` e `node scripts/qa-emuladores.mjs`.

@@ -18,7 +18,6 @@ import {
   where,
   setDoc,
   updateDoc,
-  serverTimestamp,
 } from 'firebase/firestore'
 import {
   getFunctions,
@@ -234,15 +233,14 @@ const p = {
   modeloId: 'comercial-a',
   total: 100,
   quantidadePersonalizada: 2,
-  criadoEm: serverTimestamp(),
 }
 await assert.rejects(
-  setDoc(doc(cliente.db, 'propostas', 'fraude-org'), {
-    ...p,
-    organizadoraId: outra.uid,
-  }),
+  call(cliente, 'registrarProposta', {id:propostaId,proposta:{...p,organizadoraId:outra.uid}}),
 )
-await setDoc(doc(cliente.db, 'propostas', propostaId), p)
+await assert.rejects(setDoc(doc(cliente.db, 'propostas', propostaId), p))
+await uploadBytes(ref(cliente.storage,p.arquivoPersonalizado.caminho),new Uint8Array([1,2,3]),{contentType:'model/gltf-binary'})
+await call(cliente,'registrarProposta',{id:propostaId,proposta:p})
+await call(cliente,'registrarProposta',{id:propostaId,proposta:p}) // Reenvio idempotente.
 await assert.rejects(getDoc(doc(outra.db, 'propostas', propostaId)))
 assert.ok((await getDoc(doc(org.db, 'propostas', propostaId))).exists())
 await assert.rejects(
@@ -316,13 +314,20 @@ await uploadBytes(
 const url = await getDownloadURL(
   ref(admin.storage, 'modelos/comercial-estande-real.glb'),
 )
-await updateDoc(doc(admin.db, 'modelos', 'comercial-a'), {
+await assert.rejects(updateDoc(doc(admin.db,'modelos','comercial-a'),{nome:'Escrita direta'}))
+const salvo=await call(admin,'salvarProjetoAdmin',{id:'comercial-a',versao:{seconds:0,nanoseconds:0},patch:{
   arquivo: {
     caminho: 'modelos/comercial-estande-real.glb',
     url,
     bytes: glbReal.length,
   },
-})
+}})
+await assert.rejects(call(admin,'salvarProjetoAdmin',{id:'comercial-a',versao:{seconds:0,nanoseconds:0},patch:{nome:'Versão antiga'}}))
+await assert.rejects(call(org,'salvarProjetoAdmin',{id:'comercial-a',versao:salvo.data.atualizadoEm,patch:{nome:'Organizadora'}}))
+await assert.rejects(call(org,'criarProjetoAdmin',{nome:'Indevido',arquivo:{caminho:'modelos/comercial-estande-real.glb'}}))
+const novoProjeto=await call(admin,'criarProjetoAdmin',{nome:'Projeto temporário',arquivo:{caminho:'modelos/comercial-estande-real.glb',url}})
+await call(admin,'excluirProjetoAdmin',{id:novoProjeto.data.id})
+assert.equal((await getDoc(doc(admin.db,'modelos',novoProjeto.data.id))).exists(),false)
 await call(admin, 'sincronizarAcessosArquivos', {})
 const respostaPublica = await fetch(url)
 console.log('Status do link revogado:', respostaPublica.status)
