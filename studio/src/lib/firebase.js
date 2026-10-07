@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { getStorage, connectStorageEmulator } from 'firebase/storage'
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
 
 // A config web do Firebase é pública por definição — ela é embarcada no bundle
 // que vai para o navegador de qualquer usuário. Quem protege os dados são as
@@ -22,8 +23,10 @@ export const app = initializeApp(emuladores?{...firebaseConfig,projectId:'demo-u
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+export const functions = getFunctions(app, 'southamerica-east1')
 if(emuladores){
   connectAuthEmulator(auth,'http://127.0.0.1:9198',{disableWarnings:true})
   connectFirestoreEmulator(db,'127.0.0.1',8185)
   connectStorageEmulator(storage,'127.0.0.1',9298)
+  connectFunctionsEmulator(functions,'127.0.0.1',5001)
 }

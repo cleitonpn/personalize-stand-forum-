@@ -1,202 +1,320 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs, query, where, orderBy, doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import { useAuth } from '../store/AuthContext.jsx'
-import { criarExpositor, MENSAGENS_CADASTRO } from '../lib/criarUsuario.js'
+import { executarComercial, listarComercial } from '../lib/comercial.js'
 import GerenciarExpositor from '../components/GerenciarExpositor.jsx'
 
-const senhaSugerida = () => `uset${Math.floor(1000 + Math.random() * 9000)}`
-
-function Formulario({ modelos, aoCriar }) {
-  const { user } = useAuth()
-  const [f, setF] = useState({ nome: '', email: '', senha: senhaSugerida(), feira: '', modeloId: '' })
-  const [erro, setErro] = useState(null)
-  const [ok, setOk] = useState(null)
-  const [enviando, setEnviando] = useState(false)
-
-  const campo = (k) => ({ value: f[k], onChange: (e) => setF((v) => ({ ...v, [k]: e.target.value })) })
-
-  const enviar = async (e) => {
+function Localizacao({ cliente, aoSalvar }) {
+  const [valor, setValor] = useState(cliente.localizacao || ''),
+    [erro, setErro] = useState(''),
+    [ocupado, setOcupado] = useState(false)
+  async function salvar(e) {
     e.preventDefault()
-    setErro(null); setOk(null); setEnviando(true)
+    setOcupado(true)
+    setErro('')
     try {
-      await criarExpositor({ ...f, criadoPor: user?.uid })
-      setOk({ email: f.email, senha: f.senha })
-      setF({ nome: '', email: '', senha: senhaSugerida(), feira: '', modeloId: '' })
-      aoCriar?.()
+      await updateDoc(doc(db, 'usuarios', cliente.id), {
+        localizacao: valor.trim(),
+        localizacaoPendente: !valor.trim(),
+      })
+      await aoSalvar()
     } catch (ex) {
-      setErro(MENSAGENS_CADASTRO[ex.code] || ex.message)
+      setErro(ex.message)
     } finally {
-      setEnviando(false)
+      setOcupado(false)
     }
   }
-
   return (
-    <form className="card card-pad fade-up" onSubmit={enviar}>
-      <h2 style={{ fontSize: 16, marginBottom: 4 }}>Novo expositor</h2>
-      <p className="muted" style={{ marginTop: 0, marginBottom: 18, fontSize: 13 }}>
-        Ele recebe uma senha provisória e troca no primeiro acesso.
-      </p>
-
-      <div className="col" style={{ gap: 13 }}>
-        <div className="field">
-          <label className="label">Nome</label>
-          <input className="input" required placeholder="Alfa Móveis" {...campo('nome')} />
-        </div>
-        <div className="field">
-          <label className="label">E-mail</label>
-          <input className="input" type="email" required placeholder="contato@alfamoveis.com.br" {...campo('email')} />
-        </div>
-        <div className="field">
-          <label className="label">Senha provisória</label>
-          <div className="row" style={{ gap: 7 }}>
-            <input className="input" required minLength={6} {...campo('senha')} />
-            <button type="button" className="btn btn-sm" style={{ flex: 'none' }}
-              onClick={() => setF((v) => ({ ...v, senha: senhaSugerida() }))}>Gerar</button>
-          </div>
-        </div>
-        <div className="field">
-          <label className="label">Feira</label>
-          <input className="input" placeholder="Eletrolar Show" {...campo('feira')} />
-        </div>
-        <div className="field">
-          <label className="label">Projeto do estande</label>
-          <select className="select" required {...campo('modeloId')}>
-            <option value="">Escolha o modelo…</option>
-            {modelos.map((m) => (
-              <option key={m.id} value={m.id}>{m.nome}{m.feira ? ` — ${m.feira}` : ''}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {erro && (
-        <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 'var(--r)', fontSize: 13,
-          background: 'rgba(244,63,94,.1)', border: '1px solid rgba(244,63,94,.3)', color: '#fda4af' }}>{erro}</div>
-      )}
-
-      {ok && (
-        <div style={{ marginTop: 14, padding: '12px 13px', borderRadius: 'var(--r)',
-          background: 'rgba(22,224,163,.08)', border: '1px solid var(--brand-green)' }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--brand-green)' }}>
-            Acesso criado
-          </div>
-          <div className="mono" style={{ fontSize: 12, lineHeight: 1.7 }}>
-            {ok.email}<br />senha: <b>{ok.senha}</b>
-          </div>
-          <button type="button" className="btn btn-sm" style={{ marginTop: 10, width: '100%' }}
-            onClick={() => navigator.clipboard?.writeText(`Acesso ao Stand Studio\nE-mail: ${ok.email}\nSenha provisória: ${ok.senha}`)}>
-            Copiar dados de acesso
-          </button>
-        </div>
-      )}
-
-      <button className="btn btn-primary" type="submit" disabled={enviando}
-        style={{ width: '100%', marginTop: 18, padding: 12 }}>
-        {enviando ? <><span className="spinner" /> Criando…</> : 'Criar acesso'}
+    <form
+      className="row"
+      style={{ flexWrap: 'wrap', gap: 8, marginTop: 12 }}
+      onSubmit={salvar}
+    >
+      <label style={{ flex: 1 }}>
+        Localização do estande
+        <input
+          className="input"
+          maxLength={180}
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          placeholder="Pavilhão, rua e número"
+        />
+      </label>
+      <button className="btn" disabled={ocupado}>
+        Salvar localização
       </button>
+      {erro && <p role="alert">{erro}</p>}
     </form>
   )
 }
 
 export default function Clientes() {
-  const [clientes, setClientes] = useState(null)
-  const [modelos, setModelos] = useState([])
-  const [erro, setErro] = useState(null)
-  const [gerenciando, setGerenciando] = useState(null)
-
-  const carregar = async () => {
+  const { perfil, ehAdmin } = useAuth(),
+    [clientes, setClientes] = useState([]),
+    [modelos, setModelos] = useState([]),
+    [feiras, setFeiras] = useState([]),
+    [orgs, setOrgs] = useState([])
+  const [erro, setErro] = useState(''),
+    [convite, setConvite] = useState(''),
+    [ocupado, setOcupado] = useState(false),
+    [gerenciando, setGerenciando] = useState(null),
+    [vinculando, setVinculando] = useState(null)
+  const [f, setF] = useState({
+      nome: '',
+      email: '',
+      feiraId: '',
+      modeloId: '',
+    }),
+    [filtro, setFiltro] = useState(''),
+    [v, setV] = useState({ feiraId: '', modeloId: '' })
+  async function carregar() {
     try {
-      const [uSnap, mSnap] = await Promise.all([
-        getDocs(query(collection(db, 'usuarios'), where('papel', '==', 'expositor'))),
-        getDocs(query(collection(db, 'modelos'), orderBy('criadoEm', 'desc'))),
+      const [cs, ms, fs, os] = await Promise.all([
+        listarComercial('usuarios', perfil),
+        listarComercial('modelos', perfil),
+        listarComercial('feiras', perfil),
+        ehAdmin
+          ? listarComercial('organizadoras', perfil)
+          : Promise.resolve([]),
       ])
-      setClientes(uSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      setModelos(mSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    } catch (ex) {
-      setErro(ex.code === 'permission-denied'
-        ? 'Sem permissão para listar usuários. Publique as regras do Firestore atualizadas.'
-        : ex.message)
-      setClientes([])
+      setClientes(cs.filter((c) => c.papel === 'expositor'))
+      setModelos(ms)
+      setFeiras(fs)
+      setOrgs(os)
+    } catch (e) {
+      setErro(e.message)
     }
   }
-  useEffect(() => { carregar() }, [])
-
-  const nomeModelo = (id) => modelos.find((m) => m.id === id)?.nome || '—'
-
+  useEffect(() => {
+    carregar()
+  }, [])
+  async function criar(e) {
+    e.preventDefault()
+    setOcupado(true)
+    setErro('')
+    setConvite('')
+    try {
+      const r = await executarComercial('cadastrarExpositor', f)
+      setConvite(r.convite)
+      setF({ ...f, nome: '', email: '' })
+      await carregar()
+    } catch (ex) {
+      setErro(ex.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+  async function vincular(e) {
+    e.preventDefault()
+    setOcupado(true)
+    setErro('')
+    try {
+      await executarComercial('vincularExpositor', { uid: vinculando, ...v })
+      setVinculando(null)
+      await carregar()
+    } catch (ex) {
+      setErro(ex.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+  const opcoes = (feiraId) =>
+    modelos.filter((m) =>
+      feiras.find((fe) => fe.id === feiraId)?.modeloIds?.includes(m.id),
+    )
+  const campos = (dados, setDados) => (
+    <>
+      <label>
+        Feira e organizadora
+        <select
+          className="select"
+          required
+          value={dados.feiraId}
+          onChange={(e) =>
+            setDados({ ...dados, feiraId: e.target.value, modeloId: '' })
+          }
+        >
+          <option value="">Selecione…</option>
+          {feiras.map((fe) => (
+            <option key={fe.id} value={fe.id}>
+              {fe.nome}
+              {ehAdmin
+                ? ` · ${orgs.find((o) => o.id === fe.organizadoraId)?.nome || 'Organizadora'}`
+                : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Projeto
+        <select
+          className="select"
+          required
+          value={dados.modeloId}
+          onChange={(e) => setDados({ ...dados, modeloId: e.target.value })}
+        >
+          <option value="">Selecione…</option>
+          {opcoes(dados.feiraId).map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nome}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  )
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '32px 24px 64px' }}>
-      <div className="fade-up" style={{ marginBottom: 26 }}>
-        <h1 style={{ fontSize: 27, marginBottom: 6 }}>
-          <span className="grad-text">Expositores</span>
-        </h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Cada expositor recebe acesso a um projeto de estande para personalizar.
-        </p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 22, alignItems: 'start' }}>
-        <div className="col" style={{ gap: 12 }}>
-          {clientes === null && (
-            <div className="card card-pad row"><span className="spinner" /><span className="muted">Carregando…</span></div>
-          )}
-
-          {erro && (
-            <div className="card card-pad" style={{ borderColor: 'rgba(244,63,94,.35)' }}>
-              <div style={{ color: '#fda4af', fontWeight: 600, marginBottom: 4 }}>Não foi possível carregar</div>
-              <div className="muted" style={{ fontSize: 13 }}>{erro}</div>
-            </div>
-          )}
-
-          {clientes?.length === 0 && !erro && (
-            <div className="card card-pad" style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <div style={{ fontSize: 34, marginBottom: 10, opacity: .5 }}>👤</div>
-              <h3 style={{ fontSize: 16, marginBottom: 6 }}>Nenhum expositor ainda</h3>
-              <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>Crie o primeiro acesso ao lado.</p>
-            </div>
-          )}
-
-          {clientes?.map((c, i) => {
-            const inativo = c.ativo === false
-            return (
-              <div key={c.id} className="card card-pad fade-up"
-                style={{ animationDelay: `${i * 40}ms`, opacity: inativo ? .6 : 1 }}>
-                <div className="row" style={{ justifyContent: 'space-between', gap: 14 }}>
-                  <div className="col" style={{ gap: 4, minWidth: 0 }}>
-                    <div className="row" style={{ gap: 9, flexWrap: 'wrap' }}>
-                      <h3 style={{ fontSize: 15 }}>{c.nome || c.email}</h3>
-                      {inativo && (
-                        <span className="tag" style={{ color: 'var(--danger)', borderColor: 'currentColor' }}>
-                          <i className="tag-dot" />desativado
-                        </span>
-                      )}
-                      {!inativo && c.precisaTrocarSenha && (
-                        <span className="tag" style={{ color: 'var(--warn)', borderColor: 'currentColor' }}>
-                          <i className="tag-dot" />senha provisória
-                        </span>
-                      )}
-                    </div>
-                    <div className="dim" style={{ fontSize: 12.5 }}>
-                      {c.email}
-                      {c.feira ? ` · ${c.feira}` : ''}
-                      {` · ${nomeModelo(c.modeloId)}`}
-                    </div>
+    <div className="comercial-page">
+      <h1>Expositores</h1>
+      <p>
+        {ehAdmin
+          ? 'Cadastre a empresa e o e-mail. O responsável completa seus dados no primeiro acesso.'
+          : 'Consulte os expositores da sua organizadora e complete as localizações pendentes.'}
+      </p>
+      <label>
+        Filtrar por feira
+        <select
+          className="select"
+          value={filtro}
+          onChange={(e) => setFiltro(e.target.value)}
+        >
+          <option value="">Todas</option>
+          {feiras.map((fe) => (
+            <option key={fe.id} value={fe.id}>
+              {fe.nome}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="comercial-grid" style={ehAdmin?undefined:{gridTemplateColumns:'1fr'}}>
+        <section className="col">
+          {clientes
+            .filter((c) => !filtro || c.feiraId === filtro)
+            .map((c) => (
+              <article key={c.id} className="card card-pad">
+                <h2>{c.empresa || c.nome}</h2>
+                <p>
+                  {c.email} · {c.feira || 'Sem feira vinculada'}
+                </p>
+                <p>
+                  {c.contatoNome || 'Cadastro de contato pendente'}
+                  {c.telefone ? ` · ${c.telefone}` : ''}
+                </p>
+                <p>
+                  {modelos.find((m) => m.id === c.modeloId)?.nome ||
+                    'Sem projeto'}{' '}
+                  · {c.ativo === false ? 'Acesso desativado' : 'Acesso ativo'}
+                </p>
+                <p>
+                  {c.localizacao
+                    ? `Estande: ${c.localizacao}`
+                    : 'Localização pendente para a organizadora'}
+                </p>
+                <Localizacao cliente={c} aoSalvar={carregar} />
+                {ehAdmin && (
+                  <div className="row" style={{ gap: 8, marginTop: 16 }}>
+                    <button className="btn" onClick={() => setGerenciando(c)}>
+                      Gerenciar acesso
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        setVinculando(c.id)
+                        setV({
+                          feiraId: c.feiraId || '',
+                          modeloId: c.modeloId || '',
+                        })
+                      }}
+                    >
+                      Vincular feira e projeto
+                    </button>
                   </div>
-                  <button className="btn btn-sm" style={{ flex: 'none' }} onClick={() => setGerenciando(c)}>
-                    Gerenciar
-                  </button>
-                </div>
+                )}
+                {vinculando === c.id && (
+                  <form
+                    className="col"
+                    style={{ gap: 12, marginTop: 20 }}
+                    onSubmit={vincular}
+                  >
+                    {campos(v, setV)}
+                    <button className="btn btn-primary" disabled={ocupado}>
+                      Salvar vínculo
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setVinculando(null)}
+                    >
+                      Cancelar
+                    </button>
+                    <p>
+                      Propostas antigas preservam os vínculos do momento do
+                      envio.
+                    </p>
+                  </form>
+                )}
+              </article>
+            ))}
+          {!clientes.length && <p>Nenhum expositor cadastrado.</p>}
+        </section>
+        {ehAdmin && (
+          <form
+            className="card card-pad col"
+            style={{ gap: 16 }}
+            onSubmit={criar}
+          >
+            <h2>Novo expositor</h2>
+            <label>
+              Nome da empresa
+              <input
+                required
+                className="input"
+                maxLength={180}
+                value={f.nome}
+                onChange={(e) => setF({ ...f, nome: e.target.value })}
+              />
+            </label>
+            <label>
+              E-mail
+              <input
+                className="input"
+                required
+                type="email"
+                value={f.email}
+                onChange={(e) => setF({ ...f, email: e.target.value })}
+              />
+            </label>
+            {campos(f, setF)}
+            <button className="btn btn-primary" disabled={ocupado}>
+              {ocupado ? 'Cadastrando…' : 'Cadastrar acesso'}
+            </button>
+            {convite && (
+              <div>
+                <p>
+                  Acesso criado. E-mail aguardando integração; compartilhe o
+                  convite para definir a senha.
+                </p>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => navigator.clipboard.writeText(convite)}
+                >
+                  Copiar convite
+                </button>
               </div>
-            )
-          })}
-        </div>
-
-        <Formulario modelos={modelos} aoCriar={carregar} />
+            )}
+          </form>
+        )}
       </div>
-
+      {erro && <p role="alert">{erro}</p>}
       {gerenciando && (
-        <GerenciarExpositor cliente={gerenciando} modelos={modelos}
-          aoMudar={carregar} aoFechar={() => setGerenciando(null)} />
+        <GerenciarExpositor
+          cliente={gerenciando}
+          modelos={modelos}
+          aoMudar={carregar}
+          aoFechar={() => setGerenciando(null)}
+        />
       )}
     </div>
   )

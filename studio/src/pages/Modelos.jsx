@@ -4,6 +4,7 @@ import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, deleteDoc
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '../lib/firebase.js'
 import { useAuth } from '../store/AuthContext.jsx'
+import { listarComercial } from '../lib/comercial.js'
 
 const fmtMB = (b) => `${(b / 1024 / 1024).toFixed(1)} MB`
 
@@ -140,14 +141,14 @@ const STATUS = {
 }
 
 export default function Modelos() {
+  const { perfil, ehAdmin } = useAuth()
   const [modelos, setModelos] = useState(null)
   const [erro, setErro] = useState(null)
   const navigate = useNavigate()
 
   const carregar = async () => {
     try {
-      const snap = await getDocs(query(collection(db, 'modelos'), orderBy('criadoEm', 'desc')))
-      setModelos(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setModelos(await listarComercial('modelos', perfil))
     } catch (ex) {
       setErro(ex.code === 'permission-denied'
         ? 'Sem permissão para ler os modelos. Publique as regras do Firestore.'
@@ -173,11 +174,11 @@ export default function Modelos() {
           Modelos de <span className="grad-text">estande</span>
         </h1>
         <p className="muted" style={{ margin: 0 }}>
-          Cada projeto .glb vira um modelo configurável para o expositor.
+          {ehAdmin?'Cada projeto .glb vira um modelo configurável para o expositor.':'Consulte os projetos vinculados à sua organizadora. Configurações e preços são definidos pela USET.'}
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: 22, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: ehAdmin ? 'minmax(0,1fr) 340px' : '1fr', gap: 22, alignItems: 'start' }}>
         <div className="col" style={{ gap: 12 }}>
           {modelos === null && (
             <div className="card card-pad row"><span className="spinner" /><span className="muted">Carregando modelos…</span></div>
@@ -221,7 +222,7 @@ export default function Modelos() {
                   </div>
                   <div className="row" style={{ gap: 7, flex: 'none' }}>
                     <Link className="btn btn-sm" to={`/modelos/${m.id}`} onClick={(e) => e.stopPropagation()}>Abrir</Link>
-                    <button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); excluir(m) }}>×</button>
+                    {ehAdmin&&<button className="btn btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); excluir(m) }}>×</button>}
                   </div>
                 </div>
               </div>
@@ -229,7 +230,7 @@ export default function Modelos() {
           })}
         </div>
 
-        <CartaoUpload aoConcluir={carregar} />
+        {ehAdmin&&<CartaoUpload aoConcluir={carregar} />}
       </div>
     </div>
   )

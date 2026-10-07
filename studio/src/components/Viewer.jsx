@@ -18,6 +18,7 @@ import GizmoObjeto from './GizmoObjeto.jsx'
 import SelecaoElemento from './SelecaoElemento.jsx'
 import { dentro } from '../lib/glb/elementos.js'
 import { uvPlanar, uvDoElemento, comporArte } from '../lib/glb/arte.js'
+import { blobProtegido, ehArquivoFirebase } from '../lib/arquivoProtegido.js'
 
 /**
  * Loader com os decodificadores de compressão registrados.
@@ -43,7 +44,8 @@ function obterLoader() {
 }
 
 /** Carrega um .glb e devolve a cena, em promessa. Usado fora do ciclo do React. */
-export function carregarGLB(fonte) {
+export async function carregarGLB(fonte) {
+  if (ehArquivoFirebase(fonte)) fonte = await blobProtegido(fonte)
   return new Promise((resolve, reject) => {
     const local = typeof fonte !== 'string'
     const url = local ? URL.createObjectURL(fonte) : fonte
@@ -128,10 +130,16 @@ export function useGLB(fonte) {
 
     let vivo = true
     let objectUrl = null
-    const url = typeof fonte === 'string' ? fonte : (objectUrl = URL.createObjectURL(fonte))
+    let url = typeof fonte === 'string' ? fonte : (objectUrl = URL.createObjectURL(fonte))
 
     setEstado({ cena: null, erro: null, progresso: 0, carregando: true })
 
+    const iniciar = async () => {
+    if (ehArquivoFirebase(fonte)) {
+      try { const blob=await blobProtegido(fonte); if (!vivo) return; url=objectUrl=URL.createObjectURL(blob) }
+      catch (err) { if(vivo)setEstado({cena:null,progresso:0,carregando:false,erro:{titulo:'Não foi possível abrir o projeto',detalhe:err.code==='storage/unauthorized'?'Seu acesso não permite consultar este arquivo.':err.message}});return }
+    }
+    if (!vivo) return
     obterLoader().load(
       url,
       (gltf) => {
@@ -158,6 +166,8 @@ export function useGLB(fonte) {
         })
       },
     )
+    }
+    iniciar()
 
     return () => {
       vivo = false

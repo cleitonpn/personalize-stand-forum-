@@ -1,12 +1,12 @@
-import { getFunctions, httpsCallable } from 'firebase/functions'
-import { app } from './firebase.js'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from './firebase.js'
 
 // Mesma região das funções em functions/index.js. Se divergir, a chamada sai
 // para a região errada e volta como "not-found" — que é indistinguível de
 // "ainda não publiquei as functions".
 const REGIAO = 'southamerica-east1'
 
-const fn = (nome) => httpsCallable(getFunctions(app, REGIAO), nome)
+const fn = (nome) => httpsCallable(functions, nome)
 
 /**
  * As Functions são opcionais: exigem o plano Blaze do Firebase. Enquanto não

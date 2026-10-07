@@ -3,6 +3,8 @@ import { Navigate,Link } from 'react-router-dom'
 import { destinoAposLogin } from '../lib/acesso.js'
 import ErroPerfil from '../components/ErroPerfil.jsx'
 import { useAuth } from '../store/AuthContext.jsx'
+import { sendPasswordResetEmail } from 'firebase/auth'
+import { auth } from '../lib/firebase.js'
 
 const MENSAGENS = {
   'auth/invalid-credential': 'E-mail ou senha incorretos.',
@@ -20,6 +22,7 @@ export default function Login() {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState(null)
   const [enviando, setEnviando] = useState(false)
+  const [aviso,setAviso]=useState('')
 
   if(carregando)return <div className="login-carregando" role="status">Preparando seu acesso…</div>
   if(user&&(erroPerfil||!perfil))return <ErroPerfil/>
@@ -75,6 +78,8 @@ export default function Login() {
               {enviando ? <><span className="spinner" /> Entrando…</> : 'Entrar'}
             </button>
           </form>
+          <button className="btn btn-ghost" disabled={!email.trim()||enviando} onClick={async()=>{setEnviando(true);setErro('');try{await sendPasswordResetEmail(auth,email.trim());setAviso('Se este e-mail possui acesso, você receberá um link para definir uma nova senha.')}catch(ex){setErro(MENSAGENS[ex.code]||'Não foi possível solicitar a recuperação.')}finally{setEnviando(false)}}}>Esqueci minha senha</button>
+          {aviso&&<p role="status">{aviso}</p>}
         </div>
 
         <p className="dim" style={{ textAlign: 'center', fontSize: 12, marginTop: 18 }}>

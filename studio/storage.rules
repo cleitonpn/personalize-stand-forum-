@@ -21,7 +21,7 @@ service firebase.storage {
     }
 
     function ehAdmin() {
-      return temPerfil() && perfil().papel == 'admin';
+      return ativo() && perfil().papel == 'admin';
     }
 
     // Mesmo motivo do Firestore: desativado não lê o projeto nem sobe arte.
@@ -32,8 +32,11 @@ service firebase.storage {
     // Projetos .glb: todo autenticado lê (para abrir o configurador);
     // só admin envia. Limite de 200 MB e apenas glTF binário.
     match /modelos/{arquivo} {
-      allow read: if ativo();
-      allow write: if ehAdmin()
+      allow read: if ehAdmin() || (ativo() && firestore.exists(/databases/(default)/documents/arquivosModelo/$(arquivo))
+        && ((perfil().papel == 'expositor' && perfil().modeloId in firestore.get(/databases/(default)/documents/arquivosModelo/$(arquivo)).data.modeloIds)
+          || (perfil().papel == 'organizadora' && perfil().organizadoraId in firestore.get(/databases/(default)/documents/arquivosModelo/$(arquivo)).data.organizadoraIds)));
+      allow delete: if ehAdmin();
+      allow create, update: if ehAdmin()
         && request.resource.size < 200 * 1024 * 1024
         && (request.resource.contentType == 'model/gltf-binary'
             || request.resource.contentType == 'application/octet-stream');
@@ -41,7 +44,8 @@ service firebase.storage {
 
     // Artes que o expositor sobe para aplicar nas lonas.
     match /artes/{uid}/{arquivo} {
-      allow read: if autenticado();
+      allow read: if ehAdmin() || (ativo() && (request.auth.uid == uid
+        || (perfil().papel == 'organizadora' && firestore.get(/databases/(default)/documents/usuarios/$(uid)).data.get('organizadoraId','') == perfil().organizadoraId)));
       allow write: if ativo()
         && request.auth.uid == uid
         && request.resource.size < 25 * 1024 * 1024
@@ -50,7 +54,8 @@ service firebase.storage {
 
     // Cada envio recebe um arquivo próprio. Propostas enviadas não são sobrescritas.
     match /propostas/{uid}/{propostaId}/estande.glb {
-      allow read: if ehAdmin() || (ativo() && request.auth.uid == uid);
+      allow read: if ehAdmin() || (ativo() && (request.auth.uid == uid
+        || (perfil().papel == 'organizadora' && firestore.get(/databases/(default)/documents/propostas/$(propostaId)).data.get('organizadoraId','') == perfil().organizadoraId)));
       allow create: if ativo() && request.auth.uid == uid
         && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId))
         && request.resource.size < 200 * 1024 * 1024

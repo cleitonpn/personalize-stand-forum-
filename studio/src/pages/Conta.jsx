@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { updatePassword, sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
 import { useAuth } from '../store/AuthContext.jsx'
+import CadastroInicial from './CadastroInicial.jsx'
 
 /** Minha conta — vale para admin e para expositor. */
 export default function Conta() {
@@ -56,9 +57,11 @@ export default function Conta() {
         <div className="label" style={{ marginBottom: 6 }}>Dados</div>
         <Linha rotulo="Nome" valor={perfil?.nome} />
         <Linha rotulo="E-mail" valor={user?.email} />
-        <Linha rotulo="Perfil" valor={ehAdmin ? 'Administrador' : 'Expositor'} />
+        <Linha rotulo="Perfil" valor={ehAdmin ? 'Administrador' : perfil?.papel==='organizadora'?'Organizadora':'Expositor'} />
         {!ehAdmin && <Linha rotulo="Feira" valor={perfil?.feira} />}
       </div>
+
+      {perfil?.papel==='expositor'&&<CadastroInicial/>}
 
       <form className="card card-pad fade-up" onSubmit={trocar} style={{ marginBottom: 16 }}>
         <div className="label" style={{ marginBottom: 12 }}>Trocar a senha</div>

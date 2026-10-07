@@ -37,6 +37,7 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => ({
     user, perfil, carregando,erroPerfil,
     ehAdmin: perfil?.papel === 'admin',
+    ehOrganizadora: perfil?.papel === 'organizadora',
     entrar: (email, senha) => signInWithEmailAndPassword(auth, email, senha),
     recarregarPerfil: () => lerPerfil(auth.currentUser),
     sair: () => signOut(auth),

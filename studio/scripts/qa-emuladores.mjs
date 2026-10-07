@@ -40,7 +40,7 @@ assert.equal((await getDoc(doc(admin.db,'sessoesUso','qa-sessao'))).exists(),tru
 const propostaId=`qa-${Date.now()}`,caminho=`propostas/${cliente.uid}/${propostaId}/estande.glb`
 await uploadBytes(ref(cliente.storage,caminho),new Uint8Array(await glb.arrayBuffer()),{contentType:'model/gltf-binary'})
 await assert.rejects(getBytes(ref(outro.storage,caminho)))
-await setDoc(doc(cliente.db,'propostas',propostaId),{cliente:cliente.uid,criadoEm:serverTimestamp(),clienteNome:'QA — regra de imutabilidade',modeloNome:'Estande QA',total:0})
+await setDoc(doc(cliente.db,'propostas',propostaId),{cliente:cliente.uid,clienteEmail:'cliente@uset.test',arquivoPersonalizado:{caminho},criadoEm:serverTimestamp(),clienteNome:'QA — regra de imutabilidade',modeloNome:'Estande QA',modeloId:'qa-estande',total:0,quantidadePersonalizada:0})
 await assert.rejects(uploadBytes(ref(cliente.storage,caminho),new Uint8Array([1]),{contentType:'model/gltf-binary'}))
 await assert.rejects(deleteObject(ref(cliente.storage,caminho)))
 assert.ok((await getBytes(ref(admin.storage,caminho))).byteLength>0)

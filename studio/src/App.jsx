@@ -17,6 +17,11 @@ import './styles/admin.css'
 import Precos from './pages/Precos.jsx'
 import BibliotecaMobiliario from './pages/BibliotecaMobiliario.jsx'
 import AnaliseUso from './pages/AnaliseUso.jsx'
+import Organizadoras from './pages/Organizadoras.jsx'
+import Feiras from './pages/Feiras.jsx'
+import MetricasComerciais from './pages/MetricasComerciais.jsx'
+import ProjetoConsulta from './pages/ProjetoConsulta.jsx'
+import CadastroInicial from './pages/CadastroInicial.jsx'
 
 function Marca() {
   return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início">uset<span>STUDIO</span></Link>
@@ -32,16 +37,16 @@ function Topbar() {
       <div className="spacer" />
       <span className="tag">
         <i className="tag-dot" style={{ color: perfil?.papel === 'admin' ? 'var(--brand-green)' : 'var(--text-dim)' }} />
-        {perfil?.papel === 'admin' ? 'Admin' : 'Expositor'}
+        {perfil?.papel === 'admin' ? 'Admin' : perfil?.papel === 'organizadora' ? 'Organizadora' : 'Expositor'}
       </span>
       <Link to="/conta" className="btn btn-ghost btn-sm" style={{ fontWeight: 400 }}>{user.email}</Link>
       <button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
     </header>
-    {perfil?.papel==='admin'&&<nav className="admin-nav" aria-label="Administração">{[['/modelos','Projetos'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']].map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
+    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
   )
 }
 
-function Protegida({ children, exigeAdmin }) {
+function Protegida({ children, exigeAdmin, equipe, expositor }) {
   const { user, perfil, ehAdmin, carregando, recarregarPerfil,erroPerfil } = useAuth()
   if (carregando) {
     return (
@@ -66,12 +71,13 @@ function Protegida({ children, exigeAdmin }) {
     )
   }
   if (perfil?.precisaTrocarSenha) return <TrocarSenha aoConcluir={recarregarPerfil} />
-  if (exigeAdmin && !ehAdmin) {
+  if (perfil.papel === 'expositor' && perfil.cadastroCompleto === false) return <CadastroInicial />
+  if ((exigeAdmin && !ehAdmin) || (equipe && !['admin','organizadora'].includes(perfil.papel)) || (expositor && perfil.papel !== 'expositor')) {
     return (
       <div className="card card-pad" style={{ maxWidth: 460, margin: '80px auto', textAlign: 'center' }}>
         <h2 style={{ fontSize: 18, marginBottom: 8 }}>Acesso restrito</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Esta área é do time da montadora. Sua conta está como expositor.
+          Esta área não está disponível para o seu tipo de acesso.
         </p>
       </div>
     )
@@ -85,29 +91,32 @@ function Inicio() {
   if (carregando) return null
   if (!user) return <Navigate to="/" replace />
   if(erroPerfil||!perfil)return <ErroPerfil/>
-  return <Navigate to={ehAdmin ? '/modelos' : '/meu-estande'} replace />
+  return <Navigate to={ehAdmin || perfil.papel === 'organizadora' ? '/modelos' : '/meu-estande'} replace />
 }
 
 function Rotas() {
-  const {user,ehAdmin}=useAuth()
+  const {user,ehAdmin,perfil}=useAuth()
   const {pathname}=useLocation()
   return (
-    <div className={`shell ${pathname==='/entrar'||user?'tema-cliente':''} ${user&&ehAdmin?'tema-admin':''}`}>
+    <div className={`shell ${pathname==='/entrar'||user?'tema-cliente':''} ${user&&(ehAdmin||perfil?.papel==='organizadora')?'tema-admin':''}`}>
       <div className="ambient" />
       <Topbar />
       <main style={{ flex: 1 }}>
         <Routes>
           <Route path="/" element={<Apresentacao />} />
           <Route path="/entrar" element={<Login />} />
-          <Route path="/modelos" element={<Protegida exigeAdmin><Modelos /></Protegida>} />
-          <Route path="/modelos/:id" element={<Protegida exigeAdmin><Editor /></Protegida>} />
-          <Route path="/expositores" element={<Protegida exigeAdmin><Clientes /></Protegida>} />
-          <Route path="/propostas" element={<Protegida exigeAdmin><Propostas /></Protegida>} />
+          <Route path="/modelos" element={<Protegida equipe><Modelos /></Protegida>} />
+          <Route path="/modelos/:id" element={<Protegida equipe>{ehAdmin?<Editor />:<ProjetoConsulta />}</Protegida>} />
+          <Route path="/expositores" element={<Protegida equipe><Clientes /></Protegida>} />
+          <Route path="/propostas" element={<Protegida equipe><Propostas /></Protegida>} />
+          <Route path="/organizadoras" element={<Protegida exigeAdmin><Organizadoras /></Protegida>} />
+          <Route path="/feiras" element={<Protegida equipe><Feiras /></Protegida>} />
+          <Route path="/metricas" element={<Protegida equipe><MetricasComerciais /></Protegida>} />
           <Route path="/acabamentos" element={<Protegida exigeAdmin><Acabamentos /></Protegida>} />
           <Route path="/precos" element={<Protegida exigeAdmin><Precos /></Protegida>} />
           <Route path="/mobiliario" element={<Protegida exigeAdmin><BibliotecaMobiliario /></Protegida>} />
           <Route path="/analise" element={<Protegida exigeAdmin><AnaliseUso /></Protegida>} />
-          <Route path="/meu-estande" element={<Protegida><Expositor /></Protegida>} />
+          <Route path="/meu-estande" element={<Protegida expositor><Expositor /></Protegida>} />
           <Route path="/conta" element={<Protegida><Conta /></Protegida>} />
           <Route path="*" element={<Inicio />} />
         </Routes>

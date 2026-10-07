@@ -5,12 +5,16 @@ import { fmtBRL, fmtM2 } from '../lib/glb/precos.js'
 import { gerarPropostaHTML } from '../lib/proposta.js'
 import { posicaoPonto,pontosEletricos } from '../lib/eletrica.js'
 import Proposta3D from '../components/Proposta3D.jsx'
+import { useAuth } from '../store/AuthContext.jsx'
+import { listarComercial } from '../lib/comercial.js'
+import PagamentoProposta from '../components/PagamentoProposta.jsx'
 
 const data = (ts) => ts?.toDate?.().toLocaleString('pt-BR', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
 }) || '—'
 
 export default function Propostas() {
+  const {perfil,ehAdmin}=useAuth()
   const [lista, setLista] = useState(null)
   const [erro, setErro] = useState(null)
   const [aberta, setAberta] = useState(null)
@@ -18,8 +22,7 @@ export default function Propostas() {
   useEffect(() => {
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'propostas'), orderBy('criadoEm', 'desc')))
-        setLista(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        setLista(await listarComercial('propostas',perfil))
       } catch (ex) {
         setErro(ex.code === 'permission-denied'
           ? 'Sem permissão para ler propostas. Publique as regras do Firestore atualizadas.'
@@ -106,6 +109,10 @@ export default function Propostas() {
                     ))}
                   </div>
                   <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{p.clienteEmail}</div>
+                  <p>{p.contatoNome}{p.telefone?` · ${p.telefone}`:''} · {p.localizacao||'Localização do estande pendente'}</p>
+                  <a className="btn" href={`mailto:${p.clienteEmail}`}>Entrar em contato com o expositor</a>
+                  <p>{p.cobranca==='montadora'?'Pagamento direto à montadora após aprovação do valor.':'Proposta para contato e negociação com o expositor.'}</p>
+                  {p.organizadoraId&&<PagamentoProposta proposta={p} ehAdmin={ehAdmin}/>}
                   {pontosEletricos({_eletrica:p.eletrica?.pontos}).length>0&&<section><h4>Pontos elétricos adicionais</h4><ol>{p.eletrica.pontos.map(pt=><li key={pt.id}>{pt.uso||'Uso a informar'} · {pt.tensao||'A confirmar'} · {posicaoPonto(pt,p.eletrica.limites)}</li>)}</ol></section>}
                 </>
               )}
