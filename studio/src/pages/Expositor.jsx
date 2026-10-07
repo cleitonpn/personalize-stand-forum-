@@ -24,6 +24,8 @@ import { pontosEletricos,precoPonto } from '../lib/eletrica.js'
 import { reiniciarPersonalizacao } from '../lib/reiniciarPersonalizacao.js'
 import { mesmaVersao } from '../lib/salvarModelo.js'
 import { quantidadePersonalizada } from '../lib/quantidadePersonalizada.js'
+import { Link } from 'react-router-dom'
+import { medirAreas, areasEscolhidas } from '../lib/producao/medidas.js'
 
 export default function Expositor() {
   const {catalogo,erro:erroCatalogo,carregando:carregandoCatalogo}=useNapas()
@@ -184,7 +186,7 @@ export default function Expositor() {
         feira: perfil?.feira || null,
         modeloId: modelo.id,
         modeloNome: modelo.nome,
-        acabamentos, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo},
+        acabamentos, pendenciasArte,areasArte:areasEscolhidas(medirAreas(superficies.filter(s=>!superficiesEscondidas(ativas).has(s.id)&&!acabamentos[s.id]?.removido),analise,cena,objetos,modelo?.recorte),acabamentos,superficiesEscondidas(ativas)),eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo},
         objetos: (objetos || []).map((o) => ({ id: o.id, nome: o.nome, transform: o.transform || {dx:0,dz:0,rotY:0} })),
         // As escolhas vão pelo nome, não só pelo id: quem abrir a proposta na
         // produção precisa ler "Depósito na ponta esquerda" sem ter que
@@ -332,6 +334,7 @@ export default function Expositor() {
               <button className="btn btn-primary" style={{ width: '100%', padding: 12 }} onClick={baixarPDF}>
                 Baixar proposta em PDF
               </button>
+              <Link className="btn btn-primary" style={{width:'100%',marginTop:10}} to={`/artes/${gravado.id}`}>Enviar artes finais e acompanhar aprovação</Link>
             </>
           ) : (
             <>

@@ -64,6 +64,25 @@ service firebase.storage {
         && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId));
     }
 
+    function acessoProposta(id) {
+      let p = firestore.get(/databases/(default)/documents/propostas/$(id)).data;
+      return ativo() && (ehAdmin() || p.cliente == request.auth.uid
+        || (perfil().papel == 'organizadora' && perfil().organizadoraId == p.organizadoraId));
+    }
+    match /producao/{propostaId}/{uploadId}/arquivo {
+      function reserva() { return firestore.get(/databases/(default)/documents/artesPropostas/$(propostaId)/uploads/$(uploadId)).data; }
+      allow read: if acessoProposta(propostaId);
+      allow create: if resource == null && acessoProposta(propostaId) && reserva().uid == request.auth.uid
+        && reserva().usado == false && reserva().expiraEm > request.time
+        && request.resource.size == reserva().bytes && request.resource.contentType == reserva().mime
+        && ((reserva().tipo == 'arte' && perfil().papel == 'expositor' && request.resource.size <= 300 * 1024 * 1024)
+          || (reserva().tipo == 'prova' && ehAdmin() && request.resource.size <= 30 * 1024 * 1024))
+        && request.resource.contentType in ['application/pdf','image/png','image/jpeg'];
+      // Versões e provas são imutáveis: nem uma aprovação antiga permite
+      // substituir silenciosamente o arquivo já aprovado.
+      allow update, delete: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -115,6 +115,31 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    function acessoProposta(id) {
+      let p = get(/databases/$(database)/documents/propostas/$(id)).data;
+      return ativo() && (p.cliente == request.auth.uid || ehAdmin() || organizadoraDo(p));
+    }
+    match /artesPropostas/{id} {
+      allow read: if acessoProposta(id);
+      allow write: if false;
+      match /{document=**} {
+        allow read: if acessoProposta(id);
+        allow write: if false;
+      }
+    }
+    function acessoConversa(clienteId, dados) {
+      return ativo() && (request.auth.uid == clienteId || ehAdmin()
+        || (organizadoraDo(dados) && get(/databases/$(database)/documents/usuarios/$(clienteId)).data.get('organizadoraId','') == perfil().organizadoraId));
+    }
+    match /conversas/{clienteId} {
+      allow read: if acessoConversa(clienteId,resource.data);
+      allow write: if false;
+      match /mensagens/{mensagemId} {
+        allow read: if acessoConversa(clienteId,get(/databases/$(database)/documents/conversas/$(clienteId)).data);
+        allow write: if false;
+      }
+    }
+
     function contador(n) { return n is number && n >= 0 && n <= 10000; }
     function etapaValida(e) {
       return e is map && e.keys().hasOnly(['visitas','segundos','erros','concluiu'])

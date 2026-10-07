@@ -23,6 +23,10 @@ import Feiras from './pages/Feiras.jsx'
 import MetricasComerciais from './pages/MetricasComerciais.jsx'
 import ProjetoConsulta from './pages/ProjetoConsulta.jsx'
 import CadastroInicial from './pages/CadastroInicial.jsx'
+import Artes from './pages/Artes.jsx'
+import Atendimento from './pages/Atendimento.jsx'
+import { ChatFlutuante, ChatAtalho } from './components/ChatCliente.jsx'
+import './styles/producao.css'
 
 function Marca() {
   return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início"><LogoUset/><span>STUDIO</span></Link>
@@ -43,7 +47,8 @@ function Topbar() {
       <Link to="/conta" className="btn btn-ghost btn-sm" style={{ fontWeight: 400 }}>{user.email}</Link>
       <button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
     </header>
-    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
+    {perfil?.papel==='expositor'&&<nav className="cliente-nav" aria-label="Seu projeto"><Link to="/meu-estande" aria-current={pathname==='/meu-estande'?'page':undefined}>Personalizar estande</Link><Link to="/artes" aria-current={pathname.startsWith('/artes')?'page':undefined}>Artes e aprovação</Link><ChatAtalho/></nav>}
+    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
   )
 }
 
@@ -110,6 +115,9 @@ function Rotas() {
           <Route path="/modelos/:id" element={<Protegida equipe>{ehAdmin?<Editor />:<ProjetoConsulta />}</Protegida>} />
           <Route path="/expositores" element={<Protegida equipe><Clientes /></Protegida>} />
           <Route path="/propostas" element={<Protegida equipe><Propostas /></Protegida>} />
+          <Route path="/artes" element={<Protegida><Artes /></Protegida>} />
+          <Route path="/artes/:id" element={<Protegida><Artes /></Protegida>} />
+          <Route path="/atendimento" element={<Protegida equipe><Atendimento /></Protegida>} />
           <Route path="/organizadoras" element={<Protegida exigeAdmin><Organizadoras /></Protegida>} />
           <Route path="/feiras" element={<Protegida equipe><Feiras /></Protegida>} />
           <Route path="/metricas" element={<Protegida equipe><MetricasComerciais /></Protegida>} />
@@ -122,6 +130,7 @@ function Rotas() {
           <Route path="*" element={<Inicio />} />
         </Routes>
       </main>
+      <ChatFlutuante />
     </div>
   )
 }

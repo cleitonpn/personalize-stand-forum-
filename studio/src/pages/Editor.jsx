@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { salvarModelo } from '../lib/salvarModelo.js'
+import { medirAreas } from '../lib/producao/medidas.js'
 import { db } from '../lib/firebase.js'
 import Viewer, { useGLB } from '../components/Viewer.jsx'
 import { analisar } from '../lib/glb/analyze.js'
@@ -323,6 +324,7 @@ export default function Editor() {
       const atualizado = await salvarModelo(modelo, {
         papeis, recorte,
         superficies: superficies || [],
+        artesMedidas: medirAreas(superficies,analise,cena,objetos,recorte),
         objetos: objetos || [],
         complementos: grupos || [],
         assinaturaObjetos: assinaturaObj,
