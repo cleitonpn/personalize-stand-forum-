@@ -173,12 +173,12 @@ function montarObjeto(membros, papeis, papelDaPeca) {
 
   const largura = max[0] - min[0], altura = max[1] - min[1], profundidade = max[2] - min[2]
 
-  // Só é móvel o que assenta no chão E tem porte de móvel. O apoio no chão
-  // sozinho não basta: a parede de marcenaria do arquivo real mede 9,80 × 2,90 m
+  // O apoio no chão ou um componente suspenso de porte compatível identifica
+  // o móvel. O apoio sozinho não basta: a parede do arquivo mede 9,80 × 2,90 m
   // e nasce no piso, então entrava na lista do cliente como se fosse uma cadeira
   // — dava para arrastar a parede do estande. Cadeira, banqueta, mesa e balcão
   // ficam folgadamente abaixo destes limites; parede e testeira, não.
-  const assentaNoChao = min[1] < 0.35
+  const porteMovel = (min[1] < 0.35 || (max[1] <= 2.2 && membros.every(p => p.componenteOrigem)))
     && largura <= 3.2 && profundidade <= 3.2 && altura <= 2.2
 
   return {
@@ -188,8 +188,8 @@ function montarObjeto(membros, papeis, papelDaPeca) {
     pecas: membros.map((p) => p.chave),
     // superfícies internas: um objeto, vários acabamentos independentes
     materiais: [...porMaterial.keys()],
-    podeMover: assentaNoChao,
-    podeGirar: assentaNoChao,
+    podeMover: porteMovel,
+    podeGirar: porteMovel,
     // O mobiliário que já vem no projeto está incluso no valor do estande.
     // Só entra no orçamento o que o expositor ACRESCENTAR — e isso passa a
     // existir quando a biblioteca de mobiliário da fase 2 ficar pronta.
