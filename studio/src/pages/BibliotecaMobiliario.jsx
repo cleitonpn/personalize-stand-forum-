@@ -1,6 +1,7 @@
 import { useEffect,useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection,doc,getDocs,setDoc,runTransaction,serverTimestamp } from 'firebase/firestore'
+import { collection,doc,getDocs,getDoc,setDoc,serverTimestamp } from 'firebase/firestore'
+import { salvarModelo } from '../lib/salvarModelo.js'
 import { ref,uploadBytesResumable,getDownloadURL } from 'firebase/storage'
 import { db,storage } from '../lib/firebase.js'
 import Viewer,{carregarGLB,useGLB} from '../components/Viewer.jsx'
@@ -31,7 +32,7 @@ export default function BibliotecaMobiliario(){
   }
   const relacionar=async()=>{
     setOcupado(true);setErro('');setStatus('Relacionando mobiliário…');const falhas=[],ok=[]
-    for(const id of projetos){try{await runTransaction(db,async tx=>{const r=doc(db,'modelos',id),s=await tx.get(r);if(!s.exists())throw Error('Projeto removido');tx.update(r,{complementos:relacionarMobiliario(s.data(),itens.filter(i=>selecionados.includes(i.id))),atualizadoEm:serverTimestamp()})});ok.push(id)}catch(e){falhas.push({id,mensagem:e.message})}}
+    for(const id of projetos){try{const s=await getDoc(doc(db,'modelos',id));if(!s.exists())throw Error('Projeto removido');await salvarModelo({id,...s.data()},{complementos:relacionarMobiliario(s.data(),itens.filter(i=>selecionados.includes(i.id)))});ok.push(id)}catch(e){falhas.push({id,mensagem:e.message})}}
     setStatus(`${ok.length} projeto(s) atualizado(s). Os móveis estão disponíveis na etapa Mobiliário do cliente.`)
     if(falhas.length){setErro(falhas.map(f=>`${modelos.find(m=>m.id===f.id)?.nome}: ${f.mensagem}`).join(' · '));setProjetos(falhas.map(f=>f.id))}
     try{await carregar()}catch(e){setErro(e.message)}finally{setOcupado(false)}

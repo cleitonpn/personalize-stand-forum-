@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, deleteDoc, doc } from 'firebase/firestore'
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
-import { db, storage } from '../lib/firebase.js'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { storage } from '../lib/firebase.js'
 import { useAuth } from '../store/AuthContext.jsx'
-import { listarComercial } from '../lib/comercial.js'
+import { listarComercial, executarComercial } from '../lib/comercial.js'
 
 const fmtMB = (b) => `${(b / 1024 / 1024).toFixed(1)} MB`
 
 function CartaoUpload({ aoConcluir }) {
-  const { user } = useAuth()
   const fileRef = useRef(null)
   const [arquivo, setArquivo] = useState(null)
   const [nome, setNome] = useState('')
@@ -44,15 +42,13 @@ function CartaoUpload({ aoConcluir }) {
       async () => {
         try {
           const url = await getDownloadURL(tarefa.snapshot.ref)
-          await addDoc(collection(db, 'modelos'), {
+          await executarComercial('criarProjetoAdmin', {
             nome: nome.trim(),
             feira: feira.trim() || null,
             arquivo: { caminho, url, bytes: arquivo.size, nomeOriginal: arquivo.name },
             status: 'novo',        // novo → mapeado → publicado
             papeis: {},            // material → papel
             recorte: null,         // área do estande
-            criadoEm: serverTimestamp(),
-            criadoPor: user?.uid || null,
           })
           setArquivo(null); setNome(''); setFeira(''); setProgresso(null)
           if (fileRef.current) fileRef.current.value = ''
@@ -161,8 +157,7 @@ export default function Modelos() {
   const excluir = async (m) => {
     if (!confirm(`Excluir o modelo "${m.nome}"? O arquivo .glb também será removido.`)) return
     try {
-      if (m.arquivo?.caminho) await deleteObject(ref(storage, m.arquivo.caminho)).catch(() => {})
-      await deleteDoc(doc(db, 'modelos', m.id))
+      await executarComercial('excluirProjetoAdmin', {id:m.id})
       carregar()
     } catch (ex) { alert(`Não foi possível excluir: ${ex.message}`) }
   }

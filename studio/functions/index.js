@@ -75,45 +75,80 @@ exports.excluirExpositor = onCall({ region: REGIAO }, async (req) => {
 
 const { randomUUID } = require('node:crypto')
 const { FieldValue } = require('firebase-admin/firestore')
-const {
-  onDocumentWritten,
-  onDocumentCreated,
-} = require('firebase-functions/v2/firestore')
 const { getStorage } = require('firebase-admin/storage')
+const { Timestamp } = require('firebase-admin/firestore')
 
 const { sincronizarArquivos, revogarLinks } = require('./acessos.js')
-exports.sincronizarAcessosArquivos = onCall({ region: REGIAO }, async (req) => {
+exports.sincronizarAcessosArquivos = onCall({ region: REGIAO, timeoutSeconds:300 }, async (req) => {
   await exigirAdmin(req.auth)
   return sincronizarArquivos()
 })
-exports.atualizarAcessosModelo = onDocumentWritten(
-  { region: REGIAO, document: 'modelos/{id}' },
-  sincronizarArquivos,
-)
-exports.registrarFluxoProposta = onDocumentCreated(
-  { region: REGIAO, document: 'propostas/{id}' },
-  async (event) => {
-    const p = event.data.data(),
-      db = getFirestore()
-    const org = p.organizadoraId
-      ? await db.doc(`organizadoras/${p.organizadoraId}`).get()
-      : null
-    // Não sobrescreve um status que o admin já possa ter atualizado em um retry.
-    await db.runTransaction(async (tx) => {
-      const atual = await tx.get(event.data.ref)
-      if (!atual.exists) return
-      tx.update(event.data.ref, {
-        cobranca: org?.data()?.cobranca || 'organizadora',
-        ...(atual.data().status ? {} : { status: 'recebida' }),
-      })
-    })
-    const esperado = `propostas/${p.cliente}/${event.params.id}/estande.glb`
-    if (p.arquivoPersonalizado?.caminho === esperado) {
-      try { await revogarLinks(getStorage().bucket().file(esperado)) }
-      catch(e) { if(Number(e.code)!==404)throw e }
-    }
-  },
-)
+
+exports.criarProjetoAdmin = onCall({region:REGIAO,timeoutSeconds:300}, async req=>{
+  await exigirAdmin(req.auth)
+  const d=req.data||{}, db=getFirestore()
+  if(!texto(d.nome)||!/^modelos\/[^/]+$/.test(d.arquivo?.caminho||''))throw new HttpsError('invalid-argument','Informe o projeto e seu GLB.')
+  const ref=db.collection('modelos').doc()
+  await ref.set({...d,nome:texto(d.nome),organizadoraIds:[],criadoPor:req.auth.uid,criadoEm:FieldValue.serverTimestamp()})
+  await sincronizarArquivos()
+  return{id:ref.id}
+})
+exports.salvarProjetoAdmin = onCall({region:REGIAO,timeoutSeconds:300},async req=>{
+  await exigirAdmin(req.auth)
+  const {id,patch,versao}=req.data||{}, db=getFirestore(), agora=Timestamp.now()
+  if(typeof id!=='string'||id.includes('/')||!patch||typeof patch!=='object'||Array.isArray(patch)||'organizadoraIds' in patch)throw new HttpsError('invalid-argument','Configuração inválida.')
+  await db.runTransaction(async tx=>{
+    const ref=db.doc(`modelos/${id}`),atual=await tx.get(ref)
+    if(!atual.exists)throw new HttpsError('not-found','O projeto foi removido.')
+    const v=atual.data().atualizadoEm
+    if((v?.seconds||0)!==(versao?.seconds||0)||(v?.nanoseconds||0)!==(versao?.nanoseconds||0))throw new HttpsError('failed-precondition','Este projeto mudou em outra tela. Recarregue antes de salvar.')
+    tx.update(ref,{...patch,atualizadoEm:agora})
+  })
+  await sincronizarArquivos()
+  return{atualizadoEm:{seconds:agora.seconds,nanoseconds:agora.nanoseconds}}
+})
+exports.excluirProjetoAdmin = onCall({region:REGIAO,timeoutSeconds:300},async req=>{
+  await exigirAdmin(req.auth)
+  const id=req.data?.id,db=getFirestore()
+  if(typeof id!=='string'||!id||id.includes('/'))throw new HttpsError('invalid-argument','Projeto inválido.')
+  const ref=db.doc(`modelos/${id}`),s=await ref.get()
+  await ref.delete();await sincronizarArquivos()
+  const caminho=s.data()?.arquivo?.caminho
+  if(/^modelos\/[^/]+$/.test(caminho||'')&&!(await db.doc(`arquivosModelo/${caminho.slice(8)}`).get()).exists)try{await getStorage().bucket().file(caminho).delete()}catch(e){if(Number(e.code)!==404)throw e}
+  return{ok:true}
+})
+
+exports.registrarProposta = onCall({region:REGIAO},async req=>{
+  if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
+  const db=getFirestore(),u=await db.doc(`usuarios/${req.auth.uid}`).get(),perfil=u.data()
+  if(!perfil||perfil.papel!=='expositor'||perfil.ativo===false||perfil.cadastroCompleto===false)throw new HttpsError('permission-denied','Complete o cadastro antes de enviar sua proposta.')
+  const {id,proposta:p}=req.data||{}
+  if(typeof id!=='string'||!id||id.includes('/')||!p||p.modeloId!==perfil.modeloId||p.cliente!==req.auth.uid||(p.organizadoraId||null)!==(perfil.organizadoraId||null)||(p.feiraId||null)!==(perfil.feiraId||null))throw new HttpsError('permission-denied','Seu vínculo mudou. Recarregue o projeto antes de enviar.')
+  if(!Number.isFinite(p.total)||p.total<0||!Number.isInteger(p.quantidadePersonalizada)||p.quantidadePersonalizada<0||p.quantidadePersonalizada>10000)throw new HttpsError('invalid-argument','Proposta inválida.')
+  const ref=db.doc(`propostas/${id}`),existente=await ref.get()
+  if(existente.exists){if(existente.data().cliente!==req.auth.uid)throw new HttpsError('permission-denied','Envio indisponível.');return{id}}
+  const modelo=await db.doc(`modelos/${perfil.modeloId}`).get()
+  if(!modelo.exists)throw new HttpsError('failed-precondition','Projeto indisponível.')
+  const esperado=`propostas/${req.auth.uid}/${id}/estande.glb`
+  if(p.arquivoPersonalizado?.caminho!==esperado)throw new HttpsError('invalid-argument','GLB inválido.')
+  const arquivo=getStorage().bucket().file(esperado),[metadata]=await arquivo.getMetadata()
+  if(Number(metadata.size)>=200*1024*1024||metadata.contentType!=='model/gltf-binary')throw new HttpsError('invalid-argument','Confira o arquivo 3D do envio.')
+  await revogarLinks(arquivo)
+  const org=perfil.organizadoraId?await db.doc(`organizadoras/${perfil.organizadoraId}`).get():null
+  await db.runTransaction(async tx=>{
+    const atual=await tx.get(ref),usuario=await tx.get(u.ref),projeto=await tx.get(modelo.ref)
+    const atualizado=usuario.data()
+    if(!atualizado||atualizado.papel!=='expositor'||atualizado.ativo===false||atualizado.cadastroCompleto===false||atualizado.modeloId!==perfil.modeloId||(atualizado.organizadoraId||null)!==(perfil.organizadoraId||null)||(atualizado.feiraId||null)!==(perfil.feiraId||null))throw new HttpsError('failed-precondition','Seu acesso mudou. Recarregue antes de enviar.')
+    if(atual.exists){if(atual.data().cliente!==req.auth.uid)throw new HttpsError('permission-denied','Envio indisponível.');return}
+    const v=projeto.data()?.atualizadoEm,versao=req.data?.versao
+    if(!projeto.exists||(v?.seconds||0)!==(versao?.seconds||0)||(v?.nanoseconds||0)!==(versao?.nanoseconds||0))throw new HttpsError('failed-precondition','O projeto ou seus preços mudaram. Recarregue antes de enviar.')
+    tx.create(ref,{...p,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
+      organizadoraId:perfil.organizadoraId||null,feiraId:perfil.feiraId||null,feira:perfil.feira||null,
+      contatoNome:perfil.contatoNome||'',telefone:perfil.telefone||'',localizacao:perfil.localizacao||'',
+      modeloNome:modelo.data().nome,cobranca:org?.data()?.cobranca||'organizadora',status:'recebida',criadoEm:FieldValue.serverTimestamp()})
+  })
+  return{id}
+})
 
 function texto(v, max = 180) {
   return String(v || '')
@@ -237,7 +272,7 @@ exports.cadastrarExpositor = onCall({ region: REGIAO }, (req) =>
   cadastrarConta(req, 'expositor'),
 )
 
-exports.salvarFeira = onCall({ region: REGIAO }, async (req) => {
+exports.salvarFeira = onCall({ region: REGIAO,timeoutSeconds:300 }, async (req) => {
   await exigirAdmin(req.auth)
   const db = getFirestore(),
     d = req.data || {}
@@ -307,6 +342,7 @@ exports.salvarFeira = onCall({ region: REGIAO }, async (req) => {
       { merge: true },
     )
   })
+  await sincronizarArquivos()
   return { id: feiraRef.id }
 })
 

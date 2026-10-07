@@ -1,7 +1,8 @@
 import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
 import { registroComplemento } from '../lib/glb/mobiliario.js'
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, collection } from 'firebase/firestore'
+import { executarComercial } from '../lib/comercial.js'
 import { db, storage } from '../lib/firebase.js'
 import { ref as arquivoRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { useTelemetria } from '../lib/useTelemetria.js'
@@ -170,7 +171,7 @@ export default function Expositor() {
       arquivoEnviado=arquivoRef(storage,caminho)
       await uploadBytes(arquivoEnviado,glb,{contentType:'model/gltf-binary'})
       const arquivoPersonalizado={caminho,url:await getDownloadURL(arquivoEnviado),bytes:glb.size,nomeOriginal:'estande-personalizado.glb'}
-      await setDoc(ref, {
+      await executarComercial('registrarProposta', {id:ref.id,versao:{seconds:modelo.atualizadoEm?.seconds||0,nanoseconds:modelo.atualizadoEm?.nanoseconds||0},proposta:{
         arquivoPersonalizado,
         cliente: user.uid,
         clienteNome: perfil?.empresa || perfil?.nome || user.email,
@@ -191,8 +192,7 @@ export default function Expositor() {
         complementos: ativas.map(registroComplemento),
         itens: orcamento.itens,
         total: orcamento.total,
-        criadoEm: serverTimestamp(),
-      })
+      }})
       registrada=true;registrar('envio')
       setGravado({ id: ref.id, imagem, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo}, itens: orcamento.itens, total: orcamento.total, complementos: ativas.map(registroComplemento) })
     } catch (ex) {
