@@ -59,12 +59,20 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
   const elementos=useMemo(()=>ordenarCliente(listarElementos(superficies,objetos,analise,props.recorte)),[superficies,objetos,analise,props.recorte])
   const resumos=ETAPAS.map(e=>({...e,...resumoEtapa(e.id,elementos,complementos,escolhas,acabamentos)}))
   const atual=resumos.find(e=>e.id===etapa) || resumos[0]
+  const itemEmEdicao = !['eletrica','revisao'].includes(etapa) && elementos.find(e =>
+    (modo === 'livre' || pertenceEtapa(e, etapa)) && (e.superficies.some(s => s.id === supFoco) || e.objetos.some(o => o.id === objFoco)))
   const indice=ETAPAS.findIndex(e=>e.id===atual.id)
   const ativas=opcoesAtivas(complementos,escolhas)
   const pendentes=resumos.slice(0,-1).flatMap(e=>e.pendencias)
   const alteracoes=new Set(resumos.flatMap(e=>e.alterados.map(x=>x.id))).size + ativas.length + pontos.length
   const limparFoco=()=>{setSupFoco(null);setObjFoco(null);setObjSel(null)}
   const navegar=id=>{setModoEletrica(null);limparFoco();setNavegacao(n=>({...n,etapa:id}));aoVista?.(ETAPAS.find(e=>e.id===id)?.vista || 'perspectiva');cabecalho.current?.focus()}
+  const voltarLista=()=>{limparFoco();aoCena?.({focoCamera:null});aoVista?.(atual.vista);cabecalho.current?.focus()}
+  const concluirItem=()=>{
+    if (!itemEmEdicao) return
+    setEscolhas(e=>({...e,_itensRevisados:{...e?._itensRevisados,[itemEmEdicao.id]:true}}))
+    voltarLista()
+  }
   useEffect(()=>{try{localStorage.setItem(`psf.jornada.${chaveRascunho}`,JSON.stringify(navegacao))}catch{/* sem persistência */}},[chaveRascunho,navegacao])
   useEffect(()=>{aoRevisao?.(etapa==='revisao');aoEvento?.('etapa',etapa)},[etapa,aoEvento])
   useEffect(()=>{if(solicitarRevisao) navegar('revisao')},[solicitarRevisao])
@@ -122,6 +130,7 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
     {modo==='guiado'&&<><div className="jornada-progresso" aria-label={`Etapa ${indice+1} de ${ETAPAS.length}`}>{ETAPAS.map((e,i)=><span key={e.id} className={i===indice?'atual':escolhas._etapas?.[e.id]?'feito':''}/>)}</div><details className="jornada-mapa"><summary>Ver etapas e escolhas</summary><nav className="passos-cliente" aria-label="Etapas da personalização">{resumos.map((e,i)=><button key={e.id} aria-current={etapa===e.id?'step':undefined} disabled={enviando||comparando} onClick={()=>navegar(e.id)}><b>{i+1}</b><span>{e.nome}<small>{e.id==='revisao'?'Conferir':e.status}</small></span></button>)}</nav></details></>}
     <div ref={cabecalho} tabIndex={-1} className="jornada-cabecalho"><small>{modo==='guiado'?`Etapa ${indice+1} de ${ETAPAS.length}`:'Suas escolhas, na sua ordem'}</small><h2>{modo==='livre'&&etapa!=='revisao'?'Explore seu estande':atual.pergunta}</h2><p>{modo==='livre'&&etapa!=='revisao'?'Escolha uma categoria ou clique no estande. Você pode voltar ao passo a passo sem perder nada.':atual.dica}</p></div>
     <fieldset disabled={comparando} className="jornada-conteudo">
+      {!itemEmEdicao && atual.alterados.length > 0 && !['eletrica','revisao'].includes(etapa) && <p className="dim" role="status">{atual.alterados.length} {atual.alterados.length === 1 ? 'item personalizado' : 'itens personalizados'} nesta seção. Escolha outro item ou avance quando terminar.</p>}
       {etapa==='ambientes'&&modo==='guiado'&&<section className="incluido-projeto"><strong>✓ Já incluído no projeto</strong><p>Estes itens fazem parte da base do seu estande. Mantê-los como estão não gera adicional.</p><ul>{elementos.filter(e=>['movel','parede','piso'].includes(e.tipo)).map(e=><li key={e.id}>{e.nome}</li>)}</ul><p>As opções abaixo são mudanças opcionais. Você pode seguir sem escolher nenhuma.</p></section>}
       {etapa==='eletrica'?<PainelEletrica pontos={pontos} valor={precoPonto(props.precos)} limites={limites} modo={modoEletrica} aoMarcar={iniciarMarcacao} aoMudar={(id,patch)=>alterarPontos(ps=>ps.map(p=>p.id===id?{...p,...patch}:p))} aoRemover={id=>{setModoEletrica(null);alterarPontos(ps=>ps.filter(p=>p.id!==id))}}/>:
       etapa==='revisao'?<>
@@ -135,12 +144,12 @@ export default function JornadaExpositor({ chaveRascunho='previa', aoVista, aoCe
         </article>)}
         {pontos.length>0&&<article className="card card-pad"><strong>{pontos.length} ponto(s) elétrico(s) adicional(is)</strong><ol>{pontos.map(p=><li key={p.id}>{p.uso||'Uso a informar'} · {p.tensao} · {posicaoPonto(p,limites)}</li>)}</ol></article>}
         <details className="card card-pad"><summary>Detalhar valores dos adicionais</summary>{props.orcamento?.itens.map((i,n)=><p key={`${i.id}:${n}`}>{i.nome}: {fmtBRL(i.total)}</p>)}</details>
-      </>:<PainelExpositor {...props} elementosOrdenados={elementos} etapaGuiada={modo==='guiado'?etapa:null} aoFocarElemento={focar} aoVista={aoVista} setEscolhas={escolherSeguro}
+      </>:<PainelExpositor {...props} elementosOrdenados={elementos} etapaGuiada={modo==='guiado'?etapa:null} aoFocarElemento={focar} aoVista={aoVista} aoVoltarLista={voltarLista} setEscolhas={escolherSeguro}
         aoEnviarArte={v=>{setEnviando(v);props.aoEnviarArte?.(v)}} />}
-      {modo==='guiado'&&etapa!=='revisao'&&<div className="jornada-navegar"><button className="btn" disabled={indice===0||enviando} onClick={()=>navegar(ETAPAS[indice-1].id)}>Voltar</button><button className="btn btn-primary" disabled={enviando||!!modoEletrica} onClick={concluir}>{atual.personalizado?'Salvar escolhas e continuar':'Manter o incluído e continuar'} →</button><small>Próximo: {ETAPAS[indice+1]?.nome}</small></div>}
-      {modo==='livre'&&etapa!=='eletrica'&&etapa!=='revisao'&&<button className="btn" onClick={()=>navegar('eletrica')}>Pontos elétricos adicionais</button>}
-      {modo==='livre'&&etapa==='eletrica'&&<button className="btn" onClick={()=>navegar('marca')}>Voltar às personalizações</button>}
-      {modo==='livre'&&etapa!=='revisao'&&<button className="btn btn-primary" disabled={enviando} onClick={()=>navegar('revisao')}>Revisar personalização</button>}
+      {itemEmEdicao ? <div className="jornada-navegar"><button className="btn btn-primary" disabled={enviando} onClick={concluirItem}>{itemEmEdicao.tipo==='parede'?'Concluir esta parede':'Concluir este item'}</button><small>Voltar à lista de {modo==='guiado'?atual.nome:'itens'} para continuar personalizando. Suas escolhas são mantidas.</small></div> : modo==='guiado'&&etapa!=='revisao'&&<div className="jornada-navegar">{indice>0 && <button className="btn" disabled={enviando} onClick={()=>navegar(ETAPAS[indice-1].id)}>← {ETAPAS[indice-1].nome}</button>}<button className="btn btn-primary" disabled={enviando||!!modoEletrica} onClick={concluir}>Ir para {ETAPAS[indice+1]?.nome} →</button><small>Avance quando terminar esta seção. Você pode voltar e editar depois.</small></div>}
+      {!itemEmEdicao&&modo==='livre'&&etapa!=='eletrica'&&etapa!=='revisao'&&<button className="btn" onClick={()=>navegar('eletrica')}>Pontos elétricos adicionais</button>}
+      {!itemEmEdicao&&modo==='livre'&&etapa==='eletrica'&&<button className="btn" onClick={()=>navegar('marca')}>Voltar às personalizações</button>}
+      {!itemEmEdicao&&modo==='livre'&&etapa!=='revisao'&&<button className="btn btn-primary" disabled={enviando} onClick={()=>navegar('revisao')}>Revisar personalização</button>}
     </fieldset>
     <small className="dim">{alteracoes} alteração(ões) · adicionais {fmtBRL(props.orcamento?.total)}. O projeto padrão já está incluso.</small>
     {confirmacao&&<div ref={dialogo} className="confirmacao-escolha" role="dialog" aria-modal="true" aria-labelledby="titulo-troca"><div className="card card-pad col"><h3 id="titulo-troca">Confira o que muda</h3>
