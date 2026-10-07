@@ -74,7 +74,10 @@ export function coletarPecas(root) {
     let componenteOrigem = null, nomeComponente = ''
     for (let pai = o.parent; pai && pai !== root; pai = pai.parent) {
       const b = caixas.get(pai), d = b.getSize(new THREE.Vector3())
-      if (b.min.y < 0.35 && d.y > 0.2 && d.y <= 2.2 && d.x <= 3.2 && d.z <= 3.2) componenteOrigem = caminhos.get(pai)
+      // Aparadores suspensos também têm um componente físico completo:
+      // tampo e suportes podem estar acima do chão. O limite de porte evita
+      // reconhecer a parede/estrutura inteira como componente de mobiliário.
+      if ((b.min.y < 0.35 || b.max.y <= 2.2) && d.y > 0.2 && d.y <= 2.2 && d.x <= 3.2 && d.z <= 3.2) componenteOrigem = caminhos.get(pai)
       if (/balc[ãa]o|banqueta|cadeira|eames|tiffany|mesa|table|logo|logotipo|televis|samsung|monitor|smart.*tv/i.test(pai.name)) nomeComponente = pai.name
     }
     pecas.push({

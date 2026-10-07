@@ -52,3 +52,34 @@ test('componente dividido entre dois móveis não ganha partes por adivinhação
   const os = [{id:'a',pecas:[analise.pecas[0].chave],podeMover:true},{id:'b',pecas:[p.chave],podeMover:true}]
   assert.strictEqual(completarPartesMoveis(analise, os, [], papeis), os)
 })
+
+function aparadorSuspenso() {
+  const scene=new THREE.Scene(),g=new THREE.Group()
+  const mesh=(nome,tamanho,pos)=>{const mat=new THREE.MeshStandardMaterial();mat.name=nome;const m=new THREE.Mesh(new THREE.BoxGeometry(...tamanho),mat);m.position.set(...pos);return m}
+  g.add(mesh('Madeira',[1.4,.03,.4],[0,1,0]),mesh('Bagum preto',[.03,.3,.4],[-.67,.83,0]),mesh('Bagum preto',[.03,.3,.4],[.67,.83,0]))
+  scene.add(g,mesh('METAL PRETO',[.05,3,.05],[.7,1.5,0]))
+  return {analise:analisar(scene),papeis:{Madeira:'madeira','Bagum preto':'bagum','METAL PRETO':'metal'}}
+}
+
+test('aparador suspenso inclui os suportes exportados com material de bagum',()=>{
+  const {analise,papeis}=aparadorSuspenso(),os=detectarObjetos(analise,papeis)
+  assert.equal(os.length,1)
+  assert.equal(os[0].podeMover,true)
+  assert.equal(os[0].pecas.length,3)
+  assert.ok(!os[0].pecas.includes(analise.pecas[3].chave))
+  const original=[{...os[0],pecas:[analise.pecas[0].chave],transform:{dx:2,dz:1,rotY:.4}}]
+  const corrigido=completarPartesMoveis(analise,original,[],papeis)
+  assert.equal(corrigido[0].pecas.length,3)
+  assert.deepEqual(corrigido[0].transform,original[0].transform)
+  assert.deepEqual(corrigido[0].apoio,original[0].apoio)
+})
+
+test('união manual de móvel recupera todas as partes mesmo sem hierarquia e sem contato',()=>{
+  const {analise,papeis}=aparadorSuspenso()
+  analise.pecas.forEach(p=>p.componenteOrigem=null)
+  const original=[{id:'aparador',pecas:[analise.pecas[0].chave],podeMover:true}]
+  const superficies=analise.pecas.slice(0,3).map(p=>({id:p.chave,pecas:[p.chave],grupoManual:'aparador',tipoManual:true,tipoElemento:'movel',papel:papeis[p.materialNome]}))
+  assert.equal(completarPartesMoveis(analise,original,superficies,papeis)[0].pecas.length,3)
+  superficies[1]={...superficies[1],grupoManual:'outro',tipoElemento:'estrutura'}
+  assert.equal(completarPartesMoveis(analise,original,superficies,papeis)[0].pecas.length,2)
+})
