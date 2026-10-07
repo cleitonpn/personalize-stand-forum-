@@ -134,6 +134,18 @@ a.sr-endpill:focus-visible{outline:3px solid #f4f3ed;outline-offset:5px}
 .sr-big em{font-style:normal;color:var(--sr-lime)}
 .sr-s7a{top:330px}.sr-s7b{top:480px}.sr-s7c{top:630px}
 
+/* final do site: a logo sobe e a chamada da página inicial entra embaixo */
+.sr-sem-capitulos .sr-chapters{display:none}
+.sr-end-site{display:block}
+.sr-end-site .sr-endlogo{position:absolute;left:580px;top:329px;width:760px;transform-origin:50% 50%}
+.sr-endhero{position:absolute;left:0;top:296px;width:100%;display:flex;flex-direction:column;align-items:center;text-align:center}
+.sr-endeb{font:700 18px/1 Inter,sans-serif;letter-spacing:.24em;text-transform:uppercase;color:var(--sr-lime)}
+.sr-endh{font:650 118px/1.04 Sora,sans-serif;letter-spacing:-.055em;margin:26px 0 44px;color:#f4f3ed}
+.sr-endh em{font-style:normal;color:var(--sr-lime)}
+.sr-endlead{font:400 26px/1.55 Inter,sans-serif;color:var(--sr-fog);max-width:880px;margin:0}
+.sr-end-site .sr-endpill{margin-top:44px}
+.sr-endnota{font:500 16px/1.5 Inter,sans-serif;color:#9fb3a8;margin:22px 0 0;max-width:520px}
+
 /* ---- retrato (celular) ---------------------------------------------- */
 .sr-port .sr-col{left:70px;top:210px;width:613px;transform:scale(1.5)}
 .sr-port .sr-glow{left:130px;top:1080px}
@@ -153,3 +165,9 @@ a.sr-endpill:focus-visible{outline:3px solid #f4f3ed;outline-offset:5px}
 .sr-port .sr-toast{left:420px;top:800px;--k:1.15}
 .sr-port .sr-big{font-size:70px}
 .sr-port .sr-s7a{top:790px}.sr-port .sr-s7b{top:900px}.sr-port .sr-s7c{top:1010px}
+.sr-port .sr-end-site .sr-endlogo{left:110px;top:700px;width:860px}
+.sr-port .sr-endhero{top:640px}
+.sr-port .sr-endeb{font-size:24px}
+.sr-port .sr-endh{font-size:120px}
+.sr-port .sr-endlead{font-size:38px;max-width:900px}
+.sr-port .sr-endnota{font-size:26px;max-width:820px}

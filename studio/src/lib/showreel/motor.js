@@ -13,13 +13,32 @@ import { clamp, seg, eo, ei, eio, eback, mix, shade } from '../movimento.js'
 
 export const DURACAO = 30
 
+/* Ritmo de leitura. A animação foi composta em 30 s; para dar tempo de ler,
+   cada cena entra na velocidade normal e depois fica quase parada. Pares
+   [tempo real, tempo do motor], interpolados em linha reta. */
+const RITMO = [[0, 0], [2.8, 2.8], [4.4, 3.0], [5.0, 3.6], [8.4, 7.0], [13.4, 7.45], [13.95, 8.0], [16.85, 10.9], [21.35, 11.45], [21.9, 12.0],
+  [24.9, 15.0], [29.4, 15.25], [30.75, 16.6], [38.3, 21.9], [41.3, 22.3], [41.95, 22.95], [43.4, 24.4], [47.9, 25.35], [49.05, 26.5],
+  [50.4, 27.84], [52.8, 27.9], [54.9, 30.0]]
+export function criarRitmo(final = 'video') {
+  const p = [...RITMO, ...(final === 'site' ? [[56.9, 32.0]] : [[55.2, 30.3], [58.5, 30.32]])]
+  const duracao = p[p.length - 1][0]
+  const interpola = (v, de, para) => {
+    for (let i = 1; i < p.length; i++) {
+      const a = p[i - 1], b = p[i]
+      if (v <= b[de]) return a[para] + (b[para] - a[para]) * (v - a[de]) / ((b[de] - a[de]) || 1)
+    }
+    return p[p.length - 1][para]
+  }
+  return { duracao, motor: r => interpola(clamp(r, 0, duracao), 0, 1), real: m => interpola(m, 1, 0) }
+}
+
 const brl = n => 'R$ ' + Math.round(n).toLocaleString('pt-BR')
 
 const SANGRIA = 1500 // quanto o fundo vaza além da composição
 
 const LAYOUTS = {
-  land: { nome: 'land', W: 1920, H: 1080, TX: 1124, TY: 436, ss: 1, creme: [1290, 560], cur1: [1720, 960], colK: 1 },
-  port: { nome: 'port', W: 1080, H: 1920, TX: 399, TY: 1418, ss: .85, creme: [540, 1520], cur1: [900, 1820], colK: 1.5 },
+  land: { nome: 'land', W: 1920, H: 1080, TX: 1124, TY: 436, ss: 1, creme: [1290, 560], cur1: [1720, 960], colK: 1, fimDy: -270, fimEsc: .368 },
+  port: { nome: 'port', W: 1080, H: 1920, TX: 399, TY: 1418, ss: .85, creme: [540, 1520], cur1: [900, 1820], colK: 1.5, fimDy: -340, fimEsc: .42 },
 }
 
 /* ---------------------------------------------------------------------------
@@ -38,7 +57,7 @@ const MARCACAO = cta => `
 <div class="sr-stage">
   <div class="sr-bg sr-bgdark"></div>
   <div class="sr-abs sr-glow"></div>
-  <svg class="sr-layer sr-grid" width="1920" height="1920">
+  <svg class="sr-layer sr-grid" width="1920" height="1920" aria-hidden="true">
     <defs>
       <pattern id="sr-iso" width="90" height="52" patternUnits="userSpaceOnUse"><path d="M0 26 L45 0 L90 26 L45 52 Z" fill="none" stroke="#d2ee80" stroke-width="1"/></pattern>
       <radialGradient id="sr-gridfade" cx="50%" cy="50%" r="55%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
@@ -48,7 +67,7 @@ const MARCACAO = cta => `
   </svg>
   <div class="sr-bg sr-bgcream"></div>
 
-  <svg class="sr-layer sr-standsvg">
+  <svg class="sr-layer sr-standsvg" aria-hidden="true">
     <defs>
       <linearGradient id="sr-scang" x1="0" x2="0" y1="0" y2="1">
         <stop offset="0" stop-color="#d2ee80" stop-opacity="0"/><stop offset=".85" stop-color="#d2ee80" stop-opacity=".28"/><stop offset="1" stop-color="#d2ee80" stop-opacity="1"/>
@@ -160,14 +179,23 @@ const MARCACAO = cta => `
   <div class="sr-abs sr-big sr-split sr-s7a">Menos retrabalho.</div>
   <div class="sr-abs sr-big sr-split sr-s7b">Mais <em>adicionais</em> vendidos.</div>
   <div class="sr-abs sr-big sr-split sr-s7c">Expositor no controle.</div>
-  <div class="sr-abs sr-end">
+  ${cta ? `<div class="sr-abs sr-end sr-end-site">
+    ${logoSvg('sr-logo-big sr-endlogo')}
+    <div class="sr-endhero">
+      <div class="sr-endeb sr-anim">Seu evento. Sua identidade.</div>
+      <h1 class="sr-endh sr-split">Seu estande.<br>Do seu <em>jeito.</em></h1>
+      <p class="sr-endlead sr-anim">Uma base USET. Infinitas ideias para a sua marca. Escolha acabamentos, aplique sua arte e organize o espaço antes de chegar ao evento.</p>
+      <a class="sr-endpill sr-anim sr-cta" tabindex="-1" href="${cta.href}">${cta.rotulo} <span aria-hidden="true">↗</span></a>
+      <p class="sr-endnota sr-anim">Já recebeu seu acesso? Entre com o e-mail cadastrado pela equipe USET.</p>
+    </div>
+  </div>` : `<div class="sr-abs sr-end">
     ${logoSvg('sr-logo-big sr-endlogo')}
     <div class="sr-endsub sr-anim">STAND STUDIO</div>
     <div class="sr-endfor sr-split">Para montadoras e organizadoras de eventos.</div>
-    ${cta ? `<a class="sr-endpill sr-anim sr-cta" tabindex="-1" href="${cta.href}">${cta.rotulo} <span>↗</span></a>` : `<div class="sr-endpill sr-anim">Seu estande. Do seu jeito.</div>`}
-  </div>
+    <div class="sr-endpill sr-anim">Seu estande. Do seu jeito.</div>
+  </div>`}
 
-  <svg class="sr-abs sr-anim sr-cursor" viewBox="0 0 44 44"><path d="M8 4 L8 34 L16 26 L22 39 L27 37 L21 24 L32 24 Z" fill="#fffef9" stroke="#193b33" stroke-width="2.4" stroke-linejoin="round"/></svg>
+  <svg class="sr-abs sr-anim sr-cursor" viewBox="0 0 44 44" aria-hidden="true"><path d="M8 4 L8 34 L16 26 L22 39 L27 37 L21 24 L32 24 Z" fill="#fffef9" stroke="#193b33" stroke-width="2.4" stroke-linejoin="round"/></svg>
 </div>`
 
 /* ---------------------------------------------------------------------------
@@ -215,13 +243,14 @@ function colorAt(e, t) {
 /* ---------------------------------------------------------------------------
    Montagem
    ------------------------------------------------------------------------- */
-const CAPITULOS = [['Projeto', 3.6, 8], ['Mapeamento', 8, 12], ['Regras', 12, 15.8], ['Expositor', 15.8, 22.5], ['Proposta', 22.5, 26]]
+export const CAPITULOS = [['Projeto', 3.6, 8], ['Mapeamento', 8, 12], ['Regras', 12, 15.8], ['Expositor', 15.8, 22.5], ['Proposta', 22.5, 26]]
 
 export function montarShowreel(root, opcoes = {}) {
-  const { cta = null, semMarcaNoCanto = false, aoMudarTema = null, dica = false } = opcoes
+  const { cta = null, semMarcaNoCanto = false, semCapitulos = false, aoMudarTema = null, dica = false } = opcoes
   root.classList.add('sr')
   if (semMarcaNoCanto) root.classList.add('sr-sem-canto')
   if (!dica) root.classList.add('sr-sem-dica')
+  if (semCapitulos) root.classList.add('sr-sem-capitulos')
   root.innerHTML = MARCACAO(cta)
   const q = n => root.querySelector('.sr-' + n)
   const qa = n => [...root.querySelectorAll('.sr-' + n)]
@@ -493,11 +522,25 @@ export function montarShowreel(root, opcoes = {}) {
     words(q('s7a'), t, 26.25, 28.35, .07)
     words(q('s7b'), t, 26.7, 28.4, .07)
     words(q('s7c'), t, 27.15, 28.45, .07)
-    logoAnim(q('endlogo'), t, 28.4, 30.3)
-    vis(q('endsub'), t, 28.9, 30.3, { dy: 14 })
-    words(q('endfor'), t, 29.0, 30.3, .04, .6)
-    const pill = q('endpill'); vis(pill, t, 29.25, 30.3, { dy: 20, sc: .08, back: true, di: .55 })
-    pill.style.pointerEvents = t > 29.4 ? 'auto' : 'none'
+    /* o final fica na tela: nada sai depois que entra */
+    const endlogo = q('endlogo'), pill = q('endpill')
+    logoAnim(endlogo, t, 28.4, 99)
+    if (cta) {
+      /* no site, a logo sobe e abre espaço para a chamada da página inicial */
+      const sobe = eio(seg(t, 29.6, 30.4))
+      endlogo.style.transform = `translateY(${sobe * L.fimDy}px) scale(${1 - sobe * (1 - L.fimEsc)})`
+      vis(q('endeb'), t, 30.1, 99, { dy: 14 })
+      words(q('endh'), t, 30.2, 99, .07)
+      vis(q('endlead'), t, 30.6, 99)
+      vis(pill, t, 30.85, 99, { dy: 20, sc: .06, back: true, di: .55 })
+      vis(q('endnota'), t, 31.1, 99, { dy: 10 })
+      const pronto = t > 31
+      pill.style.pointerEvents = pronto ? 'auto' : 'none'; pill.tabIndex = pronto ? 0 : -1
+    } else {
+      vis(q('endsub'), t, 28.9, 99, { dy: 14 })
+      words(q('endfor'), t, 29.0, 99, .04, .6)
+      vis(pill, t, 29.25, 99, { dy: 20, sc: .08, back: true, di: .55 })
+    }
 
     renderStand(t)
     const c = cursorAt(t), cu = q('cursor')

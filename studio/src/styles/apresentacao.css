@@ -10,8 +10,21 @@
 .uset-topo .uset-acesso{border-color:color-mix(in srgb,currentColor 45%,transparent)}
 .uset-topo .uset-assinatura span{border-left-color:color-mix(in srgb,currentColor 30%,transparent)}
 .uset-topo:not([data-tema=escuro]) .logo-uset,.uset-footer .logo-uset{color:#01622f}
-.uset-showreel{position:relative;height:700vh;background:#173a31}
-.uset-showreel-fixo{position:sticky;top:0;height:100vh;height:100svh}
-.uset-showreel-palco{width:100%;height:100%}
-.uset-showreel+div>.uset-hero{padding-top:110px}
+.uset-showreel{position:relative;height:100vh;height:100svh;min-height:560px;background:#173a31}
+.uset-showreel-palco{position:absolute;inset:0}
+/* controles da apresentação: mesma cor do texto da cena */
+.uset-showreel-controles{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;align-items:flex-start;gap:22px;padding:0 5% 26px;color:#f4f3ed;transition:color .4s}
+.uset-showreel-controles[data-tema=claro]{color:#193b33}
+.uset-showreel-controles button{all:unset;cursor:pointer;box-sizing:border-box}
+.uset-showreel-controles button:focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:6px}
+.uset-showreel-tocar{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:42px;height:42px;padding:0 14px;border-radius:30px;border:1px solid color-mix(in srgb,currentColor 40%,transparent);font:600 13px/1 Inter,sans-serif;flex:none}
+.uset-showreel-tocar:hover{background:color-mix(in srgb,currentColor 12%,transparent)}
+.uset-capitulos{display:flex;gap:12px;flex:1;max-width:720px;padding-top:12px}
+.uset-capitulos button{flex:1;min-width:0}
+.uset-capitulos u{display:block;height:3px;border-radius:3px;overflow:hidden;text-decoration:none;background:color-mix(in srgb,currentColor 25%,transparent)}
+.uset-capitulos i{display:block;height:100%;width:0;background:#d2ee80}
+[data-tema=claro] .uset-capitulos i{background:#37644b}
+.uset-capitulos small{display:block;margin-top:10px;font:600 11px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase;opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uset-capitulos [aria-current] small,.uset-capitulos button:hover small{opacity:1}
+@media(max-width:700px){.uset-capitulos small{display:none}.uset-capitulos [aria-current] small{display:block;overflow:visible}.uset-capitulos{gap:6px}}
 .uset-home section[id]{scroll-margin-top:96px}
