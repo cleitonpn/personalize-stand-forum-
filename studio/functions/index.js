@@ -18,6 +18,16 @@ exports.operacao = require('./operacao').operacao
 exports.decidirProposta = require('./operacao').decidirProposta
 exports.administrarUsuarios = require('./admin').administrarUsuarios
 exports.gerenciarPropostasAdmin = require('./admin').gerenciarPropostasAdmin
+exports.estadoPersonalizacao = onCall({region:'southamerica-east1'},async req=>{
+  if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
+  const db=getFirestore(),u=(await db.doc(`usuarios/${req.auth.uid}`).get()).data()
+  if(!u||u.ativo===false||u.papel!=='expositor')throw new HttpsError('permission-denied','Acesso indisponível.')
+  const ordens=await db.collection('ordensProducao').where('cliente','==',req.auth.uid).get()
+  const o=ordens.docs.find(s=>s.data().estado==='liberada'&&s.data().feiraId===u.feiraId&&s.data().modeloId===u.modeloId)
+  if(!o)return{bloqueada:false}
+  const p=(await db.doc(`propostas/${o.data().propostaId}`).get()).data()
+  return{bloqueada:true,proposta:{id:o.data().propostaId,modeloNome:o.data().modeloNome,arquivoPersonalizado:o.data().arquivoPersonalizado,decisaoEm:p?.decisaoEm?.toDate().toISOString()||null}}
+})
 exports.conversaCliente = require('./conversas').conversaCliente
 const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
 exports.notificacoesUsuario=require('./notificacoes').notificacoesUsuario
@@ -154,6 +164,8 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
   await db.runTransaction(async tx=>{
     const atual=await tx.get(ref),usuario=await tx.get(u.ref),projeto=await tx.get(modelo.ref)
     const excluida=await tx.get(db.doc(`propostasExcluidas/${id}`))
+    const ordensAprovadas=await tx.get(db.collection('ordensProducao').where('cliente','==',req.auth.uid))
+    if(ordensAprovadas.docs.some(s=>s.data().estado==='liberada'&&s.data().feiraId===perfil.feiraId&&s.data().modeloId===perfil.modeloId))throw new HttpsError('failed-precondition','A personalização já foi aprovada e está em produção. Fale com a USET para solicitar uma revisão.')
     if(excluida.exists)throw new HttpsError('failed-precondition','Este envio foi excluído pelo admin. Envie uma nova proposta.')
     const atualizado=usuario.data()
     if(!atualizado||atualizado.papel!=='expositor'||atualizado.ativo===false||atualizado.cadastroCompleto===false||atualizado.modeloId!==perfil.modeloId||(atualizado.organizadoraId||null)!==(perfil.organizadoraId||null)||(atualizado.feiraId||null)!==(perfil.feiraId||null))throw new HttpsError('failed-precondition','Seu acesso mudou. Recarregue antes de enviar.')

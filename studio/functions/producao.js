@@ -10,7 +10,7 @@ const REGIAO='southamerica-east1'
 const id=(v)=>{if(typeof v!=='string'||!v||v.length>180||v.includes('/'))throw new HttpsError('invalid-argument','Identificador inválido.');return v}
 const {arquivosApoio}=require('./apoio')
 const limpo=(v,max=2000)=>String(v||'').trim().slice(0,max)
-function podeLer(perfil,uid,p,acesso){return perfil&&perfil.ativo!==false&&(perfil.papel==='admin'||(perfil.papel==='expositor'&&p.cliente===uid)||(perfil.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===p.organizadoraId)||podeOperar(perfil,acesso))}
+function podeLer(perfil,uid,p,acesso){return perfil&&perfil.ativo!==false&&(perfil.papel==='admin'||(perfil.papel==='expositor'&&p.cliente===uid)||(perfil.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===p.organizadoraId)||podeOperar({...perfil,uid},acesso))}
 async function contexto(req){
   if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
   const db=getFirestore(),propostaId=id(req.data?.propostaId)

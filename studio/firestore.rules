@@ -39,8 +39,10 @@ service cloud.firestore {
     }
     function acessoOperacional(d) {
       return ativo() && d.get('estado','') == 'liberada' && (ehAdmin()
-        || (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao']
+        || (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto']
           && d.get('feiraId','') in perfil().get('feiraIds',[])
+          && (perfil().papel != 'produtor' || request.auth.uid in d.get('produtorIds',[]))
+          && (perfil().papel != 'atendimento_comercial' || request.auth.uid in d.get('atendimentoIds',[]))
           && (perfil().papel != 'equipe_producao' || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))));
     }
     function operacaoProposta(id) {
@@ -55,7 +57,7 @@ service cloud.firestore {
       }
     }
     match /equipesOperacionais/{id} {
-      allow read: if ehAdmin() || (ativo() && perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao'] && perfil().get('feiraIds',[]).hasAny(resource.data.get('feiraIds',[])));
+      allow read: if ehAdmin() || (ativo() && perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto'] && perfil().get('feiraIds',[]).hasAny(resource.data.get('feiraIds',[])));
       allow write: if false;
       match /{document=**} {
         allow read: if ehAdmin() || (ativo() && perfil().get('feiraIds',[]).hasAny(get(/databases/$(database)/documents/equipesOperacionais/$(id)).data.feiraIds));

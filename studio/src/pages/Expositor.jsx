@@ -1,7 +1,8 @@
 import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
 import { registroComplemento } from '../lib/glb/mobiliario.js'
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { doc, getDoc, collection } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore'
+import Proposta3D from '../components/Proposta3D.jsx'
 import { executarComercial } from '../lib/comercial.js'
 import { db, storage } from '../lib/firebase.js'
 import { enviarGLBProposta } from '../lib/envioProposta.js'
@@ -36,11 +37,19 @@ export default function Expositor() {
   const [modelo, setModelo] = useState(null)
   const [organizadora,setOrganizadora]=useState(null)
   const [erro, setErro] = useState(null)
+  const [bloqueio,setBloqueio]=useState(null)
+  const [consultandoBloqueio,setConsultandoBloqueio]=useState(true)
+  useEffect(()=>{
+    let vivo=true,pedido=0
+    const consultar=async()=>{const atual=++pedido;setConsultandoBloqueio(true);try{const r=await executarComercial('estadoPersonalizacao',{});if(vivo&&atual===pedido){setBloqueio(r.bloqueada?r.proposta:null);setConsultandoBloqueio(false)}}catch(e){if(vivo&&atual===pedido)setErro('Não foi possível conferir a liberação do projeto. '+e.message)}}
+    const desligar=onSnapshot(query(collection(db,'propostas'),where('cliente','==',user.uid)),consultar,e=>{if(vivo)setErro(e.message)})
+    return()=>{vivo=false;desligar()}
+  },[user.uid,perfil.modeloId,perfil.feiraId])
   const historico = useHistorico({ acabamentos: {}, escolhas: {}, objetos: [] })
   const { acabamentos, escolhas, objetos, restaurar } = historico
-  const setAcabamentos = v => {registrar('alteracao');historico.mudar('acabamentos', v)}
-  const setEscolhas = v => {registrar('alteracao');historico.mudar('escolhas', v)}
-  const setObjetos = v => historico.mudar('objetos', v)
+  const setAcabamentos = v => {if(bloqueio||consultandoBloqueio)return;registrar('alteracao');historico.mudar('acabamentos', v)}
+  const setEscolhas = v => {if(bloqueio||consultandoBloqueio)return;registrar('alteracao');historico.mudar('escolhas', v)}
+  const setObjetos = v => !bloqueio&&!consultandoBloqueio&&historico.mudar('objetos', v)
   const [rascunhoStatus, setRascunhoStatus] = useState('')
   const [enviandoArte, setEnviandoArte] = useState(false)
   const [supFoco, setSupFoco] = useState(null)
@@ -79,7 +88,7 @@ export default function Expositor() {
   }, [perfil, user, restaurar])
 
   useEffect(() => {
-    if (!modelo || !user) return
+    if (!modelo || !user || bloqueio || consultandoBloqueio) return
     setGravado(null)
     setRascunhoStatus('Salvando neste navegador…')
     const salvar = () => {
@@ -94,9 +103,9 @@ export default function Expositor() {
     const timer = setTimeout(salvar, 500)
     window.addEventListener('pagehide', salvar)
     return () => { clearTimeout(timer); window.removeEventListener('pagehide', salvar) }
-  }, [modelo, user, acabamentos, escolhas, objetos])
+  }, [modelo, user, acabamentos, escolhas, objetos,bloqueio,consultandoBloqueio])
 
-  const { cena, erro: erroGlb, progresso, carregando } = useGLB(modelo?.arquivo?.url)
+  const { cena, erro: erroGlb, progresso, carregando } = useGLB(!bloqueio&&!consultandoBloqueio?modelo?.arquivo?.url:null)
   useEffect(()=>{if(erroGlb)registrar('glb_erro')},[erroGlb,registrar])
   const analise = useMemo(() => (cena ? analisar(cena) : null), [cena])
 
@@ -143,7 +152,7 @@ export default function Expositor() {
   }
 
   const reiniciar = () => {
-    if (!modelo || gravando || enviandoArte) return
+    if (!modelo || gravando || enviandoArte || bloqueio || consultandoBloqueio) return
     const { estado, persistido } = reiniciarPersonalizacao(modelo,
       `psf.rascunho.${user.uid}.${modelo.id}`,
       `psf.jornada.${user.uid}.${modelo.id}.${modelo.atualizadoEm?.seconds || 0}`)
@@ -155,7 +164,7 @@ export default function Expositor() {
   }
 
   const gravar = async () => {
-    if (enviandoArte || gravando) return
+    if (enviandoArte || gravando || bloqueio || consultandoBloqueio) return
     if(pontosEletricos(escolhas).length&&precoPonto(precos)==null){alert('A equipe precisa liberar o preço dos pontos elétricos. Remova os pontos adicionais para enviar sem eles.');return}
     setGravando(true)
     try {
@@ -229,6 +238,8 @@ export default function Expositor() {
     )
   }
 
+  if(consultandoBloqueio)return <div className="comercial-page"><p role="status">Conferindo a liberação do seu projeto…</p></div>
+  if(bloqueio)return <div className="comercial-page"><section className="card card-pad"><h1>Seu projeto foi aprovado</h1><p>A personalização está travada porque o estande já foi liberado para produção. Para alterar o projeto, solicite uma revisão à USET pelo chat.</p><p>Você pode continuar enviando as artes finais e aprovando as provas.</p><Link className="btn btn-primary" to={`/artes/${bloqueio.id}`}>Artes e aprovação</Link>{bloqueio.arquivoPersonalizado?.url&&<Proposta3D arquivo={bloqueio.arquivoPersonalizado}/>}</section></div>
   return (
     <div className="studio-workspace">
       {tutorial && <Tutorial aoFechar={fecharTutorial} />}

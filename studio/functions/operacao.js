@@ -11,12 +11,12 @@ const texto=(v,max=180)=>String(v||'').trim().slice(0,max)
 function id(v){if(typeof v!=='string'||!v||v.length>180||v.includes('/'))throw new HttpsError('invalid-argument','Identificador inválido.');return v}
 function ids(v){if(!Array.isArray(v)||v.length>30)throw new HttpsError('invalid-argument','Escolha até 30 vínculos.');return [...new Set(v.map(id))]}
 const versao=v=>v?.toMillis?.() || 0
-async function perfil(req,tx){if(!req.auth)throw new HttpsError('unauthenticated','Faça login.');const ref=getFirestore().doc(`usuarios/${req.auth.uid}`),s=await(tx?tx.get(ref):ref.get()),p=s.data();if(!p||p.ativo===false)throw new HttpsError('permission-denied','Acesso indisponível.');return p}
+async function perfil(req,tx){if(!req.auth)throw new HttpsError('unauthenticated','Faça login.');const ref=getFirestore().doc(`usuarios/${req.auth.uid}`),s=await(tx?tx.get(ref):ref.get()),p=s.data();if(!p||p.ativo===false)throw new HttpsError('permission-denied','Acesso indisponível.');return {...p,uid:req.auth.uid}}
 function exigir(cond,msg='Esta ação não está disponível para seu acesso.'){if(!cond)throw new HttpsError('permission-denied',msg)}
 const chaveOrdem=p=>createHash('sha256').update(`${p.cliente}|${p.feiraId}`).digest('hex')
 async function avisoOperacional(o,autor,titulo,corpo){
   const db=getFirestore(),s=await db.collection('usuarios').where('ativo','==',true).get()
-  return {id:randomUUID(),autor,alvo:'operacao',tipo:'operacao_atualizada',cliente:o.cliente,organizadoraId:o.organizadoraId||null,propostaId:o.propostaId,ordemId:o.id,titulo,corpo,url:`/producao/${o.id}`,destinatarios:s.docs.filter(u=>u.id!==autor&&podeOperar(u.data(),o)).map(u=>u.id)}
+  return {id:randomUUID(),autor,alvo:'operacao',tipo:'operacao_atualizada',cliente:o.cliente,organizadoraId:o.organizadoraId||null,propostaId:o.propostaId,ordemId:o.id,titulo,corpo,url:`/producao/${o.id}`,destinatarios:s.docs.filter(u=>u.id!==autor&&podeOperar({...u.data(),uid:u.id},o)).map(u=>u.id)}
 }
 exports.decidirProposta=onCall({region:REGIAO},async req=>{
   const inicial=await perfil(req);exigir(inicial.papel==='admin')
@@ -47,12 +47,13 @@ exports.decidirProposta=onCall({region:REGIAO},async req=>{
     const revisao=(o?.revisao||0)+1,agora=FieldValue.serverTimestamp(),contato=usuario.data()||{}
     const registro={id:ordemId,propostaId,cliente:a.cliente,clienteNome:a.clienteNome,feiraId:a.feiraId,feira:a.feira||'',organizadoraId:a.organizadoraId||null,modeloId:a.modeloId,modeloNome:a.modeloNome,
       contatoNome:contato.contatoNome||a.contatoNome||'',telefone:contato.telefone||a.telefone||'',localizacao:contato.localizacao||a.localizacao||'',estado:d.decisao==='aprovada'?'liberada':'suspensa',revisao,
-      equipeIds:o?.equipeIds||[],manifesto:m||o?.manifesto||null,arquivoPersonalizado:a.arquivoPersonalizado||null,atualizadoEm:agora,aprovadoPor:req.auth.uid}
+      equipeIds:o?.equipeIds||[],produtorIds:o?.produtorIds||[],atendimentoIds:o?.atendimentoIds||[],manifesto:m||o?.manifesto||null,arquivoPersonalizado:a.arquivoPersonalizado||null,atualizadoEm:agora,aprovadoPor:req.auth.uid}
     if(o)tx.create(ordemRef.collection('revisoes').doc(String(o.revisao)),{...o,arquivadaEm:agora})
     if(o?.propostaId && o.propostaId!==propostaId)tx.set(db.doc(`acessosProducao/${o.propostaId}`),{estado:'substituida'},{merge:true})
-    if(d.decisao==='aprovada'||o)tx.set(db.doc(`acessosProducao/${propostaId}`),{ordemId,estado:registro.estado,feiraId:registro.feiraId,equipeIds:registro.equipeIds})
+    if(d.decisao==='aprovada'||o)tx.set(db.doc(`acessosProducao/${propostaId}`),{ordemId,estado:registro.estado,feiraId:registro.feiraId,equipeIds:registro.equipeIds,produtorIds:registro.produtorIds,atendimentoIds:registro.atendimentoIds})
     if(d.decisao==='aprovada'||o){tx.set(ordemRef,registro);tx.create(ordemRef.collection('eventos').doc(),{acao:d.decisao,autor:req.auth.uid,revisao,motivo:texto(d.motivo,2000),em:agora})}
     tx.update(ref,{decisaoComercial:d.decisao,decisaoMotivo:texto(d.motivo,2000),decisaoEm:agora,decisaoPor:req.auth.uid,...(d.decisao==='aprovada'?{ordemProducaoId:ordemId}:{})})
+    if(usuario.exists)tx.update(usuario.ref,{personalizacaoBloqueada:d.decisao==='aprovada'?{propostaId,modeloId:a.modeloId,feiraId:a.feiraId}:null})
     notificacoes=gravarEvento(tx,evento)
     if(d.decisao==='aprovada')notificacoes.push(...gravarEvento(tx,{...aviso,destinatarios:aviso.destinatarios}))
   })
@@ -68,7 +69,7 @@ exports.operacao=onCall({region:REGIAO},async req=>{
     const ordens=p.papel==='admin'?(await db.collection('ordensProducao').get()).docs:(await Promise.all((p.feiraIds||[]).map(f=>db.collection('ordensProducao').where('feiraId','==',f).get()))).flatMap(s=>s.docs)
     const equipes=(await db.collection('equipesOperacionais').get()).docs.filter(s=>p.papel==='admin'||(s.data().feiraIds||[]).some(f=>(p.feiraIds||[]).includes(f)))
     const usuarios=gestor?(await db.collection('usuarios').get()).docs.filter(s=>PAPEIS.includes(s.data().papel)&&(p.papel==='admin'||(s.data().feiraIds||[]).some(f=>(p.feiraIds||[]).includes(f)))).map(s=>({uid:s.id,nome:s.data().nome,email:s.data().email,papel:s.data().papel,ativo:s.data().ativo,feiraIds:s.data().feiraIds||[],equipeIds:s.data().equipeIds||[]})):[]
-    return {feiras:feiras.map(f=>({id:f.id,nome:f.nome})),ordens:ordens.filter(s=>podeOperar(p,s.data())).map(s=>{const o=s.data();return{id:s.id,propostaId:o.propostaId,clienteNome:o.clienteNome,feira:o.feira,feiraId:o.feiraId,localizacao:o.localizacao,modeloNome:o.modeloNome,revisao:o.revisao,equipeIds:o.equipeIds,atualizadoEm:versao(o.atualizadoEm)}}),equipes:equipes.map(s=>({id:s.id,...s.data()})),usuarios}
+    return {feiras:feiras.map(f=>({id:f.id,nome:f.nome,validacaoAutomatica:f.validacaoAutomatica===true})),ordens:ordens.filter(s=>podeOperar(p,s.data())).map(s=>{const o=s.data();return{id:s.id,propostaId:o.propostaId,clienteNome:o.clienteNome,feira:o.feira,feiraId:o.feiraId,localizacao:o.localizacao,modeloNome:o.modeloNome,revisao:o.revisao,equipeIds:o.equipeIds,atualizadoEm:versao(o.atualizadoEm)}}),equipes:equipes.map(s=>({id:s.id,...s.data()})),usuarios}
   }
   if(d.acao==='equipe'){
     exigir(gestor);const feiraIds=ids(d.feiraIds),membros=ids(d.membros),nome=texto(d.nome)
@@ -122,10 +123,7 @@ exports.operacao=onCall({region:REGIAO},async req=>{
     await revogarLinks(file)
     await db.runTransaction(async tx=>{const u=await perfil(req,tx),atual=await tx.get(pai),reserva=await tx.get(reservaRef),a=atual.data();exigir(tipo==='ordensProducao'?podeOperar(u,a):(['admin','gerente_operacional','analista_operacional'].includes(u.papel)&&(a?.feiraIds||[]).every(f=>podeGerir(u,f))));if(reserva.data()?.usado||r.revisao!==(a.revisao||null))throw new HttpsError('failed-precondition','O destino mudou. Selecione o arquivo novamente.');tx.create(ar,{nome:r.nome,caminho:r.caminho,bytes:r.bytes,mime:r.mime,autor:req.auth.uid,criadoEm:Timestamp.now(),revisao:r.revisao});tx.update(reservaRef,{usado:true})});return{ok:true}
   }
-  if(d.acao==='pendencia'){
-    const ordemRef=db.doc(`ordensProducao/${id(d.ordemId)}`),ref=ordemRef.collection('pendencias').doc(d.id?id(d.id):randomUUID())
-    await db.runTransaction(async tx=>{const u=await perfil(req,tx),s=await tx.get(ordemRef),o=s.data(),antiga=await tx.get(ref);exigir(podeOperar(u,o));if(d.revisao!==o.revisao)throw new HttpsError('failed-precondition','A configuração aprovada mudou. Recarregue antes de registrar.');const a=antiga.data();if(a&&a.revisao!==o.revisao)throw new HttpsError('failed-precondition','Esta pendência pertence à revisão anterior. Registre o serviço na configuração atual.');if(!a){if(!texto(d.descricao,2000)||!(o.equipeIds||[]).includes(d.equipeId))throw new HttpsError('invalid-argument','Informe descrição e uma equipe atribuída ao estande.');exigir(u.papel!=='equipe_producao'||(u.equipeIds||[]).includes(d.equipeId));tx.create(ref,{descricao:texto(d.descricao,2000),equipeId:id(d.equipeId),status:'aberta',autor:req.auth.uid,revisao:o.revisao,criadoEm:Timestamp.now()})}else{exigir(podeGerir(u,o.feiraId)||(u.equipeIds||[]).includes(a.equipeId));if(!['em_execucao','aguardando_validacao','concluida','aberta'].includes(d.status)||d.status===a.status)throw new HttpsError('invalid-argument','Etapa inválida.');const permitidas={aberta:['em_execucao'],em_execucao:['aguardando_validacao'],aguardando_validacao:['concluida','aberta'],concluida:[]};if(!(permitidas[a.status]||[]).includes(d.status))throw new HttpsError('failed-precondition','Siga as etapas de execução e validação.');if(['concluida','aberta'].includes(d.status))exigir(podeGerir(u,o.feiraId));tx.update(ref,{status:d.status,atualizadoPor:req.auth.uid,atualizadoEm:Timestamp.now()})}tx.create(ordemRef.collection('eventos').doc(),{acao:'pendencia',pendenciaId:ref.id,status:d.status||'aberta',autor:req.auth.uid,autorNome:u.nome||'',revisao:o.revisao,em:Timestamp.now()})});const o={...(await ordemRef.get()).data(),id:ordemRef.id},evento=await avisoOperacional(o,req.auth.uid,d.status==='aguardando_validacao'?'Serviço aguarda validação':d.status==='concluida'?'Serviço validado':d.id?'Pendência atualizada':'Nova pendência operacional',`Confira os serviços de ${o.clienteNome}.`);let avisos=[];await db.runTransaction(async tx=>{avisos=gravarEvento(tx,evento)});await entregarEventos(avisos);return{ok:true}
-  }
+  if(['pendencia','reservarFotoPendencia','anexarFotoPendencia','atribuirResponsaveis','notaAnalista','concluirEstande','configurarValidacao','relatorio','validarLote'].includes(d.acao))return require('./pendenciasOperacao').executar(req,{perfil,avisoOperacional})
   throw new HttpsError('invalid-argument','Ação inválida.')
 })
 exports.avisoOperacional=avisoOperacional

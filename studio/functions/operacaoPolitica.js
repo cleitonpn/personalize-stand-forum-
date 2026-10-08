@@ -1,9 +1,11 @@
-const PAPEIS = ['gerente_operacional','analista_operacional','analista_cv','equipe_producao']
+const PAPEIS = ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto']
 const GESTORES = ['admin','gerente_operacional','analista_operacional']
 function podeOperar(p, ordem) {
   if (!p || p.ativo === false || !ordem || ordem.estado !== 'liberada') return false
   if (p.papel === 'admin') return true
   if (!PAPEIS.includes(p.papel) || !ordem.feiraId || !(p.feiraIds || []).includes(ordem.feiraId)) return false
+  if(p.papel==='produtor')return !!p.uid&&(ordem.produtorIds||[]).includes(p.uid)
+  if(p.papel==='atendimento_comercial')return !!p.uid&&(ordem.atendimentoIds||[]).includes(p.uid)
   return p.papel !== 'equipe_producao' || (p.equipeIds || []).some(id => (ordem.equipeIds || []).includes(id))
 }
 function podeGerir(p, feiraId) {

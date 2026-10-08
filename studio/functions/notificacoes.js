@@ -26,9 +26,9 @@ function gravarEvento(tx,evento){
 }
 async function permitido(d){const db=getFirestore(),s=await db.doc(`usuarios/${d.destinatario}`).get(),u=s.data();if(!u||u.ativo===false)return false
   if(u.papel==='admin')return true
-  if(['gerente_operacional','analista_operacional','analista_cv','equipe_producao'].includes(u.papel)){
+  if(['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto'].includes(u.papel)){
     const acesso=d.ordemId?(await db.doc(`ordensProducao/${d.ordemId}`).get()).data():d.propostaId?(await db.doc(`acessosProducao/${d.propostaId}`).get()).data():null
-    return podeOperar(u,acesso)
+    return podeOperar({...u,uid:s.id},acesso)
   }
   if(u.papel==='expositor')return d.cliente===s.id&&(!d.propostaId||(await db.doc(`propostas/${d.propostaId}`).get()).exists)
   if(u.papel!=='organizadora'||!d.organizadoraId||u.organizadoraId!==d.organizadoraId)return false

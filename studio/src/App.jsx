@@ -30,6 +30,7 @@ import Atendimento from './pages/Atendimento.jsx'
 import { ChatFlutuante, ChatAtalho } from './components/ChatCliente.jsx'
 import './styles/producao.css'
 import './styles/operacao.css'
+import RelatoriosOperacao from './pages/RelatoriosOperacao.jsx'
 import Producao from './pages/Producao.jsx'
 import EquipesOperacionais from './pages/EquipesOperacionais.jsx'
 import {ehOperacional,ehGestor,PAPEIS_OPERACIONAIS} from './lib/operacao.js'
@@ -53,9 +54,9 @@ function Topbar() {
       <Link to="/conta" className="btn btn-ghost btn-sm" style={{ fontWeight: 400 }}>{user.email}</Link>
       <SinoNotificacoes/><button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
     </header>
-    {ehOperacional(perfil)&&<nav className="admin-nav" aria-label="Operação"><Link to="/producao">Produção</Link><Link to="/equipes">Equipes e documentos</Link>{perfil.papel==='analista_cv'&&<Link to="/artes">Conferência de artes</Link>}</nav>}
+    {ehOperacional(perfil)&&<nav className="admin-nav" aria-label="Operação"><Link to="/producao">Produção</Link><Link to="/relatorios-producao">Relatórios</Link><Link to="/equipes">Equipes e documentos</Link>{perfil.papel==='analista_cv'&&<Link to="/artes">Conferência de artes</Link>}</nav>}
     {perfil?.papel==='expositor'&&<nav className="cliente-nav" aria-label="Seu projeto"><Link to="/meu-estande" aria-current={pathname==='/meu-estande'?'page':undefined}>Personalizar estande</Link><Link to="/artes" aria-current={pathname.startsWith('/artes')?'page':undefined}>Artes e aprovação</Link><ChatAtalho/></nav>}
-    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/usuarios','Usuários e acessos'],['/producao','Produção'],['/equipes','Equipes'],['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
+    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/usuarios','Usuários e acessos'],['/producao','Produção'],['/relatorios-producao','Relatórios da produção'],['/equipes','Equipes'],['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
   )
 }
 
@@ -117,6 +118,7 @@ function Rotas() {
       <main style={{ flex: 1 }}>
         <Routes>
           <Route path="/usuarios" element={<Protegida exigeAdmin><Usuarios /></Protegida>} />
+          <Route path="/relatorios-producao" element={<Protegida operacional><RelatoriosOperacao /></Protegida>} />
           <Route path="/producao" element={<Protegida operacional><Producao /></Protegida>} />
           <Route path="/producao/:id" element={<Protegida operacional><Producao /></Protegida>} />
           <Route path="/equipes" element={<Protegida operacional><EquipesOperacionais /></Protegida>} />

@@ -1,0 +1,11 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {build} from 'esbuild'
+import {createRequire} from 'node:module'
+import {fileURLToPath} from 'node:url'
+import {createElement} from 'react'
+import {renderToStaticMarkup} from 'react-dom/server'
+const require=createRequire(import.meta.url)
+async function componente(nome){const r=await build({entryPoints:[fileURLToPath(new URL(`../src/components/${nome}.jsx`,import.meta.url))],bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',packages:'external',plugins:[{name:'servicos',setup(b){b.onResolve({filter:/(firebase|comercial)\.js$/},a=>({path:a.path,namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export const db={};export const storage={};export const executarComercial=async()=>({});'}))}}]});const m={exports:{}};new Function('require','module','exports',r.outputFiles[0].text)(require,m,m.exports);return m.exports.default}
+test('informações do estande usam cartões e começam recolhidas, sem tabela larga',async()=>{const C=await componente('ResumoOperacional'),html=renderToStaticMarkup(createElement(C,{manifesto:{moveis:[{id:'a',nome:'Conjunto bistrô',origem:'incluido',transform:{dx:2}}],materiais:[{id:'p',nome:'Parede esquerda',origem:'incluido',arte:true,artePendente:true}]}}));assert.equal((html.match(/<details/g)||[]).length,2);assert.ok(!html.includes('open=""'));assert.ok(!html.includes('<table'));assert.match(html,/Conjunto bistrô/);assert.match(html,/Aguardando arquivo/)})
+test('tela de pendências mostra ações compatíveis com atendimento e analista',async()=>{const C=await componente('PendenciasOperacionais'),props={ordem:{id:'o',revisao:1,equipeIds:['e']},pendencias:[{id:'a',descricao:'Ajustar mesa',status:'em_execucao',especialidade:'mobiliario',revisao:1}],equipes:[]};const atendimento=renderToStaticMarkup(createElement(C,{...props,perfil:{papel:'atendimento_comercial'}}));assert.match(atendimento,/Abrir pendência/);assert.ok(!atendimento.includes('Registrar execução'));const analista=renderToStaticMarkup(createElement(C,{...props,perfil:{papel:'analista_projeto'}}));assert.ok(!analista.includes('Abrir pendência'));assert.match(analista,/Registrar orientação/)})
