@@ -185,7 +185,7 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
     let manifestoProducao
     try{manifestoProducao=require('./operacaoPolitica').manifesto(projeto.data(),{...p,areasArte})}catch(e){throw new HttpsError('invalid-argument',e.message)}
     if(Buffer.byteLength(JSON.stringify(manifestoProducao))>750000)throw new HttpsError('invalid-argument','O registro do projeto excede o limite. Revise o mapeamento.')
-    tx.create(ref,{...p,manifestoProducao,decisaoComercial:'pendente',ordemProducaoId:null,itens:calculado.itens,total,franquia:calculado.franquia,franquiaConfiguracao:prec.arteInclusa||null,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
+    tx.create(ref,{...p,arquivoPersonalizado:{caminho:esperado,url:`https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(arquivo.bucket.name)}/o/${encodeURIComponent(esperado)}?alt=media`,bytes:Number(metadata.size),nomeOriginal:'estande-personalizado.glb'},manifestoProducao,decisaoComercial:'pendente',ordemProducaoId:null,itens:calculado.itens,total,franquia:calculado.franquia,franquiaConfiguracao:prec.arteInclusa||null,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
       organizadoraId:perfil.organizadoraId||null,feiraId:perfil.feiraId||null,feira:perfil.feira||null,
       contatoNome:perfil.contatoNome||'',telefone:perfil.telefone||'',localizacao:perfil.localizacao||'',
       modeloNome:modelo.data().nome,cobranca:org?.data()?.cobranca||'organizadora',status:'recebida',criadoEm:FieldValue.serverTimestamp()})

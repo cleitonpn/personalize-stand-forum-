@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import { doc, getDoc, collection } from 'firebase/firestore'
 import { executarComercial } from '../lib/comercial.js'
 import { db, storage } from '../lib/firebase.js'
-import { ref as arquivoRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { enviarGLBProposta } from '../lib/envioProposta.js'
 import { useTelemetria } from '../lib/useTelemetria.js'
 import { useAuth } from '../store/AuthContext.jsx'
 import { useNapas } from '../store/NapasContext.jsx'
@@ -158,7 +158,6 @@ export default function Expositor() {
     if (enviandoArte || gravando) return
     if(pontosEletricos(escolhas).length&&precoPonto(precos)==null){alert('A equipe precisa liberar o preço dos pontos elétricos. Remova os pontos adicionais para enviar sem eles.');return}
     setGravando(true)
-    let arquivoEnviado=null, registrada=false
     try {
       const publicado=await getDoc(doc(db,'modelos',modelo.id))
       if(!publicado.exists()||!mesmaVersao(publicado.data().atualizadoEm,modelo.atualizadoEm)) {
@@ -170,10 +169,7 @@ export default function Expositor() {
       if(!exportadorRef.current)throw Error('A cena ainda não está pronta. Aguarde e tente novamente.')
       const glb=await exportadorRef.current()
       if(glb.size>=200*1024*1024)throw Error('A personalização ultrapassou o limite de 200 MB para a proposta. Fale com a equipe da USET.')
-      const caminho=`propostas/${user.uid}/${ref.id}/estande.glb`
-      arquivoEnviado=arquivoRef(storage,caminho)
-      await uploadBytes(arquivoEnviado,glb,{contentType:'model/gltf-binary'})
-      const arquivoPersonalizado={caminho,url:await getDownloadURL(arquivoEnviado),bytes:glb.size,nomeOriginal:'estande-personalizado.glb'}
+      const arquivoPersonalizado=await enviarGLBProposta(storage,user.uid,ref.id,glb)
       const envio=await executarComercial('registrarProposta', {id:ref.id,versao:{seconds:modelo.atualizadoEm?.seconds||0,nanoseconds:modelo.atualizadoEm?.nanoseconds||0},proposta:{
         arquivoPersonalizado,
         cliente: user.uid,
@@ -196,11 +192,10 @@ export default function Expositor() {
         itens: orcamento.itens,
         total: orcamento.total,
       }})
-      registrada=true;registrar('envio')
+      registrar('envio')
       setGravado({ id: ref.id, imagem, pendenciasArte,eletrica:{pontos:pontosEletricos(escolhas),limites:limitesGizmo}, itens: envio.orcamento?.itens||orcamento.itens, total: envio.orcamento?.total??orcamento.total,franquia:envio.orcamento?.franquia||orcamento.franquia, complementos: ativas.map(registroComplemento) })
     } catch (ex) {
       registrar('envio_erro')
-      if(arquivoEnviado&&!registrada)try{await deleteObject(arquivoEnviado)}catch{/* O arquivo fica sem proposta; um novo envio usa outro ID. */}
       alert(`Não foi possível gravar: ${ex.message}`)
     } finally {
       setGravando(false)

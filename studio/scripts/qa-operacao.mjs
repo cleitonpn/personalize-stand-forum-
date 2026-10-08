@@ -4,7 +4,8 @@ import {initializeApp,deleteApp} from 'firebase/app'
 import {getAuth,connectAuthEmulator,createUserWithEmailAndPassword,signInWithEmailAndPassword} from 'firebase/auth'
 import {getFirestore,connectFirestoreEmulator,doc,getDoc} from 'firebase/firestore'
 import {getFunctions,connectFunctionsEmulator,httpsCallable} from 'firebase/functions'
-import {getStorage,connectStorageEmulator,ref,uploadBytes,getBytes} from 'firebase/storage'
+import {getStorage,connectStorageEmulator,ref,uploadBytes,getBytes,getDownloadURL} from 'firebase/storage'
+import {enviarGLBProposta} from '../src/lib/envioProposta.js'
 import {readFile} from 'node:fs/promises'
 const senha='SomenteQA2026!',apps=[],stamp=Date.now().toString(),projeto='demo-uset'
 function valor(v){if(v===null)return{nullValue:null};if(Array.isArray(v))return{arrayValue:{values:v.map(valor)}};if(typeof v==='object')return{mapValue:{fields:Object.fromEntries(Object.entries(v).map(([k,x])=>[k,valor(x)]))}};return typeof v==='string'?{stringValue:v}:typeof v==='boolean'?{booleanValue:v}:{doubleValue:v}}
@@ -17,7 +18,19 @@ try{
  const modelo={nome:'Padrão QA',superficies:[{id:'parede',nome:'Parede esquerda',podeArte:true,papel:'bagum',pecas:['p']}],objetos:[{id:'bistro',nome:'Bistrô padrão',pecas:['b']}],complementos:[],artesMedidas:[{id:'parede',nome:'Parede esquerda',confirmada:true,larguraCm:300,alturaCm:250,perfilId:'lona-parede'}]}
  await seed(`modelos/${modeloId}`,modelo)
  const bytes=await readFile(new URL('../dev/qa.local/estande.glb',import.meta.url))
- async function proposta(sufixo){const id=`qa-operacao-${stamp}-${sufixo}`,caminho=`propostas/${cliente.uid}/${id}/estande.glb`;await uploadBytes(ref(cliente.storage,caminho),bytes,{contentType:'model/gltf-binary'});await cliente.call('registrarProposta',{id,proposta:{cliente:cliente.uid,modeloId,feiraId,arquivoPersonalizado:{caminho,url:`https://firebasestorage.googleapis.com/v0/b/demo-uset.appspot.com/o/${encodeURIComponent(caminho)}`},quantidadePersonalizada:1,total:0,itens:[],acabamentos:{parede:{artePendente:true}},areasArte:[{id:'parede',superficieIds:['parede']}]}});return{id,caminho}}
+ async function proposta(sufixo){
+   const id=`qa-operacao-${stamp}-${sufixo}`
+   const arquivoPersonalizado=await enviarGLBProposta(cliente.storage,cliente.uid,id,new Blob([bytes]))
+   const caminho=arquivoPersonalizado.caminho
+   // Reproduz o erro anterior: a leitura antes do registro é proibida.
+   await assert.rejects(getDownloadURL(ref(cliente.storage,caminho)),e=>e.code==='storage/unauthorized')
+   await cliente.call('registrarProposta',{id,proposta:{cliente:cliente.uid,modeloId,feiraId,arquivoPersonalizado,quantidadePersonalizada:1,total:0,itens:[],acabamentos:{parede:{artePendente:true}},areasArte:[{id:'parede',superficieIds:['parede']}]}})
+   const salva=(await getDoc(doc(cliente.db,'propostas',id))).data()
+   assert.equal(salva.arquivoPersonalizado.url,arquivoPersonalizado.url)
+   assert.ok(!salva.arquivoPersonalizado.url.includes('token='))
+   assert.equal((await getBytes(ref(cliente.storage,caminho))).byteLength,bytes.length)
+   return{id,caminho}
+ }
  const p=await proposta('1')
  assert.equal((await gestor.call('operacao',{acao:'listar'})).ordens.length,0)
  await assert.rejects(gestor.call('decidirProposta',{propostaId:p.id,decisao:'aprovada'}))
