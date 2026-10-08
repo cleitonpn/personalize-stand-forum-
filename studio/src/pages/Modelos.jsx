@@ -182,8 +182,7 @@ export default function Modelos() {
             <div className="card card-pad row"><span className="spinner" /><span className="muted">Carregando modelos…</span></div>
           )}
 
-          <label className="field">Franquia de arte prevista (m²)<input className="input" type="number" min="0" max="10000" step="0.01" value={limiteArte} onChange={e=>setLimiteArte(e.target.value)} disabled={enviando}/><small>Depois de mapear o projeto, selecione as áreas e ative a franquia em Preços.</small></label>
-      {erro && (
+          {erro && (
             <div className="card card-pad" style={{ borderColor: 'rgba(244,63,94,.35)' }}>
               <div style={{ color: '#fda4af', fontWeight: 600, marginBottom: 4 }}>Não foi possível carregar</div>
               <div className="muted" style={{ fontSize: 13 }}>{erro}</div>

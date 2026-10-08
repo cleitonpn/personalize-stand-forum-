@@ -24,6 +24,9 @@ export default function ShowreelInicio({ destino, rotulo, aoMudarTema }) {
 
   useEffect(() => {
     const el = palco.current
+    const elementoSecao = secao.current
+    if (!el || !elementoSecao) return
+    let encerrado = false
     const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches
     let temaMotor = 'escuro', temaInformado = null, temaControles = null, capInformado = null
     const motor = montarShowreel(el, {
@@ -34,10 +37,11 @@ export default function ShowreelInicio({ destino, rotulo, aoMudarTema }) {
     if (reduz) { tempo.current = ritmo.duracao; tocar(false); setFim(true) }
 
     const obs = new IntersectionObserver(([e]) => { visivel.current = e.intersectionRatio > .35 }, { threshold: [0, .35, 1] })
-    obs.observe(secao.current)
+    obs.observe(elementoSecao)
 
     let raf, antes = performance.now()
     const quadro = agora => {
+      if (encerrado || !secao.current) return
       raf = requestAnimationFrame(quadro)
       const dt = Math.min(.1, (agora - antes) / 1000); antes = agora
       if (tocandoRef.current && visivel.current && !document.hidden) {
@@ -45,7 +49,7 @@ export default function ShowreelInicio({ destino, rotulo, aoMudarTema }) {
         if (tempo.current >= ritmo.duracao) { tempo.current = ritmo.duracao; tocar(false); setFim(true) }
       }
       const m = ritmo.motor(tempo.current)
-      const r = secao.current.getBoundingClientRect()
+      const r = elementoSecao.getBoundingClientRect()
       const temaTopo = r.bottom < 90 ? 'solido' : temaMotor
       if (temaTopo !== temaInformado) { temaInformado = temaTopo; temaRef.current?.(temaTopo) }
       if (temaMotor !== temaControles) { temaControles = temaMotor; setTema(temaMotor) }
@@ -57,7 +61,7 @@ export default function ShowreelInicio({ destino, rotulo, aoMudarTema }) {
     raf = requestAnimationFrame(quadro)
     const clique = e => { if (e.target.closest('a.sr-cta')) { e.preventDefault(); navigate(destinoRef.current) } }
     el.addEventListener('click', clique)
-    return () => { cancelAnimationFrame(raf); obs.disconnect(); el.removeEventListener('click', clique); motor.destruir() }
+    return () => { encerrado = true; cancelAnimationFrame(raf); obs.disconnect(); el.removeEventListener('click', clique); motor.destruir() }
   }, [rotulo, navigate])
 
   useEffect(() => { const a = palco.current?.querySelector('a.sr-cta'); if (a) a.setAttribute('href', destino) }, [destino])
