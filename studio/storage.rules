@@ -23,6 +23,15 @@ service firebase.storage {
     function ehAdmin() {
       return ativo() && perfil().papel == 'admin';
     }
+    function acessoOperacional(d) {
+      return ativo() && d.get('estado','') == 'liberada' && (ehAdmin()
+        || (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao']
+          && d.get('feiraId','') in perfil().get('feiraIds',[])
+          && (perfil().papel != 'equipe_producao' || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))));
+    }
+    function operacaoProposta(id) {
+      return acessoOperacional(firestore.get(/databases/(default)/documents/acessosProducao/$(id)).data);
+    }
 
     // Mesmo motivo do Firestore: desativado não lê o projeto nem sobe arte.
     function ativo() {
@@ -54,7 +63,7 @@ service firebase.storage {
 
     // Cada envio recebe um arquivo próprio. Propostas enviadas não são sobrescritas.
     match /propostas/{uid}/{propostaId}/estande.glb {
-      allow read: if ehAdmin() || (ativo() && (request.auth.uid == uid
+      allow read: if ativo() && (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao'] ? operacaoProposta(propostaId) : (ehAdmin() || request.auth.uid == uid
         || (perfil().papel == 'organizadora' && firestore.get(/databases/(default)/documents/propostas/$(propostaId)).data.get('organizadoraId','') == perfil().organizadoraId)));
       allow create: if ativo() && request.auth.uid == uid
         && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId))
@@ -71,7 +80,7 @@ service firebase.storage {
     }
     match /producao/{propostaId}/{uploadId}/arquivo {
       function reserva() { return firestore.get(/databases/(default)/documents/artesPropostas/$(propostaId)/uploads/$(uploadId)).data; }
-      allow read: if acessoProposta(propostaId);
+      allow read: if ativo() && (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao'] ? operacaoProposta(propostaId) : acessoProposta(propostaId));
       // A reserva já foi autorizada pela Function. Aqui consultamos somente
       // o perfil e a reserva: Storage permite no máximo dois documentos Firestore.
       allow create: if resource == null && ativo() && reserva().uid == request.auth.uid
@@ -79,10 +88,20 @@ service firebase.storage {
         && request.resource.size == reserva().bytes && request.resource.contentType == reserva().mime
         && ((reserva().tipo == 'arte' && perfil().papel == 'expositor' && request.resource.size <= 300 * 1024 * 1024)
           || (reserva().tipo == 'apoio' && perfil().papel == 'expositor' && request.resource.size <= 30 * 1024 * 1024)
-          || (reserva().tipo == 'prova' && ehAdmin() && request.resource.size <= 30 * 1024 * 1024))
+          || (reserva().tipo == 'prova' && perfil().papel in ['admin','analista_cv'] && request.resource.size <= 30 * 1024 * 1024))
         && request.resource.contentType in ['application/pdf','image/png','image/jpeg','image/svg+xml','application/postscript'];
       // Versões e provas são imutáveis: nem uma aprovação antiga permite
       // substituir silenciosamente o arquivo já aprovado.
+      allow update, delete: if false;
+    }
+    match /operacao/{tipo}/{parentId}/{uploadId} {
+      function destino() { return firestore.get(/databases/(default)/documents/$(tipo)/$(parentId)).data; }
+      function reserva() { return firestore.get(/databases/(default)/documents/uploadsOperacionais/$(uploadId)).data; }
+      allow read: if (tipo == 'ordensProducao' && acessoOperacional(destino()))
+        || (tipo == 'equipesOperacionais' && (ehAdmin() || (ativo() && perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao'] && perfil().get('feiraIds',[]).hasAny(destino().get('feiraIds',[])))));
+      allow create: if ativo() && reserva().uid == request.auth.uid && reserva().tipo == tipo && reserva().parentId == parentId
+        && reserva().usado == false && reserva().expiraEm > request.time
+        && request.resource.size == reserva().bytes && request.resource.size <= 30 * 1024 * 1024 && request.resource.contentType == reserva().mime;
       allow update, delete: if false;
     }
 

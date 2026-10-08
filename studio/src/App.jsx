@@ -28,6 +28,10 @@ import Artes from './pages/Artes.jsx'
 import Atendimento from './pages/Atendimento.jsx'
 import { ChatFlutuante, ChatAtalho } from './components/ChatCliente.jsx'
 import './styles/producao.css'
+import './styles/operacao.css'
+import Producao from './pages/Producao.jsx'
+import EquipesOperacionais from './pages/EquipesOperacionais.jsx'
+import {ehOperacional,ehGestor,PAPEIS_OPERACIONAIS} from './lib/operacao.js'
 
 function Marca() {
   return <Link to="/" className="uset-assinatura" aria-label="USET Studio — início"><LogoUset/><span>STUDIO</span></Link>
@@ -43,17 +47,18 @@ function Topbar() {
       <div className="spacer" />
       <span className="tag">
         <i className="tag-dot" style={{ color: perfil?.papel === 'admin' ? 'var(--brand-green)' : 'var(--text-dim)' }} />
-        {perfil?.papel === 'admin' ? 'Admin' : perfil?.papel === 'organizadora' ? 'Organizadora' : 'Expositor'}
+        {PAPEIS_OPERACIONAIS[perfil?.papel] || (perfil?.papel === 'admin' ? 'Admin' : perfil?.papel === 'organizadora' ? 'Organizadora' : 'Expositor')}
       </span>
       <Link to="/conta" className="btn btn-ghost btn-sm" style={{ fontWeight: 400 }}>{user.email}</Link>
       <SinoNotificacoes/><button className="btn btn-ghost btn-sm" onClick={sair}>Sair</button>
     </header>
+    {ehOperacional(perfil)&&<nav className="admin-nav" aria-label="Operação"><Link to="/producao">Produção</Link><Link to="/equipes">Equipes e documentos</Link>{perfil.papel==='analista_cv'&&<Link to="/artes">Conferência de artes</Link>}</nav>}
     {perfil?.papel==='expositor'&&<nav className="cliente-nav" aria-label="Seu projeto"><Link to="/meu-estande" aria-current={pathname==='/meu-estande'?'page':undefined}>Personalizar estande</Link><Link to="/artes" aria-current={pathname.startsWith('/artes')?'page':undefined}>Artes e aprovação</Link><ChatAtalho/></nav>}
-    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
+    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/producao','Produção'],['/equipes','Equipes'],['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
   )
 }
 
-function Protegida({ children, exigeAdmin, equipe, expositor }) {
+function Protegida({ children, exigeAdmin, equipe, expositor,operacional,gestor }) {
   const { user, perfil, ehAdmin, carregando, recarregarPerfil,erroPerfil } = useAuth()
   if (carregando) {
     return (
@@ -79,7 +84,7 @@ function Protegida({ children, exigeAdmin, equipe, expositor }) {
   }
   if (perfil?.precisaTrocarSenha) return <TrocarSenha aoConcluir={recarregarPerfil} />
   if (perfil.papel === 'expositor' && perfil.cadastroCompleto === false) return <CadastroInicial />
-  if ((exigeAdmin && !ehAdmin) || (equipe && !['admin','organizadora'].includes(perfil.papel)) || (expositor && perfil.papel !== 'expositor')) {
+  if ((exigeAdmin && !ehAdmin) || (operacional&&!ehAdmin&&!ehOperacional(perfil)) || (gestor&&!ehGestor(perfil)) || (equipe && !['admin','organizadora'].includes(perfil.papel)) || (expositor && perfil.papel !== 'expositor')) {
     return (
       <div className="card card-pad" style={{ maxWidth: 460, margin: '80px auto', textAlign: 'center' }}>
         <h2 style={{ fontSize: 18, marginBottom: 8 }}>Acesso restrito</h2>
@@ -98,18 +103,21 @@ function Inicio() {
   if (carregando) return null
   if (!user) return <Navigate to="/" replace />
   if(erroPerfil||!perfil)return <ErroPerfil/>
-  return <Navigate to={ehAdmin || perfil.papel === 'organizadora' ? '/modelos' : '/meu-estande'} replace />
+  return <Navigate to={ehOperacional(perfil)?'/producao':ehAdmin || perfil.papel === 'organizadora' ? '/modelos' : '/meu-estande'} replace />
 }
 
 function Rotas() {
   const {user,ehAdmin,perfil}=useAuth()
   const {pathname}=useLocation()
   return (
-    <div className={`shell ${pathname==='/entrar'||user?'tema-cliente':''} ${user&&(ehAdmin||perfil?.papel==='organizadora')?'tema-admin':''}`}>
+    <div className={`shell ${pathname==='/entrar'||user?'tema-cliente':''} ${user&&(ehAdmin||perfil?.papel==='organizadora'||ehOperacional(perfil))?'tema-admin':''}`}>
       <div className="ambient" />
       <Topbar />
       <main style={{ flex: 1 }}>
         <Routes>
+          <Route path="/producao" element={<Protegida operacional><Producao /></Protegida>} />
+          <Route path="/producao/:id" element={<Protegida operacional><Producao /></Protegida>} />
+          <Route path="/equipes" element={<Protegida operacional><EquipesOperacionais /></Protegida>} />
           <Route path="/" element={<Apresentacao />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/modelos" element={<Protegida equipe><Modelos /></Protegida>} />

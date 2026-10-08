@@ -4,17 +4,21 @@ const {getFirestore,FieldValue,Timestamp}=require('firebase-admin/firestore')
 const {createHash,randomUUID}=require('node:crypto')
 const webpush=require('web-push')
 const {destinoValido,destinatarios,chave}=require('./notificacaoPolitica')
+const {podeOperar}=require('./operacaoPolitica')
+const {getMessaging}=require('firebase-admin/messaging')
 const REGIAO='southamerica-east1'
 async function chaves(){const db=getFirestore(),ref=db.doc('configuracaoPrivada/webpush');return db.runTransaction(async tx=>{const s=await tx.get(ref);if(s.exists)return s.data();const keys=webpush.generateVAPIDKeys();tx.create(ref,keys);return keys})}
 async function prepararEvento(evento){
   const db=getFirestore(),usuarios=[]
   if(evento.alvo==='cliente'){const s=await db.doc(`usuarios/${evento.cliente}`).get();if(s.exists)usuarios.push({id:s.id,...s.data()})}
   else {const [admins,orgs]=await Promise.all([db.collection('usuarios').where('papel','==','admin').get(),evento.organizadoraId?db.collection('usuarios').where('organizadoraId','==',evento.organizadoraId).get():Promise.resolve({docs:[]})]);for(const s of [...admins.docs,...orgs.docs])usuarios.push({id:s.id,...s.data()})}
-  return{...evento,destinatarios:[...new Set(destinatarios(usuarios,evento))]}
+  let operacionais=[]
+  if(evento.alvo==='equipe'&&evento.propostaId){const acesso=(await db.doc(`acessosProducao/${evento.propostaId}`).get()).data();if(acesso){const cvs=await db.collection('usuarios').where('papel','==','analista_cv').get();operacionais=cvs.docs.filter(s=>s.id!==evento.autor&&podeOperar(s.data(),acesso)).map(s=>s.id)}}
+  return{...evento,destinatarios:[...new Set([...destinatarios(usuarios,evento),...operacionais])]}
 }
 function gravarEvento(tx,evento){
   const db=getFirestore(),ids=[]
-  for(const uid of evento.destinatarios){const id=chave(evento.id,uid),dados={destinatario:uid,tipo:evento.tipo,titulo:evento.titulo,corpo:evento.corpo,url:evento.url,cliente:evento.cliente,organizadoraId:evento.organizadoraId||null,propostaId:evento.propostaId||null,lida:false,criadoEm:FieldValue.serverTimestamp()}
+  for(const uid of evento.destinatarios){const id=chave(evento.id,uid),dados={destinatario:uid,tipo:evento.tipo,titulo:evento.titulo,corpo:evento.corpo,url:evento.url,cliente:evento.cliente,organizadoraId:evento.organizadoraId||null,propostaId:evento.propostaId||null,ordemId:evento.ordemId||null,lida:false,criadoEm:FieldValue.serverTimestamp()}
     tx.create(db.doc(`notificacoes/${id}`),dados)
     tx.create(db.doc(`filaPush/${id}`),{...dados,status:'pendente',tentativas:0,proximaEm:Timestamp.now()});ids.push(id)
   }
@@ -22,6 +26,10 @@ function gravarEvento(tx,evento){
 }
 async function permitido(d){const db=getFirestore(),s=await db.doc(`usuarios/${d.destinatario}`).get(),u=s.data();if(!u||u.ativo===false)return false
   if(u.papel==='admin')return true
+  if(['gerente_operacional','analista_operacional','analista_cv','equipe_producao'].includes(u.papel)){
+    const acesso=d.ordemId?(await db.doc(`ordensProducao/${d.ordemId}`).get()).data():d.propostaId?(await db.doc(`acessosProducao/${d.propostaId}`).get()).data():null
+    return podeOperar(u,acesso)
+  }
   if(u.papel==='expositor')return d.cliente===s.id
   if(u.papel!=='organizadora'||!d.organizadoraId||u.organizadoraId!==d.organizadoraId)return false
   if(d.propostaId){const p=await db.doc(`propostas/${d.propostaId}`).get();return p.data()?.organizadoraId===u.organizadoraId}
@@ -37,6 +45,9 @@ async function entregar(id){
     if(devices.empty){await ref.update({status:'sem_dispositivo',leaseAte:null});return}
     const keys=await chaves(),resultados=await Promise.all(devices.docs.map(async s=>{
       if((dados.dispositivosEntregues||[]).includes(s.id))return true
+      if(s.data().plataforma==='android'){
+        try{if(!process.env.FIRESTORE_EMULATOR_HOST)await getMessaging().send({token:s.data().token,notification:{title:dados.titulo,body:dados.corpo},data:{id,titulo:dados.titulo,corpo:dados.corpo,url:dados.url},android:{priority:'high',ttl:86400000}});await s.ref.update({ultimaEntregaEm:FieldValue.serverTimestamp()});await ref.update({dispositivosEntregues:FieldValue.arrayUnion(s.id)});return true}catch(e){if(['messaging/registration-token-not-registered','messaging/invalid-registration-token'].includes(e.code)){await s.ref.delete();return true}return false}
+      }
       if(!destinoValido(s.data().subscription?.endpoint)){await s.ref.delete();return true}
       try{
         if(!process.env.FIRESTORE_EMULATOR_HOST)await webpush.sendNotification(s.data().subscription,JSON.stringify({id,titulo:dados.titulo,corpo:dados.corpo,url:dados.url}),{vapidDetails:{subject:'https://personalizacao-stand.web.app',...keys},timeout:10000,TTL:86400,urgency:'normal',topic:id.slice(0,32)})
@@ -55,6 +66,12 @@ exports.notificacoesUsuario=onCall({region:REGIAO},async req=>{
   const db=getFirestore(),perfil=(await db.doc(`usuarios/${req.auth.uid}`).get()).data(),d=req.data||{}
   if(!perfil||perfil.ativo===false)throw new HttpsError('permission-denied','Acesso desativado.')
   if(d.acao==='chave'){const k=await chaves();return{publicKey:k.publicKey}}
+  if(d.acao==='registrarNativo'){
+    if(d.plataforma!=='android'||typeof d.token!=='string'||!/^[A-Za-z0-9:_-]{80,4096}$/.test(d.token))throw new HttpsError('invalid-argument','Registro Android inválido.')
+    const id=createHash('sha256').update(`android|${d.token}`).digest('hex')
+    await db.doc(`dispositivosPush/${id}`).set({uid:req.auth.uid,plataforma:'android',token:d.token,atualizadoEm:FieldValue.serverTimestamp()})
+    return{id}
+  }
   if(d.acao==='registrar'){
     const s=d.subscription
     if(!destinoValido(s?.endpoint)||!/^[-\w]{85,90}$/.test(s?.keys?.p256dh||'')||!/^[-\w]{20,26}$/.test(s?.keys?.auth||''))throw new HttpsError('invalid-argument','Assinatura push inválida.')

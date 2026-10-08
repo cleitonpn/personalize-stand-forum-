@@ -37,6 +37,31 @@ service cloud.firestore {
       return ativo() && perfil().papel == 'organizadora'
         && dados.get('organizadoraId', '') == perfil().organizadoraId;
     }
+    function acessoOperacional(d) {
+      return ativo() && d.get('estado','') == 'liberada' && (ehAdmin()
+        || (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao']
+          && d.get('feiraId','') in perfil().get('feiraIds',[])
+          && (perfil().papel != 'equipe_producao' || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))));
+    }
+    function operacaoProposta(id) {
+      return acessoOperacional(get(/databases/$(database)/documents/acessosProducao/$(id)).data);
+    }
+    match /ordensProducao/{id} {
+      allow read: if acessoOperacional(resource.data);
+      allow write: if false;
+      match /{document=**} {
+        allow read: if acessoOperacional(get(/databases/$(database)/documents/ordensProducao/$(id)).data);
+        allow write: if false;
+      }
+    }
+    match /equipesOperacionais/{id} {
+      allow read: if ehAdmin() || (ativo() && perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao'] && perfil().get('feiraIds',[]).hasAny(resource.data.get('feiraIds',[])));
+      allow write: if false;
+      match /{document=**} {
+        allow read: if ehAdmin() || (ativo() && perfil().get('feiraIds',[]).hasAny(get(/databases/$(database)/documents/equipesOperacionais/$(id)).data.feiraIds));
+        allow write: if false;
+      }
+    }
     function contatoValido(d) {
       return d.contatoNome is string && d.contatoNome.size() > 0 && d.contatoNome.size() <= 180
         && d.telefone is string && d.telefone.size() >= 10 && d.telefone.size() <= 30
@@ -74,7 +99,8 @@ service cloud.firestore {
     match /propostas/{propostaId} {
       allow read:   if ativo() && (resource.data.cliente == request.auth.uid || ehAdmin() || organizadoraDo(resource.data));
       allow create: if false;
-      allow update, delete: if ehAdmin();
+      allow update: if false;
+      allow delete: if ehAdmin();
     }
 
     // Modelos de estande: qualquer autenticado consulta (o expositor precisa
@@ -117,7 +143,7 @@ service cloud.firestore {
 
     function acessoProposta(id) {
       let p = get(/databases/$(database)/documents/propostas/$(id)).data;
-      return ativo() && (p.cliente == request.auth.uid || ehAdmin() || organizadoraDo(p));
+      return ativo() && (p.cliente == request.auth.uid || ehAdmin() || organizadoraDo(p) || operacaoProposta(id));
     }
     match /artesPropostas/{id} {
       allow read: if acessoProposta(id);

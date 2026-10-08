@@ -2,7 +2,7 @@
 // Nenhum resultado enviado pelo navegador libera produção.
 const EDITAVEIS = ['aguardando','devolvida','reprovada','contestada','recebida']
 function transicao(area, acao, papel, dados={}) {
-  const admin=papel==='admin', cliente=papel==='expositor'
+  const admin=['admin','analista_cv'].includes(papel), cliente=papel==='expositor'
   const exigir=(cond,mensagem)=>{if(!cond)throw Error(mensagem)}
   if(acao==='configurar'){
     exigir(admin,'Somente o admin confere medidas.')

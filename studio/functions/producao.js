@@ -4,20 +4,22 @@ const {getStorage}=require('firebase-admin/storage')
 const {randomUUID,createHash}=require('node:crypto')
 const {revogarLinks}=require('./acessos')
 const {transicao}=require('./producaoEstado')
+const {podeOperar,podeCV}=require('./operacaoPolitica')
 const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
 const REGIAO='southamerica-east1'
 const id=(v)=>{if(typeof v!=='string'||!v||v.length>180||v.includes('/'))throw new HttpsError('invalid-argument','Identificador inválido.');return v}
 const {arquivosApoio}=require('./apoio')
 const limpo=(v,max=2000)=>String(v||'').trim().slice(0,max)
-function podeLer(perfil,uid,p){return perfil&&perfil.ativo!==false&&(perfil.papel==='admin'||(perfil.papel==='expositor'&&p.cliente===uid)||(perfil.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===p.organizadoraId))}
+function podeLer(perfil,uid,p,acesso){return perfil&&perfil.ativo!==false&&(perfil.papel==='admin'||(perfil.papel==='expositor'&&p.cliente===uid)||(perfil.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===p.organizadoraId)||podeOperar(perfil,acesso))}
 async function contexto(req){
   if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
   const db=getFirestore(),propostaId=id(req.data?.propostaId)
   const [u,p]=await Promise.all([db.doc(`usuarios/${req.auth.uid}`).get(),db.doc(`propostas/${propostaId}`).get()])
-  if(!p.exists||!podeLer(u.data(),req.auth.uid,p.data()))throw new HttpsError('permission-denied','Proposta indisponível para esta conta.')
+  const acesso=await db.doc(`acessosProducao/${propostaId}`).get()
+  if(!p.exists||!podeLer(u.data(),req.auth.uid,p.data(),acesso.data()))throw new HttpsError('permission-denied','Proposta indisponível para esta conta.')
   return{db,u,p,perfil:u.data(),propostaId,ref:db.doc(`artesPropostas/${propostaId}`)}
 }
-async function validarContexto(tx,c,req){const [u,p]=await Promise.all([tx.get(c.u.ref),tx.get(c.p.ref)]);if(!p.exists||!podeLer(u.data(),req.auth.uid,p.data()))throw new HttpsError('permission-denied','Seu acesso mudou.');return u.data()}
+async function validarContexto(tx,c,req){const [u,p,a]=await Promise.all([tx.get(c.u.ref),tx.get(c.p.ref),tx.get(c.db.doc(`acessosProducao/${c.propostaId}`))]);if(!p.exists||!podeLer(u.data(),req.auth.uid,p.data(),a.data()))throw new HttpsError('permission-denied','Seu acesso mudou.');return u.data()}
 function limparRelatorio(r){
   if(!r||!['aprovado','ressalva','reprovado'].includes(r.veredicto))throw new HttpsError('invalid-argument','Análise inválida.')
   return {origem:'analise_local_informativa',veredicto:r.veredicto,escalaFator:[1,2,4,10].includes(r.escalaFator)?r.escalaFator:1,
@@ -54,11 +56,11 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
     });return{ok:true}
   }
   if(acao==='prazo'){
-    if(c.perfil.papel!=='admin')throw new HttpsError('permission-denied','Somente o admin define o prazo.')
+    if(!podeCV(c.perfil,c.p.data().feiraId))throw new HttpsError('permission-denied','Somente admin ou CV da feira define o prazo.')
     const prazo=d.prazo?new Date(d.prazo):null
     if(prazo&&!Number.isFinite(prazo.getTime()))throw new HttpsError('invalid-argument','Prazo inválido.')
     const evento=await prepararEvento({id:randomUUID(),alvo:'cliente',autor:req.auth.uid,cliente:c.p.data().cliente,organizadoraId:c.p.data().organizadoraId,propostaId:c.propostaId,tipo:'prazo_arte',titulo:'Prazo de envio de artes atualizado',corpo:'Consulte o prazo atualizado na área de artes do seu estande.',url:`/artes/${c.propostaId}`});let ids=[]
-    await c.db.runTransaction(async tx=>{const perfil=await validarContexto(tx,c,req);if(perfil.papel!=='admin')throw new HttpsError('permission-denied','Acesso restrito.');const s=await tx.get(c.ref);if(!s.exists)throw new HttpsError('failed-precondition','Abra as artes da proposta primeiro.');if((s.data().prazo?.toMillis()||null)===(prazo?.getTime()||null))return;tx.update(c.ref,{prazo:prazo?Timestamp.fromDate(prazo):null});ids=gravarEvento(tx,evento)});await entregarEventos(ids);return{ok:true}
+    await c.db.runTransaction(async tx=>{const perfil=await validarContexto(tx,c,req);if(!podeCV(perfil,c.p.data().feiraId))throw new HttpsError('permission-denied','Acesso restrito.');const s=await tx.get(c.ref);if(!s.exists)throw new HttpsError('failed-precondition','Abra as artes da proposta primeiro.');if((s.data().prazo?.toMillis()||null)===(prazo?.getTime()||null))return;tx.update(c.ref,{prazo:prazo?Timestamp.fromDate(prazo):null});ids=gravarEvento(tx,evento)});await entregarEventos(ids);return{ok:true}
   }
   if(['reservarApoio','enviarApoio'].includes(acao))return arquivosApoio(c,req,validarContexto)
   const areaId=id(d.areaId),areaRef=c.ref.collection('areas').doc(areaId)
@@ -79,10 +81,18 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
   const tipos={configurar:['gabarito_liberado','Gabarito liberado','As medidas de uma área foram confirmadas. Você já pode preparar e enviar a arte.'],enviar:['arte_nova','Nova arte recebida','Um expositor enviou uma nova versão da arte para conferência.'],prova:['prova_nova','Nova prova para aprovação','A prova da sua arte está pronta. Confira e aprove ou peça ajustes.'],devolver:['arte_reprovada','Sua arte precisa de ajustes','A produção deixou uma orientação para corrigir o arquivo.'],responder:[d.aprovar?'prova_aprovada':'prova_reprovada',d.aprovar?'Cliente aprovou a prova':'Cliente pediu ajustes na prova','Consulte a decisão do cliente na área de artes.'],impressao:['arte_producao','Produção da arte atualizada',d.status==='impressa'?'Sua arte foi marcada como impressa.':'Sua arte entrou em impressão.']}
   const descricao=tipos[acao],eventoId=randomUUID()
   const evento=descricao?await prepararEvento({id:eventoId,alvo:['enviar','responder'].includes(acao)?'equipe':'cliente',autor:req.auth.uid,cliente:c.p.data().cliente,organizadoraId:c.p.data().organizadoraId,propostaId:c.propostaId,tipo:descricao[0],titulo:descricao[1],corpo:descricao[2],url:`/artes/${c.propostaId}`}):null
-  let avisos=[]
+  let avisos=[],avisoOperacao=null
+  if(acao==='impressao'){
+    const acesso=(await c.db.doc(`acessosProducao/${c.propostaId}`).get()).data()
+    if(acesso?.estado==='liberada'){const o=await c.db.doc(`ordensProducao/${acesso.ordemId}`).get();if(o.exists)avisoOperacao=await require('./operacao').avisoOperacional({...o.data(),id:o.id},req.auth.uid,d.status==='impressa'?'Arte impressa':'Arte em impressão',`A comunicação visual atualizou uma peça de ${o.data().clienteNome}.`)}
+  }
   await c.db.runTransaction(async tx=>{
     const perfil=await validarContexto(tx,c,req),s=await tx.get(areaRef),workspace=await tx.get(c.ref),a=s.data()
     if(!a)throw new HttpsError('not-found','Área não encontrada.')
+    if(acao==='impressao'){
+      const acesso=await tx.get(c.db.doc(`acessosProducao/${c.propostaId}`))
+      if((c.p.data().manifestoProducao||acesso.exists)&&acesso.data()?.estado!=='liberada')throw new HttpsError('failed-precondition','A proposta precisa estar aprovada e liberada para produção antes da impressão.')
+    }
     const apoios=acao==='logoPronto'?await tx.get(c.ref.collection('apoio').where('categoria','==','logo')):null
     if(apoios?.empty)throw new HttpsError('failed-precondition','O cliente precisa enviar um logo nos arquivos de apoio primeiro.')
     let reserva=null;if(envio)reserva=await tx.get(envio.reservaRef)
@@ -108,6 +118,7 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
     tx.update(areaRef,{...patch,atualizadoEm:FieldValue.serverTimestamp()})
     tx.create(areaRef.collection('eventos').doc(),{acao,autor:req.auth.uid,papel:perfil.papel,versao:patch.versao??a.versao,revisao:patch.revisao??a.revisao,prova:prova||null,motivo:limpo(d.motivo),aprovou:d.aprovar===true,em:FieldValue.serverTimestamp()})
     if(evento)avisos=gravarEvento(tx,evento)
+    if(avisoOperacao)avisos.push(...gravarEvento(tx,avisoOperacao))
   });await entregarEventos(avisos);return{ok:true}
 })
 

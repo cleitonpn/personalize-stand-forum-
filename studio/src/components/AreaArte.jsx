@@ -11,7 +11,7 @@ import ArquivoProducao from './ArquivoProducao.jsx'
 function Relatorio({relatorio}){return relatorio&&<details className="arte-laudo" open={relatorio.veredicto!=='aprovado'}><summary>{relatorio.veredicto==='aprovado'?'Conferência automática: dentro dos critérios':relatorio.veredicto==='ressalva'?'Conferência automática: pontos de atenção':'Conferência automática: ajustes necessários'} · escala 1:{relatorio.escalaFator}</summary><p>A análise técnica ajuda a conferir o arquivo. A aprovação para impressão depende da prova.</p>{relatorio.achados?.map((a,i)=><div key={i} className={`arte-achado ${a.nivel}`}><strong>{a.titulo}</strong><p>{a.detalhe}</p></div>)}</details>}
 
 export default function AreaArte({area,propostaId,papel,prazoVencido}){
-  const admin=papel==='admin',cliente=papel==='expositor',perfil=perfilDaArea(area,PERFIS_PADRAO)
+  const admin=['admin','analista_cv'].includes(papel),cliente=papel==='expositor',perfil=perfilDaArea(area,PERFIS_PADRAO)
   const [aberta,setAberta]=useState(false),[ocupado,setOcupado]=useState(false),[erro,setErro]=useState(''),[mensagem,setMensagem]=useState('')
   const [largura,setLargura]=useState(area.larguraCm),[altura,setAltura]=useState(area.alturaCm),[perfilId,setPerfilId]=useState(area.perfilId)
   const [sangria,setSangria]=useState(perfil.sangriaMm),[margem,setMargem]=useState(perfil.margemMm)

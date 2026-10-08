@@ -1,4 +1,5 @@
 import LiberarProposta from '../components/LiberarProposta.jsx'
+import DecisaoProposta from '../components/DecisaoProposta.jsx'
 import { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
@@ -117,6 +118,7 @@ export default function Propostas() {
                   <a className="btn" href={`mailto:${p.clienteEmail}`}>Entrar em contato com o expositor</a>
                   <p>{p.cobranca==='montadora'?'Pagamento direto à montadora após aprovação do valor.':'Proposta para contato e negociação com o expositor.'}</p>
                   <LiberarProposta proposta={p} ehAdmin={ehAdmin}/>
+                  {ehAdmin&&<DecisaoProposta proposta={p} aoAtualizar={async()=>setLista(await listarComercial('propostas',perfil))}/>}
                   {p.organizadoraId&&<PagamentoProposta proposta={p} ehAdmin={ehAdmin}/>}
                   {pontosEletricos({_eletrica:p.eletrica?.pontos}).length>0&&<section><h4>Pontos elétricos adicionais</h4><ol>{p.eletrica.pontos.map(pt=><li key={pt.id}>{pt.uso||'Uso a informar'} · {pt.tensao||'A confirmar'} · {posicaoPonto(pt,p.eletrica.limites)}</li>)}</ol></section>}
                 </>
