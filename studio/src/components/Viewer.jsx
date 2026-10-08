@@ -715,7 +715,7 @@ export default function Viewer({
   indice, acabamentos, supFoco, objetos: objetosConfigurados, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, aoTransformarExtra, compararOriginal=false, focoCamera, marcadores=[], objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
   aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco, complementos = [], aoPosicionar,
-  pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,exportadorRef,
+  pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,exportadorRef,capturasRef,capturasProducao=false,
 }) {
   const analiseMovimento = useMemo(() => {
     if (!cena) return null
@@ -854,7 +854,7 @@ export default function Viewer({
 
       <FocarElemento cena={cena} pedido={focoCamera} recorte={recorte}/>
       {!compararOriginal&&<NumerosElementos cena={cena} marcadores={marcadores}/>}
-      <CapturasCliente cena={cena} recorte={recorte}/>
+      <CapturasCliente cena={cena} recorte={recorte} capturasRef={capturasRef} producao={capturasProducao}/>
       {!compararOriginal&&<PontosEletricos pontos={pontosEletricos} limites={limitesEletrica} altura={alturaEletrica} modo={modoEletrica} aoMarcar={aoMarcarEletrica}/>}
       <Exposicao valor={exposicao} />
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />

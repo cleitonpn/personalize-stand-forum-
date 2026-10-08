@@ -1,0 +1,46 @@
+name: APK USET Produção
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: studio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Configurar Firebase Android
+        env:
+          ANDROID_FIREBASE_CONFIG: ${{ secrets.FIREBASE_ANDROID_GOOGLE_SERVICES }}
+        run: |
+          if [ -z "$ANDROID_FIREBASE_CONFIG" ]; then
+            echo "Cadastre o app Android br.com.uset.producao no Firebase e configure FIREBASE_ANDROID_GOOGLE_SERVICES antes de gerar o APK com push."
+            exit 1
+          fi
+          printf '%s' "$ANDROID_FIREBASE_CONFIG" > android/app/google-services.json
+      - run: npx cap sync android
+      - name: Gerar APK para homologação
+        working-directory: studio/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uset-producao-homologacao
+          path: studio/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

@@ -14,6 +14,8 @@ const { getFirestore } = require('firebase-admin/firestore')
 initializeApp()
 
 exports.artesProposta = require('./producao').artesProposta
+exports.operacao = require('./operacao').operacao
+exports.decidirProposta = require('./operacao').decidirProposta
 exports.conversaCliente = require('./conversas').conversaCliente
 const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
 exports.notificacoesUsuario=require('./notificacoes').notificacoesUsuario
@@ -175,7 +177,10 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
     const linhas=(p.itens||[]).map(original=>{const i={...original,tipoPersonalizacao:null},s=superficies.find(s=>s.id===i.id),acab=p.acabamentos?.[i.id];if(s?.podeArte&&(acab?.arte||acab?.artePendente)&&!acab.removido){const regra=prec.itens?.[s.id]?.arte||prec[s.papel],area=prec.metragensArte?.[s.id];if(Number.isFinite(area)&&regra?.unidade==='m2')return {...i,tipoPersonalizacao:'arte',unidade:'m2',quantidade:area,valorUnitario:regra.valor,total:area*regra.valor,detalhe:('Arte em '+s.nome)}}return i})
     for(const a of areasArte){for(const sid of a.superficieIds){const s=superficies.find(s=>s.id===sid),regra=prec.itens?.[sid]?.arte||prec[s.papel],area=prec.metragensArte?.[sid];if(p.acabamentos?.[sid]?.removido||!(p.acabamentos?.[sid]?.arte||p.acabamentos?.[sid]?.artePendente))continue;if(Number.isFinite(area)&&regra?.unidade==='m2'&&!linhas.some(i=>i.id===sid))linhas.push({id:sid,grupo:'superficie',nome:s.nome,detalhe:'Arte em '+s.nome,tipoPersonalizacao:'arte',unidade:'m2',quantidade:area,valorUnitario:regra.valor,total:area*regra.valor})}}
     const calculado=aplicarFranquia(linhas,prec.arteInclusa),total=!Array.isArray(p.itens)&&!calculado.itens.length?p.total:calculado.itens.reduce((n,i)=>n+i.total,0)
-    tx.create(ref,{...p,itens:calculado.itens,total,franquia:calculado.franquia,franquiaConfiguracao:prec.arteInclusa||null,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
+    let manifestoProducao
+    try{manifestoProducao=require('./operacaoPolitica').manifesto(projeto.data(),{...p,areasArte})}catch(e){throw new HttpsError('invalid-argument',e.message)}
+    if(Buffer.byteLength(JSON.stringify(manifestoProducao))>750000)throw new HttpsError('invalid-argument','O registro do projeto excede o limite. Revise o mapeamento.')
+    tx.create(ref,{...p,manifestoProducao,decisaoComercial:'pendente',ordemProducaoId:null,itens:calculado.itens,total,franquia:calculado.franquia,franquiaConfiguracao:prec.arteInclusa||null,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
       organizadoraId:perfil.organizadoraId||null,feiraId:perfil.feiraId||null,feira:perfil.feira||null,
       contatoNome:perfil.contatoNome||'',telefone:perfil.telefone||'',localizacao:perfil.localizacao||'',
       modeloNome:modelo.data().nome,cobranca:org?.data()?.cobranca||'organizadora',status:'recebida',criadoEm:FieldValue.serverTimestamp()})

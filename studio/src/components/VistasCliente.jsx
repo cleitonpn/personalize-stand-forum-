@@ -34,7 +34,7 @@ export function FocarElemento({ cena, pedido, recorte }) {
 export function NumerosElementos({cena,marcadores=[]}) {
   return marcadores.map(m=>{const b=caixaVisivel(cena,m.pecas);if(b.isEmpty())return null;return <Html key={m.numero} position={b.getCenter(new THREE.Vector3()).toArray()} center style={{pointerEvents:'none'}}><span className="numero-no-estande">{m.numero}</span></Html>})
 }
-export function CapturasCliente({cena,recorte}) {
+export function CapturasCliente({cena,recorte,capturasRef,producao=false}) {
   const {scene,camera,gl}=useThree()
   useEffect(()=>{
     const capturar=()=>{
@@ -43,16 +43,19 @@ export function CapturasCliente({cena,recorte}) {
       if(recorte){b.min.x=Math.min(recorte.x0,recorte.x1);b.max.x=Math.max(recorte.x0,recorte.x1);b.min.z=Math.min(recorte.z0,recorte.z1);b.max.z=Math.max(recorte.z0,recorte.z1)}
       const c=b.getCenter(new THREE.Vector3()),t=b.getSize(new THREE.Vector3())
       const d=t.length()/Math.sin(THREE.MathUtils.degToRad(camera.fov)/2)*Math.max(1,1/camera.aspect)*.65
-      try{return [['Frente',[0,.1,1]],['Lateral esquerda',[-1,.1,0]],['Lateral direita',[1,.1,0]],['Vista de cima',[0,1,.001]]].map(([nome,v])=>{
-        const foto=camera.clone();foto.position.copy(c).add(new THREE.Vector3(...v).multiplyScalar(d));foto.lookAt(c);foto.near=.01;foto.far=Math.max(100,d*20);foto.updateProjectionMatrix()
+      const vistas=producao?[['Frente',[0,0,1]],['Elevação lateral',[-1,0,0]],['Planta baixa',[0,1,.001]],['Isométrica',[1,1,1]]]:[['Frente',[0,.1,1]],['Lateral esquerda',[-1,.1,0]],['Lateral direita',[1,.1,0]],['Vista de cima',[0,1,.001]]]
+      try{return vistas.map(([nome,v])=>{
+        const raio=t.length()*.55,aspect=camera.aspect
+        const foto=producao?new THREE.OrthographicCamera(-raio*Math.max(1,aspect),raio*Math.max(1,aspect),raio*Math.max(1,1/aspect),-raio*Math.max(1,1/aspect),.01,Math.max(100,d*20)):camera.clone();foto.position.copy(c).add(new THREE.Vector3(...v).multiplyScalar(d));foto.lookAt(c);foto.near=.01;foto.far=Math.max(100,d*20);foto.updateProjectionMatrix()
         gl.render(scene,foto)
         const canvas=document.createElement('canvas');canvas.width=640;canvas.height=Math.round(640/camera.aspect)
-        const ctx=canvas.getContext('2d');ctx.fillStyle='#5d6b8b';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(gl.domElement,0,0,canvas.width,canvas.height)
+        const ctx=canvas.getContext('2d');ctx.fillStyle=producao?'#e5e9dc':'#5d6b8b';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(gl.domElement,0,0,canvas.width,canvas.height)
         return {nome,url:canvas.toDataURL('image/jpeg',.8)}
       })}finally{gl.render(scene,camera)}
     }
     window.__psfVistas=capturar
-    return()=>{if(window.__psfVistas===capturar)delete window.__psfVistas}
-  },[cena,recorte,scene,camera,gl])
+    if(capturasRef)capturasRef.current=capturar
+    return()=>{if(window.__psfVistas===capturar)delete window.__psfVistas;if(capturasRef?.current===capturar)capturasRef.current=null}
+  },[cena,recorte,scene,camera,gl,capturasRef,producao])
   return null
 }
