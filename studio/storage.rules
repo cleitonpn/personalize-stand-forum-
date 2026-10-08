@@ -63,14 +63,12 @@ service firebase.storage {
 
     // Cada envio recebe um arquivo próprio. Propostas enviadas não são sobrescritas.
     match /propostas/{uid}/{propostaId}/estande.glb {
-      allow read: if ativo() && (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao'] ? operacaoProposta(propostaId) : (ehAdmin() || request.auth.uid == uid
-        || (perfil().papel == 'organizadora' && firestore.get(/databases/(default)/documents/propostas/$(propostaId)).data.get('organizadoraId','') == perfil().organizadoraId)));
-      allow create: if ativo() && request.auth.uid == uid
+      allow read: if ativo() && (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao'] ? operacaoProposta(propostaId) : (ehAdmin() || acessoProposta(propostaId)));
+      allow create: if resource == null && ativo() && request.auth.uid == uid
         && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId))
         && request.resource.size < 200 * 1024 * 1024
         && request.resource.contentType == 'model/gltf-binary';
-      allow delete: if ativo() && request.auth.uid == uid
-        && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId));
+      allow delete: if false; // Preserva GLB de propostas na lixeira.
     }
 
     function acessoProposta(id) {

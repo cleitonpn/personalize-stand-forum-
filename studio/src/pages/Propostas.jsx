@@ -1,5 +1,6 @@
 import LiberarProposta from '../components/LiberarProposta.jsx'
 import DecisaoProposta from '../components/DecisaoProposta.jsx'
+import LixeiraPropostas from '../components/LixeiraPropostas.jsx'
 import { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
@@ -8,7 +9,7 @@ import { gerarPropostaHTML } from '../lib/proposta.js'
 import { posicaoPonto,pontosEletricos } from '../lib/eletrica.js'
 import Proposta3D from '../components/Proposta3D.jsx'
 import { useAuth } from '../store/AuthContext.jsx'
-import { listarComercial } from '../lib/comercial.js'
+import { listarComercial, executarComercial } from '../lib/comercial.js'
 import PagamentoProposta from '../components/PagamentoProposta.jsx'
 import {Link} from 'react-router-dom'
 
@@ -21,6 +22,14 @@ export default function Propostas() {
   const [lista, setLista] = useState(null)
   const [erro, setErro] = useState(null)
   const [aberta, setAberta] = useState(null)
+  const [excluindo,setExcluindo]=useState(null)
+  const [versaoLixeira,setVersaoLixeira]=useState(0)
+  const carregar=async()=>setLista(await listarComercial('propostas',perfil))
+  async function excluir(p) {
+    if(!window.confirm(`Excluir a proposta de ${p.clienteNome}? Ela irá para a lixeira e o acesso da produção será suspenso. Você poderá restaurar o envio depois.`))return
+    setExcluindo(p.id);setErro(null)
+    try{await executarComercial('gerenciarPropostasAdmin',{acao:'excluir',propostaId:p.id});setLista(l=>l.filter(x=>x.id!==p.id));setAberta(null);setVersaoLixeira(v=>v+1)}catch(e){setErro(e.message)}finally{setExcluindo(null)}
+  }
 
   useEffect(() => {
     (async () => {
@@ -76,6 +85,7 @@ export default function Propostas() {
         </div>
       )}
 
+      {ehAdmin&&<LixeiraPropostas key={versaoLixeira} aoAtualizar={carregar}/>}
       <div className="col" style={{ gap: 12 }}>
         {lista?.map((p, i) => {
           const open = aberta === p.id
@@ -94,6 +104,7 @@ export default function Propostas() {
                     {fmtBRL(p.total)}
                   </span>
                   <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); abrirPDF(p) }}>PDF</button>
+                  {ehAdmin&&<button className="btn btn-sm btn-danger" disabled={excluindo!==null} onClick={e=>{e.stopPropagation();excluir(p)}}>{excluindo===p.id?'Excluindo…':'Excluir'}</button>}
                 </div>
               </div>
 

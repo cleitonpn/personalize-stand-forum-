@@ -99,6 +99,7 @@ exports.operacao=onCall({region:REGIAO},async req=>{
     for(const f of feiraIds)if(!(await db.doc(`feiras/${f}`).get()).exists)throw new HttpsError('invalid-argument','Feira não encontrada.')
     let usuario,criado=false
     try{usuario=await getAuth().getUserByEmail(email);const existente=(await db.doc(`usuarios/${usuario.uid}`).get()).data();if(existente&&!PAPEIS.includes(existente.papel))throw new HttpsError('failed-precondition','Este e-mail já pertence a outro tipo de acesso.')}catch(e){if(e.code!=='auth/user-not-found')throw e;usuario=await getAuth().createUser({email,displayName:nome});criado=true}
+    if(!criado){await getAuth().updateUser(usuario.uid,{disabled:d.ativo===false});if(d.ativo===false)await getAuth().revokeRefreshTokens(usuario.uid)}
     try{const convite=await getAuth().generatePasswordResetLink(email);await db.doc(`usuarios/${usuario.uid}`).set({nome,email,papel,feiraIds,ativo:d.ativo!==false,...(criado?{equipeIds:[]}:{}),precisaTrocarSenha:false,atualizadoEm:Timestamp.now()},{merge:true});await db.collection('emailsSaida').add({para:email,tipo:'convite_operacional',status:'pendente_integracao',texto:`Olá, ${nome}. Seu acesso à produção USET foi cadastrado. Defina sua senha: ${convite}`,criadoEm:Timestamp.now()});return{uid:usuario.uid,convite}}catch(e){if(criado){await db.doc(`usuarios/${usuario.uid}`).delete().catch(()=>{});await getAuth().deleteUser(usuario.uid).catch(()=>{})}throw e}
   }
   if(['reservarAnexo','anexar','removerAnexo'].includes(d.acao)){

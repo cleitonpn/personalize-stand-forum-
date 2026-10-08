@@ -3,6 +3,7 @@ import { doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { db, auth } from '../lib/firebase.js'
 import { excluirExpositorTotal, definirSenhaProvisoria, SEM_FUNCTIONS } from '../lib/funcoes.js'
+import { executarComercial } from '../lib/comercial.js'
 
 /**
  * Gestão de um expositor.
@@ -50,13 +51,13 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
     'Dados atualizados.')
 
   const alternarAtivo = () => executar(
-    () => updateDoc(doc(db, 'usuarios', cliente.id), { ativo: !ativo }),
+    () => executarComercial('administrarUsuarios', { acao:'acesso', uid:cliente.id, ativo:!ativo }),
     ativo ? 'Acesso desativado.' : 'Acesso reativado.')
 
   const redefinir = () => executar(
     async () => {
-      await sendPasswordResetEmail(auth, cliente.email)
-      await updateDoc(doc(db, 'usuarios', cliente.id), { precisaTrocarSenha: true })
+      const r=await executarComercial('administrarUsuarios',{acao:'redefinir',uid:cliente.id})
+      await sendPasswordResetEmail(auth, r.email)
     },
     `Link de redefinição enviado para ${cliente.email}.`)
 

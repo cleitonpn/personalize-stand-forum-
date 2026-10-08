@@ -16,6 +16,8 @@ initializeApp()
 exports.artesProposta = require('./producao').artesProposta
 exports.operacao = require('./operacao').operacao
 exports.decidirProposta = require('./operacao').decidirProposta
+exports.administrarUsuarios = require('./admin').administrarUsuarios
+exports.gerenciarPropostasAdmin = require('./admin').gerenciarPropostasAdmin
 exports.conversaCliente = require('./conversas').conversaCliente
 const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
 exports.notificacoesUsuario=require('./notificacoes').notificacoesUsuario
@@ -137,6 +139,7 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
   if(typeof id!=='string'||!id||id.includes('/')||!p||p.modeloId!==perfil.modeloId||p.cliente!==req.auth.uid||(p.organizadoraId||null)!==(perfil.organizadoraId||null)||(p.feiraId||null)!==(perfil.feiraId||null))throw new HttpsError('permission-denied','Seu vínculo mudou. Recarregue o projeto antes de enviar.')
   if(!Number.isFinite(p.total)||p.total<0||!Number.isInteger(p.quantidadePersonalizada)||p.quantidadePersonalizada<0||p.quantidadePersonalizada>10000)throw new HttpsError('invalid-argument','Proposta inválida.')
   const ref=db.doc(`propostas/${id}`),existente=await ref.get()
+  if((await db.doc(`propostasExcluidas/${id}`).get()).exists)throw new HttpsError('failed-precondition','Este envio foi excluído pelo admin. Envie uma nova proposta.')
   if(existente.exists){if(existente.data().cliente!==req.auth.uid)throw new HttpsError('permission-denied','Envio indisponível.');return{id,orcamento:{itens:existente.data().itens||[],total:existente.data().total,franquia:existente.data().franquia||null}}}
   const modelo=await db.doc(`modelos/${perfil.modeloId}`).get()
   if(!modelo.exists)throw new HttpsError('failed-precondition','Projeto indisponível.')
@@ -150,6 +153,8 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
   let avisos=[]
   await db.runTransaction(async tx=>{
     const atual=await tx.get(ref),usuario=await tx.get(u.ref),projeto=await tx.get(modelo.ref)
+    const excluida=await tx.get(db.doc(`propostasExcluidas/${id}`))
+    if(excluida.exists)throw new HttpsError('failed-precondition','Este envio foi excluído pelo admin. Envie uma nova proposta.')
     const atualizado=usuario.data()
     if(!atualizado||atualizado.papel!=='expositor'||atualizado.ativo===false||atualizado.cadastroCompleto===false||atualizado.modeloId!==perfil.modeloId||(atualizado.organizadoraId||null)!==(perfil.organizadoraId||null)||(atualizado.feiraId||null)!==(perfil.feiraId||null))throw new HttpsError('failed-precondition','Seu acesso mudou. Recarregue antes de enviar.')
     if(atual.exists){if(atual.data().cliente!==req.auth.uid)throw new HttpsError('permission-denied','Envio indisponível.');return}
@@ -450,7 +455,7 @@ exports.prepararPagamento = onCall({ region: REGIAO }, async (req) => {
         'failed-precondition',
         'Esta organizadora recebe propostas para negociação direta.',
       )
-    if (existente.exists && existente.data().status !== 'aguardando_integracao')
+    if (existente.exists && !['aguardando_integracao','cancelada','cancelado'].includes(existente.data().status))
       throw new HttpsError(
         'failed-precondition',
         'Uma cobrança já emitida não pode ser substituída.',
@@ -483,6 +488,10 @@ exports.definirSenhaProvisoria = onCall({ region: REGIAO }, async (req) => {
   const { uid, senha } = req.data || {}
   if (!uid || !senha)
     throw new HttpsError('invalid-argument', 'Informe uid e senha.')
+  if(uid===req.auth.uid)throw new HttpsError('failed-precondition','Altere sua própria senha na tela Minha conta.')
+  if(typeof uid!=='string'||uid.includes('/'))throw new HttpsError('invalid-argument','Usuário inválido.')
+  const perfilSenha=await getFirestore().doc(`usuarios/${uid}`).get()
+  if(!perfilSenha.exists||perfilSenha.data().ativo===false)throw new HttpsError('failed-precondition','Libere o acesso antes de alterar a senha.')
   if (String(senha).length < 6) {
     throw new HttpsError(
       'invalid-argument',
@@ -491,6 +500,7 @@ exports.definirSenhaProvisoria = onCall({ region: REGIAO }, async (req) => {
   }
 
   await getAuth().updateUser(uid, { password: String(senha) })
+  await getAuth().revokeRefreshTokens(uid)
   await getFirestore()
     .doc(`usuarios/${uid}`)
     .update({ precisaTrocarSenha: true })

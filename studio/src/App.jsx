@@ -4,6 +4,7 @@ import Notificacoes, {SinoNotificacoes} from './pages/Notificacoes.jsx'
 import Login from './pages/Login.jsx'
 import LogoUset from './components/LogoUset.jsx'
 import Modelos from './pages/Modelos.jsx'
+import Usuarios from './pages/Usuarios.jsx'
 import Editor from './pages/Editor.jsx'
 import Clientes from './pages/Clientes.jsx'
 import TrocarSenha from './pages/TrocarSenha.jsx'
@@ -54,7 +55,7 @@ function Topbar() {
     </header>
     {ehOperacional(perfil)&&<nav className="admin-nav" aria-label="Operação"><Link to="/producao">Produção</Link><Link to="/equipes">Equipes e documentos</Link>{perfil.papel==='analista_cv'&&<Link to="/artes">Conferência de artes</Link>}</nav>}
     {perfil?.papel==='expositor'&&<nav className="cliente-nav" aria-label="Seu projeto"><Link to="/meu-estande" aria-current={pathname==='/meu-estande'?'page':undefined}>Personalizar estande</Link><Link to="/artes" aria-current={pathname.startsWith('/artes')?'page':undefined}>Artes e aprovação</Link><ChatAtalho/></nav>}
-    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/producao','Produção'],['/equipes','Equipes'],['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
+    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/usuarios','Usuários e acessos'],['/producao','Produção'],['/equipes','Equipes'],['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
   )
 }
 
@@ -115,6 +116,7 @@ function Rotas() {
       <Topbar />
       <main style={{ flex: 1 }}>
         <Routes>
+          <Route path="/usuarios" element={<Protegida exigeAdmin><Usuarios /></Protegida>} />
           <Route path="/producao" element={<Protegida operacional><Producao /></Protegida>} />
           <Route path="/producao/:id" element={<Protegida operacional><Producao /></Protegida>} />
           <Route path="/equipes" element={<Protegida operacional><EquipesOperacionais /></Protegida>} />

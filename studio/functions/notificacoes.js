@@ -30,7 +30,7 @@ async function permitido(d){const db=getFirestore(),s=await db.doc(`usuarios/${d
     const acesso=d.ordemId?(await db.doc(`ordensProducao/${d.ordemId}`).get()).data():d.propostaId?(await db.doc(`acessosProducao/${d.propostaId}`).get()).data():null
     return podeOperar(u,acesso)
   }
-  if(u.papel==='expositor')return d.cliente===s.id
+  if(u.papel==='expositor')return d.cliente===s.id&&(!d.propostaId||(await db.doc(`propostas/${d.propostaId}`).get()).exists)
   if(u.papel!=='organizadora'||!d.organizadoraId||u.organizadoraId!==d.organizadoraId)return false
   if(d.propostaId){const p=await db.doc(`propostas/${d.propostaId}`).get();return p.data()?.organizadoraId===u.organizadoraId}
   const c=await db.doc(`usuarios/${d.cliente}`).get();return c.data()?.organizadoraId===u.organizadoraId

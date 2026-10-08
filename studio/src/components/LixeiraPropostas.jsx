@@ -1,0 +1,9 @@
+import { useState } from 'react'
+import { executarComercial } from '../lib/comercial.js'
+const api=d=>executarComercial('gerenciarPropostasAdmin',d)
+export default function LixeiraPropostas({aoAtualizar}) {
+  const [lista,setLista]=useState(null),[cursor,setCursor]=useState(null),[erro,setErro]=useState(''),[ocupado,setOcupado]=useState(false)
+  async function carregar(mais=false){setOcupado(true);setErro('');try{const r=await api({acao:'lixeira',...(mais?{cursor}:{})});setLista(p=>mais?[...p,...r.propostas]:r.propostas);setCursor(r.cursor)}catch(e){setErro(e.message)}finally{setOcupado(false)}}
+  async function restaurar(p){if(!window.confirm(`Restaurar a proposta de ${p.clienteNome}? A produção só será liberada após nova aprovação.`))return;setOcupado(true);setErro('');try{await api({acao:'restaurar',propostaId:p.id});setLista(l=>l.filter(a=>a.id!==p.id));await aoAtualizar()}catch(e){setErro(e.message)}finally{setOcupado(false)}}
+  return <details className="card card-pad" style={{marginBottom:20}} onToggle={e=>{if(e.currentTarget.open)carregar()}}><summary>Lixeira de propostas</summary><p>As propostas excluídas ficam preservadas para recuperação. Restaurar não reativa a produção nem a cobrança.</p>{erro&&<p role="alert">{erro}</p>}{lista?.map(p=><article key={p.id} style={{padding:'12px 0',borderBottom:'1px solid var(--line)'}}><strong>{p.clienteNome}</strong><p>{p.modeloNome} · {p.feira} · {p.excluidaEm?new Date(p.excluidaEm).toLocaleString('pt-BR'):''}</p><button className="btn" disabled={ocupado} onClick={()=>restaurar(p)}>Restaurar proposta</button></article>)}{lista?.length===0&&<p>A lixeira está vazia.</p>}{cursor&&<button className="btn" disabled={ocupado} onClick={()=>carregar(true)}>Carregar mais</button>}{ocupado&&<p role="status">Carregando…</p>}<button className="btn" disabled={ocupado} onClick={()=>carregar()}>Atualizar lixeira</button></details>
+}

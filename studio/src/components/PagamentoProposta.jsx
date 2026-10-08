@@ -47,7 +47,7 @@ export default function PagamentoProposta({ proposta, ehAdmin }) {
           <h4>Pagamento à montadora</h4>
           <p>
             {pagamento
-              ? `Valor aprovado: ${fmtBRL(pagamento.valorCentavos / 100)} · aguardando integração do provedor.`
+              ? `Valor aprovado: ${fmtBRL(pagamento.valorCentavos / 100)} · ${['cancelada','cancelado'].includes(pagamento.status)?'cobrança cancelada; requer nova liberação pelo admin.':'aguardando integração do provedor.'}`
               : 'Valor aguardando aprovação da USET.'}
           </p>
           {ehAdmin && (
