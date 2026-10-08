@@ -77,3 +77,9 @@ Functions. Nenhuma etapa exige terminal.
 Se a conta de serviço não tiver permissão para publicar regras, o passo falha
 com a mensagem do Google dizendo qual papel falta — normalmente
 `Firebase Rules Admin`, concedido no IAM do projeto.
+
+## Separação da produção
+
+O APK anterior e a gestão de equipes, blocos e pendências foram retirados do
+Studio. A aprovação comercial, o projeto aprovado e o fluxo de artes continuam
+servindo de base para o futuro app irmão. Veja [INTEGRACAO-PRODUCAO.md](INTEGRACAO-PRODUCAO.md).

@@ -14,8 +14,9 @@ const { getFirestore } = require('firebase-admin/firestore')
 initializeApp()
 
 exports.artesProposta = require('./producao').artesProposta
-exports.operacao = require('./operacao').operacao
-exports.decidirProposta = require('./operacao').decidirProposta
+exports.operacao = require('./moduloDesativado').operacao
+exports.listarArtesEquipe = require('./listarArtesEquipe').listarArtesEquipe
+exports.decidirProposta = require('./aprovacaoComercial').decidirProposta
 exports.administrarUsuarios = require('./admin').administrarUsuarios
 exports.gerenciarPropostasAdmin = require('./admin').gerenciarPropostasAdmin
 exports.estadoPersonalizacao = onCall({region:'southamerica-east1'},async req=>{
@@ -195,7 +196,7 @@ exports.registrarProposta = onCall({region:REGIAO},async req=>{
     for(const a of areasArte){for(const sid of a.superficieIds){const s=superficies.find(s=>s.id===sid),regra=prec.itens?.[sid]?.arte||prec[s.papel],area=prec.metragensArte?.[sid];if(p.acabamentos?.[sid]?.removido||!(p.acabamentos?.[sid]?.arte||p.acabamentos?.[sid]?.artePendente))continue;if(Number.isFinite(area)&&regra?.unidade==='m2'&&!linhas.some(i=>i.id===sid))linhas.push({id:sid,grupo:'superficie',nome:s.nome,detalhe:'Arte em '+s.nome,tipoPersonalizacao:'arte',unidade:'m2',quantidade:area,valorUnitario:regra.valor,total:area*regra.valor})}}
     const calculado=aplicarFranquia(linhas,prec.arteInclusa),total=!Array.isArray(p.itens)&&!calculado.itens.length?p.total:calculado.itens.reduce((n,i)=>n+i.total,0)
     let manifestoProducao
-    try{manifestoProducao=require('./operacaoPolitica').manifesto(projeto.data(),{...p,areasArte})}catch(e){throw new HttpsError('invalid-argument',e.message)}
+    try{manifestoProducao=require('./manifestoProposta').manifesto(projeto.data(),{...p,areasArte})}catch(e){throw new HttpsError('invalid-argument',e.message)}
     if(Buffer.byteLength(JSON.stringify(manifestoProducao))>750000)throw new HttpsError('invalid-argument','O registro do projeto excede o limite. Revise o mapeamento.')
     tx.create(ref,{...p,arquivoPersonalizado:{caminho:esperado,url:`https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(arquivo.bucket.name)}/o/${encodeURIComponent(esperado)}?alt=media`,bytes:Number(metadata.size),nomeOriginal:'estande-personalizado.glb'},manifestoProducao,decisaoComercial:'pendente',ordemProducaoId:null,itens:calculado.itens,total,franquia:calculado.franquia,franquiaConfiguracao:prec.arteInclusa||null,areasArte,clienteNome:perfil.empresa||perfil.nome,clienteEmail:perfil.email||req.auth.token.email,
       organizadoraId:perfil.organizadoraId||null,feiraId:perfil.feiraId||null,feira:perfil.feira||null,

@@ -1,7 +1,10 @@
+import {ehPerfilAppIrmao} from './papeis.js'
+
 export function destinoAposLogin({user,perfil,carregando,erroPerfil}) {
   if(carregando)return null
   if(!user)return '/entrar'
   if(erroPerfil||!perfil)return null
-  if(['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto'].includes(perfil.papel))return '/producao'
+  if(perfil.papel==='analista_cv')return '/artes'
+  if(ehPerfilAppIrmao(perfil))return '/app-producao'
   return ['admin','organizadora'].includes(perfil.papel)?'/modelos':'/meu-estande'
 }

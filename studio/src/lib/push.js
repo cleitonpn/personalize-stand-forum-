@@ -1,11 +1,8 @@
 import {executarComercial} from './comercial.js'
-import {Capacitor} from '@capacitor/core'
-import {ativarPushNativo,restaurarPushNativo,desativarPushNativo} from './pushNativo.js'
 const chaveLocal='uset.push.dispositivo'
-export const suportaPush=()=>Capacitor.isNativePlatform()||(typeof window!=='undefined'&&window.isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window)
+export const suportaPush=()=>(typeof window!=='undefined'&&window.isSecureContext&&'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window)
 async function registrar(subscription){const r=await executarComercial('notificacoesUsuario',{acao:'registrar',subscription:subscription.toJSON()});localStorage.setItem(chaveLocal,r.id)}
 export async function ativarPush(){
-  if(Capacitor.isNativePlatform())return ativarPushNativo()
   if(!suportaPush())throw Error('Este navegador não oferece push. Você pode consultar os avisos nesta tela.')
   const permissao=await Notification.requestPermission()
   if(permissao!=='granted')throw Error('O recebimento não foi autorizado. Você pode liberar as notificações nas configurações do navegador.')
@@ -15,9 +12,8 @@ export async function ativarPush(){
   const subscription=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key})
   await registrar(subscription)
 }
-export async function restaurarPush(){if(Capacitor.isNativePlatform())return restaurarPushNativo();if(!suportaPush()||Notification.permission!=='granted')return;const reg=await navigator.serviceWorker.getRegistration('/');const s=await reg?.pushManager.getSubscription();if(s)await registrar(s)}
+export async function restaurarPush(){if(!suportaPush()||Notification.permission!=='granted')return;const reg=await navigator.serviceWorker.getRegistration('/');const s=await reg?.pushManager.getSubscription();if(s)await registrar(s)}
 export async function desativarPush(){
-  if(Capacitor.isNativePlatform())return desativarPushNativo()
   const id=localStorage.getItem(chaveLocal)
   if(suportaPush()){const reg=await navigator.serviceWorker.getRegistration('/');await (await reg?.pushManager.getSubscription())?.unsubscribe();for(const n of await reg?.getNotifications()||[])n.close()}
   localStorage.removeItem(chaveLocal)

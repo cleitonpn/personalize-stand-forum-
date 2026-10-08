@@ -1,8 +1,0 @@
-{
-  "appId": "br.com.uset.producao",
-  "appName": "USET Produção",
-  "webDir": "dist",
-  "plugins": {
-    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
-  }
-}

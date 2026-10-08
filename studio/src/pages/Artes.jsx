@@ -7,24 +7,23 @@ import {executarComercial} from '../lib/comercial.js'
 import ArquivosApoio from '../components/ArquivosApoio.jsx'
 import AreaArte from '../components/AreaArte.jsx'
 import ChatCliente from '../components/ChatCliente.jsx'
-import {ehOperacional,operacao} from '../lib/operacao.js'
 
 export default function Artes(){
   const {id}=useParams(),{user,perfil}=useAuth(),[propostas,setPropostas]=useState(null),[proposta,setProposta]=useState(null),[workspace,setWorkspace]=useState(null),[areas,setAreas]=useState([]),[erro,setErro]=useState(''),[pronto,setPronto]=useState(false),[prazo,setPrazo]=useState(''),[ocupado,setOcupado]=useState(false)
   useEffect(()=>{setErro('');setPronto(false);setProposta(null);setWorkspace(null);setAreas([])
-    if(!id&&ehOperacional(perfil)){let vivo=true;operacao({acao:'listar'}).then(d=>{if(vivo)setPropostas(d.ordens.map(o=>({...o,id:o.propostaId}))) }).catch(e=>{if(vivo)setErro(e.message)});return()=>{vivo=false}}
+    if(!id&&perfil.papel==='analista_cv'){let vivo=true;executarComercial('listarArtesEquipe',{}).then(d=>{if(vivo)setPropostas(d.propostas) }).catch(e=>{if(vivo)setErro(e.message)});return()=>{vivo=false}}
     if(!id){const base=collection(db,'propostas'),q=perfil.papel==='admin'?base:query(base,where(perfil.papel==='expositor'?'cliente':'organizadoraId','==',perfil.papel==='expositor'?user.uid:perfil.organizadoraId));return onSnapshot(q,s=>setPropostas(s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.criadoEm?.seconds||0)-(a.criadoEm?.seconds||0))),e=>setErro(e.message))}
     let vivo=true,unsubs=[]
     executarComercial('artesProposta',{acao:'iniciar',propostaId:id}).then(()=>{if(!vivo)return
-      if(!ehOperacional(perfil))unsubs.push(onSnapshot(doc(db,'propostas',id),s=>setProposta({id:s.id,...s.data()}),e=>setErro(e.message)))
-      else operacao({acao:'listar'}).then(d=>{if(vivo){const o=d.ordens.find(o=>o.propostaId===id);if(o)setProposta({...o,id})}}).catch(e=>{if(vivo)setErro(e.message)})
+      if(perfil.papel!=='analista_cv')unsubs.push(onSnapshot(doc(db,'propostas',id),s=>setProposta({id:s.id,...s.data()}),e=>setErro(e.message)))
+      else executarComercial('listarArtesEquipe',{}).then(d=>{if(vivo){const o=d.propostas.find(o=>o.id===id);if(o)setProposta({...o,id})}}).catch(e=>{if(vivo)setErro(e.message)})
       unsubs.push(onSnapshot(doc(db,'artesPropostas',id),s=>{setWorkspace(s.data());const t=s.data()?.prazo?.toDate?.();setPrazo(t?new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,16):'')},e=>setErro(e.message)))
       unsubs.push(onSnapshot(collection(db,'artesPropostas',id,'areas'),s=>{setAreas(s.docs.map(d=>({id:d.id,...d.data()})));setPronto(true)},e=>setErro(e.message)))
     }).catch(e=>{if(vivo)setErro(e.message)})
     return()=>{vivo=false;unsubs.forEach(f=>f())}
   },[id,user.uid,perfil.papel,perfil.organizadoraId])
   const vencido=workspace?.prazo?.toMillis()<Date.now(),pendentes=areas.filter(a=>!['aprovada','em_impressao','impressa'].includes(a.status)).length
-  return <div className="comercial-page artes-pagina"><header className="admin-cabecalho"><span className="admin-eyebrow">USET · PRODUÇÃO</span><h1>{id?'Artes do seu estande':'Artes e aprovação'}</h1><p>{id?'Cada área tem seu gabarito, arquivo final e prova. Acompanhe tudo aqui, sem perder as versões anteriores.':'Escolha uma proposta para enviar artes finais ou acompanhar a aprovação.'}</p><Link className="btn" to={perfil.papel==='expositor'?'/meu-estande':ehOperacional(perfil)?'/producao':'/propostas'}>Voltar {perfil.papel==='expositor'?'ao estande':'às propostas'}</Link>{id&&<Link className="btn" to="/artes">Todas as propostas</Link>}</header>
+  return <div className="comercial-page artes-pagina"><header className="admin-cabecalho"><span className="admin-eyebrow">USET · PRODUÇÃO</span><h1>{id?'Artes do seu estande':'Artes e aprovação'}</h1><p>{id?'Cada área tem seu gabarito, arquivo final e prova. Acompanhe tudo aqui, sem perder as versões anteriores.':'Escolha uma proposta para enviar artes finais ou acompanhar a aprovação.'}</p><Link className="btn" to={perfil.papel==='expositor'?'/meu-estande':perfil.papel==='analista_cv'?'/artes':'/propostas'}>Voltar {perfil.papel==='expositor'?'ao estande':perfil.papel==='analista_cv'?'às artes':'às propostas'}</Link>{id&&<Link className="btn" to="/artes">Todas as propostas</Link>}</header>
     {erro&&<p role="alert">{erro}</p>}
     {!id&&<div className="artes-lista">{propostas===null&&!erro&&<p>Carregando propostas…</p>}{propostas?.length===0&&<p>Envie sua proposta de personalização para abrir o envio de artes.</p>}{propostas?.map(p=><Link className="card card-pad arte-proposta" key={p.id} to={`/artes/${p.id}`}><span><strong>{p.modeloNome}</strong><small>{p.clienteNome} · {p.feira||'Feira'} · {p.criadoEm?.toDate?.().toLocaleDateString('pt-BR')}</small></span><span>Ver artes e provas →</span></Link>)}</div>}
     {id&&!pronto&&!erro&&<p role="status">Preparando as áreas da proposta…</p>}

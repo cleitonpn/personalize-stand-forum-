@@ -1,0 +1,4 @@
+.aprovacao-comercial{margin:24px 0;display:grid;gap:12px}
+.aprovacao-check{display:flex;align-items:flex-start;gap:12px;line-height:1.5}
+.aprovacao-check input{width:18px;height:18px;flex:none;accent-color:#173b32}
+.aprovacao-acoes{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0}

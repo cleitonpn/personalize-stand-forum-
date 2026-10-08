@@ -4,13 +4,13 @@ const {getStorage}=require('firebase-admin/storage')
 const {randomUUID,createHash}=require('node:crypto')
 const {revogarLinks}=require('./acessos')
 const {transicao}=require('./producaoEstado')
-const {podeOperar,podeCV}=require('./operacaoPolitica')
+const {podeConsultarArte,podeCV}=require('./artesAcesso')
 const {prepararEvento,gravarEvento,entregarEventos}=require('./notificacoes')
 const REGIAO='southamerica-east1'
 const id=(v)=>{if(typeof v!=='string'||!v||v.length>180||v.includes('/'))throw new HttpsError('invalid-argument','Identificador inválido.');return v}
 const {arquivosApoio}=require('./apoio')
 const limpo=(v,max=2000)=>String(v||'').trim().slice(0,max)
-function podeLer(perfil,uid,p,acesso){return perfil&&perfil.ativo!==false&&(perfil.papel==='admin'||(perfil.papel==='expositor'&&p.cliente===uid)||(perfil.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===p.organizadoraId)||podeOperar({...perfil,uid},acesso))}
+function podeLer(perfil,uid,p,acesso){return perfil&&perfil.ativo!==false&&(perfil.papel==='admin'||(perfil.papel==='expositor'&&p.cliente===uid)||(perfil.papel==='organizadora'&&perfil.organizadoraId&&perfil.organizadoraId===p.organizadoraId)||podeConsultarArte(perfil,acesso))}
 async function contexto(req){
   if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
   const db=getFirestore(),propostaId=id(req.data?.propostaId)
@@ -81,11 +81,7 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
   const tipos={configurar:['gabarito_liberado','Gabarito liberado','As medidas de uma área foram confirmadas. Você já pode preparar e enviar a arte.'],enviar:['arte_nova','Nova arte recebida','Um expositor enviou uma nova versão da arte para conferência.'],prova:['prova_nova','Nova prova para aprovação','A prova da sua arte está pronta. Confira e aprove ou peça ajustes.'],devolver:['arte_reprovada','Sua arte precisa de ajustes','A produção deixou uma orientação para corrigir o arquivo.'],responder:[d.aprovar?'prova_aprovada':'prova_reprovada',d.aprovar?'Cliente aprovou a prova':'Cliente pediu ajustes na prova','Consulte a decisão do cliente na área de artes.'],impressao:['arte_producao','Produção da arte atualizada',d.status==='impressa'?'Sua arte foi marcada como impressa.':'Sua arte entrou em impressão.']}
   const descricao=tipos[acao],eventoId=randomUUID()
   const evento=descricao?await prepararEvento({id:eventoId,alvo:['enviar','responder'].includes(acao)?'equipe':'cliente',autor:req.auth.uid,cliente:c.p.data().cliente,organizadoraId:c.p.data().organizadoraId,propostaId:c.propostaId,tipo:descricao[0],titulo:descricao[1],corpo:descricao[2],url:`/artes/${c.propostaId}`}):null
-  let avisos=[],avisoOperacao=null
-  if(acao==='impressao'){
-    const acesso=(await c.db.doc(`acessosProducao/${c.propostaId}`).get()).data()
-    if(acesso?.estado==='liberada'){const o=await c.db.doc(`ordensProducao/${acesso.ordemId}`).get();if(o.exists)avisoOperacao=await require('./operacao').avisoOperacional({...o.data(),id:o.id},req.auth.uid,d.status==='impressa'?'Arte impressa':'Arte em impressão',`A comunicação visual atualizou uma peça de ${o.data().clienteNome}.`)}
-  }
+  let avisos=[]
   await c.db.runTransaction(async tx=>{
     const perfil=await validarContexto(tx,c,req),s=await tx.get(areaRef),workspace=await tx.get(c.ref),a=s.data()
     if(!a)throw new HttpsError('not-found','Área não encontrada.')
@@ -118,7 +114,6 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
     tx.update(areaRef,{...patch,atualizadoEm:FieldValue.serverTimestamp()})
     tx.create(areaRef.collection('eventos').doc(),{acao,autor:req.auth.uid,papel:perfil.papel,versao:patch.versao??a.versao,revisao:patch.revisao??a.revisao,prova:prova||null,motivo:limpo(d.motivo),aprovou:d.aprovar===true,em:FieldValue.serverTimestamp()})
     if(evento)avisos=gravarEvento(tx,evento)
-    if(avisoOperacao)avisos.push(...gravarEvento(tx,avisoOperacao))
   });await entregarEventos(avisos);return{ok:true}
 })
 

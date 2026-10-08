@@ -23,16 +23,12 @@ service firebase.storage {
     function ehAdmin() {
       return ativo() && perfil().papel == 'admin';
     }
-    function acessoOperacional(d) {
+    function acessoArteEquipe(d) {
       return ativo() && d.get('estado','') == 'liberada' && (ehAdmin()
-        || (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto']
-          && d.get('feiraId','') in perfil().get('feiraIds',[])
-          && (perfil().papel != 'produtor' || request.auth.uid in d.get('produtorIds',[]) || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))
-          && (perfil().papel != 'atendimento_comercial' || request.auth.uid in d.get('atendimentoIds',[]) || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))
-          && (perfil().papel != 'equipe_producao' || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))));
+        || (perfil().papel == 'analista_cv' && d.get('feiraId','') in perfil().get('feiraIds',[])));
     }
-    function operacaoProposta(id) {
-      return acessoOperacional(firestore.get(/databases/(default)/documents/acessosProducao/$(id)).data);
+    function arteEquipeProposta(id) {
+      return acessoArteEquipe(firestore.get(/databases/(default)/documents/acessosProducao/$(id)).data);
     }
 
     // Mesmo motivo do Firestore: desativado não lê o projeto nem sobe arte.
@@ -65,7 +61,7 @@ service firebase.storage {
 
     // Cada envio recebe um arquivo próprio. Propostas enviadas não são sobrescritas.
     match /propostas/{uid}/{propostaId}/estande.glb {
-      allow read: if ativo() && (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto'] ? operacaoProposta(propostaId) : (ehAdmin() || acessoProposta(propostaId)));
+      allow read: if ativo() && (perfil().papel == 'analista_cv' ? arteEquipeProposta(propostaId) : (ehAdmin() || acessoProposta(propostaId)));
       allow create: if resource == null && ativo() && request.auth.uid == uid
         && !firestore.exists(/databases/(default)/documents/propostas/$(propostaId))
         && request.resource.size < 200 * 1024 * 1024
@@ -80,7 +76,7 @@ service firebase.storage {
     }
     match /producao/{propostaId}/{uploadId}/arquivo {
       function reserva() { return firestore.get(/databases/(default)/documents/artesPropostas/$(propostaId)/uploads/$(uploadId)).data; }
-      allow read: if ativo() && (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto'] ? operacaoProposta(propostaId) : acessoProposta(propostaId));
+      allow read: if ativo() && (perfil().papel == 'analista_cv' ? arteEquipeProposta(propostaId) : acessoProposta(propostaId));
       // A reserva já foi autorizada pela Function. Aqui consultamos somente
       // o perfil e a reserva: Storage permite no máximo dois documentos Firestore.
       allow create: if resource == null && ativo() && reserva().uid == request.auth.uid
@@ -94,29 +90,14 @@ service firebase.storage {
       // substituir silenciosamente o arquivo já aprovado.
       allow update, delete: if false;
     }
+    // Arquivos do app anterior ficam preservados; novas gravações são bloqueadas.
     match /operacao/{tipo}/{parentId}/{uploadId} {
-      function destino() { return firestore.get(/databases/(default)/documents/$(tipo)/$(parentId)).data; }
-      function reserva() { return firestore.get(/databases/(default)/documents/uploadsOperacionais/$(uploadId)).data; }
-      allow read: if (tipo == 'ordensProducao' && acessoOperacional(destino()))
-        || (tipo == 'equipesOperacionais' && (ehAdmin() || (ativo() && perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto'] && perfil().get('feiraIds',[]).hasAny(destino().get('feiraIds',[])))));
-      allow create: if ativo() && reserva().uid == request.auth.uid && reserva().tipo == tipo && reserva().parentId == parentId
-        && reserva().usado == false && reserva().expiraEm > request.time
-        && request.resource.size == reserva().bytes && request.resource.size <= 30 * 1024 * 1024 && request.resource.contentType == reserva().mime;
-      allow update, delete: if false;
+      allow read: if ehAdmin();
+      allow write: if false;
     }
-
     match /fotosPendencias/{ordemId}/{revisao}/{pendenciaId}/{uploadId} {
-      function reserva() { return firestore.get(/databases/(default)/documents/uploadsFotosPendencias/$(uploadId)).data; }
-      allow read: if acessoOperacional(firestore.get(/databases/(default)/documents/ordensProducao/$(ordemId)).data);
-      // Perfil + reserva: respeita o limite de dois documentos do Storage.
-      allow create: if resource == null && ativo() && reserva().uid == request.auth.uid
-        && reserva().ordemId == ordemId && reserva().pendenciaId == pendenciaId
-        && reserva().caminho == 'fotosPendencias/' + ordemId + '/' + revisao + '/' + pendenciaId + '/' + uploadId
-        && reserva().usado == false && reserva().expiraEm > request.time
-        && request.resource.size == reserva().bytes && request.resource.size <= 15 * 1024 * 1024
-        && request.resource.contentType == reserva().mime
-        && request.resource.contentType in ['image/jpeg','image/png','image/webp'];
-      allow update, delete: if false;
+      allow read: if ehAdmin();
+      allow write: if false;
     }
     match /{allPaths=**} {
       allow read, write: if false;

@@ -4,9 +4,9 @@ import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
 import { executarComercial } from '../lib/comercial.js'
 import { useAuth } from '../store/AuthContext.jsx'
-import { PAPEIS_OPERACIONAIS } from '../lib/operacao.js'
+import { PAPEIS_SITE,PAPEIS_APP_IRMAO } from '../lib/papeis.js'
 
-const papeis={admin:'Administrador',organizadora:'Organizadora',expositor:'Expositor',...PAPEIS_OPERACIONAIS}
+const papeis={...PAPEIS_SITE,...PAPEIS_APP_IRMAO}
 const api=d=>executarComercial('administrarUsuarios',d)
 
 export default function Usuarios() {
@@ -43,7 +43,7 @@ export default function Usuarios() {
   const propria=selecionado?.uid===user.uid
   return <div className="comercial-page">
     <header className="admin-cabecalho"><span className="admin-eyebrow">USET · ADMINISTRAÇÃO</span><h1>Usuários e acessos</h1><p>Gerencie todos os tipos de login, recupere senhas e controle quem pode entrar.</p></header>
-    <div className="row" style={{flexWrap:'wrap',gap:10,marginBottom:20}}><Link className="btn" to="/expositores">Cadastrar expositor e vincular projeto</Link><Link className="btn" to="/organizadoras">Cadastrar organizadora</Link><Link className="btn" to="/equipes">Cadastrar equipe e acesso operacional</Link></div>
+    <div className="row" style={{flexWrap:'wrap',gap:10,marginBottom:20}}><Link className="btn" to="/expositores">Cadastrar expositor e vincular projeto</Link><Link className="btn" to="/organizadoras">Cadastrar organizadora</Link></div>
     <div className="row" style={{flexWrap:'wrap',gap:12,marginBottom:20}}>
       <label style={{flex:2,minWidth:200}}>Buscar usuário<input className="input" value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Nome, empresa, e-mail ou feira"/></label>
       <label>Tipo de acesso<select className="select" value={papel} onChange={e=>setPapel(e.target.value)}><option value="">Todos</option>{Object.entries(papeis).map(([p,n])=><option key={p} value={p}>{n}</option>)}</select></label>

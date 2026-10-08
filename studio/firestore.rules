@@ -37,32 +37,29 @@ service cloud.firestore {
       return ativo() && perfil().papel == 'organizadora'
         && dados.get('organizadoraId', '') == perfil().organizadoraId;
     }
-    function acessoOperacional(d) {
+    function acessoArteEquipe(d) {
       return ativo() && d.get('estado','') == 'liberada' && (ehAdmin()
-        || (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto']
-          && d.get('feiraId','') in perfil().get('feiraIds',[])
-          && (perfil().papel != 'produtor' || request.auth.uid in d.get('produtorIds',[]) || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))
-          && (perfil().papel != 'atendimento_comercial' || request.auth.uid in d.get('atendimentoIds',[]) || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))
-          && (perfil().papel != 'equipe_producao' || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))));
+        || (perfil().papel == 'analista_cv' && d.get('feiraId','') in perfil().get('feiraIds',[])));
     }
-    function operacaoProposta(id) {
-      return acessoOperacional(get(/databases/$(database)/documents/acessosProducao/$(id)).data);
+    function arteEquipeProposta(id) {
+      return acessoArteEquipe(get(/databases/$(database)/documents/acessosProducao/$(id)).data);
     }
+    // Configurações aprovadas e histórico preservados para a integração futura.
     match /ordensProducao/{id} {
-      allow read: if acessoOperacional(resource.data);
+      allow read: if acessoArteEquipe(resource.data);
       allow write: if false;
       match /{document=**} {
-        allow read: if acessoOperacional(get(/databases/$(database)/documents/ordensProducao/$(id)).data);
+        allow read: if ehAdmin();
         allow write: if false;
       }
     }
-    match /equipesOperacionais/{id} {
-      allow read: if ehAdmin() || (ativo() && perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto'] && perfil().get('feiraIds',[]).hasAny(resource.data.get('feiraIds',[])));
+    match /equipesOperacionais/{id}/{document=**} {
+      allow read: if ehAdmin();
       allow write: if false;
-      match /{document=**} {
-        allow read: if ehAdmin() || (ativo() && perfil().get('feiraIds',[]).hasAny(get(/databases/$(database)/documents/equipesOperacionais/$(id)).data.feiraIds));
-        allow write: if false;
-      }
+    }
+    match /blocosOperacionais/{id} {
+      allow read: if ehAdmin();
+      allow write: if false;
     }
     function contatoValido(d) {
       return d.contatoNome is string && d.contatoNome.size() > 0 && d.contatoNome.size() <= 180
@@ -154,7 +151,7 @@ service cloud.firestore {
 
     function acessoProposta(id) {
       let p = get(/databases/$(database)/documents/propostas/$(id)).data;
-      return ativo() && (p.cliente == request.auth.uid || ehAdmin() || organizadoraDo(p) || operacaoProposta(id));
+      return ativo() && (p.cliente == request.auth.uid || ehAdmin() || organizadoraDo(p) || arteEquipeProposta(id));
     }
     match /artesPropostas/{id} {
       allow read: if acessoProposta(id);
