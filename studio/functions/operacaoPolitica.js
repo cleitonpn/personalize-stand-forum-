@@ -4,8 +4,8 @@ function podeOperar(p, ordem) {
   if (!p || p.ativo === false || !ordem || ordem.estado !== 'liberada') return false
   if (p.papel === 'admin') return true
   if (!PAPEIS.includes(p.papel) || !ordem.feiraId || !(p.feiraIds || []).includes(ordem.feiraId)) return false
-  if(p.papel==='produtor')return !!p.uid&&(ordem.produtorIds||[]).includes(p.uid)
-  if(p.papel==='atendimento_comercial')return !!p.uid&&(ordem.atendimentoIds||[]).includes(p.uid)
+  if(p.papel==='produtor')return (!!p.uid&&(ordem.produtorIds||[]).includes(p.uid))||(p.equipeIds||[]).some(id=>(ordem.equipeIds||[]).includes(id))
+  if(p.papel==='atendimento_comercial')return (!!p.uid&&(ordem.atendimentoIds||[]).includes(p.uid))||(p.equipeIds||[]).some(id=>(ordem.equipeIds||[]).includes(id))
   return p.papel !== 'equipe_producao' || (p.equipeIds || []).some(id => (ordem.equipeIds || []).includes(id))
 }
 function podeGerir(p, feiraId) {

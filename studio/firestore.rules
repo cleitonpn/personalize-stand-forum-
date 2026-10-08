@@ -41,8 +41,8 @@ service cloud.firestore {
       return ativo() && d.get('estado','') == 'liberada' && (ehAdmin()
         || (perfil().papel in ['gerente_operacional','analista_operacional','analista_cv','equipe_producao','produtor','atendimento_comercial','mobiliario','analista_projeto']
           && d.get('feiraId','') in perfil().get('feiraIds',[])
-          && (perfil().papel != 'produtor' || request.auth.uid in d.get('produtorIds',[]))
-          && (perfil().papel != 'atendimento_comercial' || request.auth.uid in d.get('atendimentoIds',[]))
+          && (perfil().papel != 'produtor' || request.auth.uid in d.get('produtorIds',[]) || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))
+          && (perfil().papel != 'atendimento_comercial' || request.auth.uid in d.get('atendimentoIds',[]) || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))
           && (perfil().papel != 'equipe_producao' || perfil().get('equipeIds',[]).hasAny(d.get('equipeIds',[])))));
     }
     function operacaoProposta(id) {

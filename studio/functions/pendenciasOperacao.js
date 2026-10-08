@@ -14,13 +14,12 @@ exports.executar=async function(req,{perfil,avisoOperacional}) {
   const db=getFirestore(),d=req.data||{},p=await perfil(req)
   if(d.acao==='relatorio'){
     const ordens=p.papel==='admin'?(await db.collection('ordensProducao').get()).docs:(await Promise.all((p.feiraIds||[]).map(f=>db.collection('ordensProducao').where('feiraId','==',f).get()))).flatMap(s=>s.docs)
-    const permitidas=ordens.filter(s=>podeOperar(p,s.data())&&(!d.feiraId||s.data().feiraId===d.feiraId))
-    if(permitidas.length>200)throw new HttpsError('failed-precondition','Filtre uma feira com até 200 estandes para exportar o relatório.')
-    const linhas=(await Promise.all(permitidas.map(async s=>{
+    const permitidas=ordens.filter(s=>podeOperar(p,s.data())&&(!d.feiraId||s.data().feiraId===d.feiraId)&&(!d.depois||s.id>d.depois)).sort((a,b)=>a.id<b.id?-1:a.id>b.id?1:0),pagina=permitidas.slice(0,100)
+    const linhas=(await Promise.all(pagina.map(async s=>{
       const ps=await s.ref.collection('pendencias').get(),o=s.data()
       return ps.docs.map(a=>{const x=a.data();return{id:a.id,ordemId:s.id,clienteNome:o.clienteNome,feira:o.feira,feiraId:o.feiraId,localizacao:o.localizacao,...x,criadoEm:tempo(x.criadoEm),executadoEm:tempo(x.executadoEm),validadoEm:tempo(x.validadoEm),atualizadoEm:tempo(x.atualizadoEm),revisaoAtual:o.revisao}})
     }))).flat()
-    return{linhas}
+    return{linhas,proximaPagina:permitidas.length>pagina.length?pagina.at(-1).id:null}
   }
   const ordemRef=db.doc(`ordensProducao/${id(d.ordemId)}`),s=await ordemRef.get(),o=s.data()
   exigir(podeOperar(p,o))

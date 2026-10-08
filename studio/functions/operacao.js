@@ -47,7 +47,7 @@ exports.decidirProposta=onCall({region:REGIAO},async req=>{
     const revisao=(o?.revisao||0)+1,agora=FieldValue.serverTimestamp(),contato=usuario.data()||{}
     const registro={id:ordemId,propostaId,cliente:a.cliente,clienteNome:a.clienteNome,feiraId:a.feiraId,feira:a.feira||'',organizadoraId:a.organizadoraId||null,modeloId:a.modeloId,modeloNome:a.modeloNome,
       contatoNome:contato.contatoNome||a.contatoNome||'',telefone:contato.telefone||a.telefone||'',localizacao:contato.localizacao||a.localizacao||'',estado:d.decisao==='aprovada'?'liberada':'suspensa',revisao,
-      equipeIds:o?.equipeIds||[],produtorIds:o?.produtorIds||[],atendimentoIds:o?.atendimentoIds||[],manifesto:m||o?.manifesto||null,arquivoPersonalizado:a.arquivoPersonalizado||null,atualizadoEm:agora,aprovadoPor:req.auth.uid}
+      blocoId:o?.blocoId||null,blocoNome:o?.blocoNome||'',equipeIds:o?.equipeIds||[],produtorIds:o?.produtorIds||[],atendimentoIds:o?.atendimentoIds||[],manifesto:m||o?.manifesto||null,arquivoPersonalizado:a.arquivoPersonalizado||null,atualizadoEm:agora,aprovadoPor:req.auth.uid}
     if(o)tx.create(ordemRef.collection('revisoes').doc(String(o.revisao)),{...o,arquivadaEm:agora})
     if(o?.propostaId && o.propostaId!==propostaId)tx.set(db.doc(`acessosProducao/${o.propostaId}`),{estado:'substituida'},{merge:true})
     if(d.decisao==='aprovada'||o)tx.set(db.doc(`acessosProducao/${propostaId}`),{ordemId,estado:registro.estado,feiraId:registro.feiraId,equipeIds:registro.equipeIds,produtorIds:registro.produtorIds,atendimentoIds:registro.atendimentoIds})
@@ -63,13 +63,15 @@ exports.decidirProposta=onCall({region:REGIAO},async req=>{
 exports.operacao=onCall({region:REGIAO},async req=>{
   const p=await perfil(req),d=req.data||{},db=getFirestore(),gestor=['admin','gerente_operacional','analista_operacional'].includes(p.papel)
   exigir(p.papel==='admin'||PAPEIS.includes(p.papel))
+  if(d.acao==='atribuirBloco')return require('./blocosOperacao').atribuir(req,{perfil})
   if(d.acao==='listar'){
     // Consultas por feira evitam entregar dados de outras organizadoras ao dispositivo.
     const feiras=p.papel==='admin'?(await db.collection('feiras').get()).docs.map(s=>({id:s.id,...s.data()})):await Promise.all((p.feiraIds||[]).map(async f=>{const s=await db.doc(`feiras/${id(f)}`).get();return {id:s.id,...s.data()}}))
     const ordens=p.papel==='admin'?(await db.collection('ordensProducao').get()).docs:(await Promise.all((p.feiraIds||[]).map(f=>db.collection('ordensProducao').where('feiraId','==',f).get()))).flatMap(s=>s.docs)
     const equipes=(await db.collection('equipesOperacionais').get()).docs.filter(s=>p.papel==='admin'||(s.data().feiraIds||[]).some(f=>(p.feiraIds||[]).includes(f)))
+    const blocos=gestor?(await db.collection('blocosOperacionais').get()).docs.filter(s=>podeGerir(p,s.data().feiraId)).map(s=>({id:s.id,nome:s.data().nome,feiraId:s.data().feiraId,equipeIds:s.data().equipeIds||[]})):[]
     const usuarios=gestor?(await db.collection('usuarios').get()).docs.filter(s=>PAPEIS.includes(s.data().papel)&&(p.papel==='admin'||(s.data().feiraIds||[]).some(f=>(p.feiraIds||[]).includes(f)))).map(s=>({uid:s.id,nome:s.data().nome,email:s.data().email,papel:s.data().papel,ativo:s.data().ativo,feiraIds:s.data().feiraIds||[],equipeIds:s.data().equipeIds||[]})):[]
-    return {feiras:feiras.map(f=>({id:f.id,nome:f.nome,validacaoAutomatica:f.validacaoAutomatica===true})),ordens:ordens.filter(s=>podeOperar(p,s.data())).map(s=>{const o=s.data();return{id:s.id,propostaId:o.propostaId,clienteNome:o.clienteNome,feira:o.feira,feiraId:o.feiraId,localizacao:o.localizacao,modeloNome:o.modeloNome,revisao:o.revisao,equipeIds:o.equipeIds,atualizadoEm:versao(o.atualizadoEm)}}),equipes:equipes.map(s=>({id:s.id,...s.data()})),usuarios}
+    return {feiras:feiras.map(f=>({id:f.id,nome:f.nome,validacaoAutomatica:f.validacaoAutomatica===true})),ordens:ordens.filter(s=>podeOperar(p,s.data())).map(s=>{const o=s.data();return{id:s.id,propostaId:o.propostaId,clienteNome:o.clienteNome,feira:o.feira,feiraId:o.feiraId,localizacao:o.localizacao,modeloNome:o.modeloNome,revisao:o.revisao,equipeIds:o.equipeIds,blocoId:o.blocoId||null,blocoNome:o.blocoNome||'',atualizadoEm:versao(o.atualizadoEm)}}),equipes:equipes.map(s=>({id:s.id,...s.data()})),usuarios,blocos}
   }
   if(d.acao==='equipe'){
     exigir(gestor);const feiraIds=ids(d.feiraIds),membros=ids(d.membros),nome=texto(d.nome)
