@@ -1,12 +1,13 @@
-import {useEffect,useState} from 'react'
+import {useEffect,useState,useRef} from 'react'
 import {getBlob,ref,uploadBytes} from 'firebase/storage'
 import {storage} from '../lib/firebase.js'
 import {operacao,ehGestor} from '../lib/operacao.js'
 import {STATUS_PENDENCIAS,permissoesPendencia} from '../lib/pendencias.js'
+import {baixarPrivado} from '../lib/producao/envio.js'
 export function FotoOperacional({arquivo}){
-  const [url,setUrl]=useState(''),[erro,setErro]=useState('')
+  const [url,setUrl]=useState(''),[erro,setErro]=useState(''),dialogo=useRef(null)
   useEffect(()=>{let vivo=true,u;getBlob(ref(storage,arquivo.caminho)).then(b=>{u=URL.createObjectURL(b);if(vivo)setUrl(u);else URL.revokeObjectURL(u)}).catch(()=>{if(vivo)setErro('Foto indisponível')});return()=>{vivo=false;if(u)URL.revokeObjectURL(u)}},[arquivo.caminho])
-  return url?<a href={url} target="_blank" rel="noreferrer"><img src={url} alt={arquivo.nome||'Foto do serviço'}/></a>:<span>{erro||'Carregando foto…'}</span>
+  return url?<><button type="button" className="operacao-foto-miniatura" aria-label={`Ampliar ${arquivo.nome||'foto'}`} onClick={()=>dialogo.current.showModal()}><img src={url} alt={arquivo.nome||'Foto do serviço'}/></button><dialog ref={dialogo} className="operacao-foto-dialogo"><button type="button" className="btn" onClick={()=>dialogo.current.close()}>Fechar foto</button><img src={url} alt={arquivo.nome||'Foto do serviço'}/><button type="button" className="btn" onClick={async()=>{try{await baixarPrivado(arquivo)}catch(e){setErro(e.message)}}}>Salvar / compartilhar foto</button>{erro&&<p role="alert">{erro}</p>}</dialog></>:<span>{erro||'Carregando foto…'}</span>
 }
 function Fotos({lista=[]}){return <div className="operacao-fotos">{lista.map(f=><FotoOperacional key={f.caminho} arquivo={f}/>)}</div>}
 const vazio={descricao:'',equipeId:'',prioridade:'normal',origem:'equipe',responsavel:'',itens:[]}
