@@ -27,5 +27,6 @@ export async function listarComercial(nome, perfil) {
   const snap = await getDocs(q)
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
+    .filter(d => !['feiras','organizadoras'].includes(nome) || !d.excluidaEm)
     .sort((a, b) => (b.criadoEm?.seconds || 0) - (a.criadoEm?.seconds || 0))
 }

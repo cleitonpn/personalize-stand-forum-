@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../store/AuthContext.jsx'
 import { executarComercial, listarComercial } from '../lib/comercial.js'
+import ExcluirCadastro from '../components/ExcluirCadastro.jsx'
 export default function Organizadoras() {
   const { perfil } = useAuth(),
     [lista, setLista] = useState([]),
@@ -8,6 +9,7 @@ export default function Organizadoras() {
     [convite, setConvite] = useState(''),
     [ocupado, setOcupado] = useState(false)
   const [f, setF] = useState({ nome: '', email: '', cobranca: 'organizadora' })
+  const [excluindo,setExcluindo] = useState(null), [aviso,setAviso] = useState('')
   const carregar = () =>
     listarComercial('organizadoras', perfil)
       .then(setLista)
@@ -35,6 +37,8 @@ export default function Organizadoras() {
     <div className="comercial-page">
       <h1>Organizadoras</h1>
       <p>Cadastre o acesso e defina quem recebe a personalização.</p>
+      {aviso && <p role="status">{aviso}</p>}
+      {excluindo && <ExcluirCadastro tipo="organizadora" id={excluindo.id} aoCancelar={()=>setExcluindo(null)} aoExcluir={async()=>{setExcluindo(null);setAviso('Organizadora e seus logins excluídos. Histórico preservado.');await carregar()}}/>}
       <div className="comercial-grid">
         <section className="col">
           {lista.map((o) => (
@@ -46,6 +50,8 @@ export default function Organizadoras() {
                   ? 'Pagamento direto à montadora'
                   : 'Proposta e negociação pela organizadora'}
               </p>
+              {o.loginExcluido&&<p>Login removido. O cadastro comercial e o histórico foram preservados.</p>}
+              <button className="btn btn-danger" disabled={ocupado||!!excluindo} onClick={()=>{setExcluindo(o);setAviso('');window.scrollTo({top:0,behavior:'smooth'})}}>Excluir organizadora</button>
             </article>
           ))}
           {!lista.length && <p>Nenhuma organizadora cadastrada.</p>}
@@ -87,7 +93,7 @@ export default function Organizadoras() {
               <option value="montadora">Direto à montadora (pagamento)</option>
             </select>
           </label>
-          <button className="btn btn-primary" disabled={ocupado}>
+          <button className="btn btn-primary" disabled={ocupado||!!excluindo}>
             {ocupado ? 'Cadastrando…' : 'Cadastrar organizadora'}
           </button>
           {convite && (

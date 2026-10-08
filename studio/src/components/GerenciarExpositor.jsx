@@ -1,21 +1,15 @@
 import { useState } from 'react'
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { doc, updateDoc } from 'firebase/firestore'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { db, auth } from '../lib/firebase.js'
-import { excluirExpositorTotal, definirSenhaProvisoria, SEM_FUNCTIONS } from '../lib/funcoes.js'
+import { definirSenhaProvisoria } from '../lib/funcoes.js'
 import { executarComercial } from '../lib/comercial.js'
+import ExcluirCadastro from './ExcluirCadastro.jsx'
 
 /**
  * Gestão de um expositor.
  *
- * Excluir de verdade — perfil E login — depende de Cloud Function, porque pelo
- * navegador deleteUser só age sobre quem está logado. As Functions exigem o
- * plano Blaze, então esta tela funciona nos dois cenários: com elas publicadas
- * a exclusão é completa; sem elas, cai no caminho que roda no navegador (apaga
- * o perfil e bloqueia o acesso) e avisa que o login permanece no Authentication.
- *
- * "Desativar" continua sendo o caminho recomendado: reversível, imediato e sem
- * depender de backend nenhum.
+ * Exclusões passam pelo servidor para remover o login e preservar o histórico.
  */
 export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar }) {
   const [f, setF] = useState({
@@ -28,7 +22,6 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
   const [ocupado, setOcupado] = useState(false)
   const [confirmando, setConfirmando] = useState(false)
   const [novaSenha, setNovaSenha] = useState('')
-  const [resto, setResto] = useState(null)
 
   const campo = (k) => ({ value: f[k], onChange: (e) => setF((v) => ({ ...v, [k]: e.target.value })) })
   const ativo = cliente.ativo !== false
@@ -68,20 +61,6 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
     },
     'Nova senha provisória definida. Passe-a ao expositor.')
 
-  const excluir = () => executar(
-    async () => {
-      setResto(null)
-      try {
-        // caminho completo: apaga perfil e login, liberando o e-mail
-        await excluirExpositorTotal(cliente.id)
-      } catch (ex) {
-        if (ex.code !== SEM_FUNCTIONS) throw ex
-        // sem Functions publicadas: o que dá para fazer pelo navegador
-        await deleteDoc(doc(db, 'usuarios', cliente.id))
-        setResto('O login continua no Firebase Authentication — remova-o pelo Console para liberar o e-mail.')
-      }
-    },
-    'Expositor excluído.')
 
   return (
     <div style={{
@@ -128,10 +107,6 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
           <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 'var(--r)', fontSize: 12.5,
             background: 'rgba(244,63,94,.1)', border: '1px solid rgba(244,63,94,.3)', color: '#fda4af' }}>{erro}</div>
         )}
-        {resto && (
-          <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 'var(--r)', fontSize: 12,
-            background: 'rgba(245,165,36,.08)', border: '1px solid rgba(245,165,36,.3)', color: 'var(--warn)' }}>{resto}</div>
-        )}
 
         <button className="btn btn-primary" onClick={salvar} disabled={ocupado}
           style={{ width: '100%', marginTop: 16, padding: 11 }}>
@@ -167,28 +142,7 @@ export default function GerenciarExpositor({ cliente, modelos, aoMudar, aoFechar
             Excluir expositor
           </button>
         ) : (
-          <div style={{ padding: '12px 13px', borderRadius: 'var(--r)',
-            background: 'rgba(244,63,94,.07)', border: '1px solid rgba(244,63,94,.3)' }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#fda4af' }}>
-              Excluir {cliente.nome || cliente.email}?
-            </div>
-            <p className="muted" style={{ margin: '0 0 8px', fontSize: 12, lineHeight: 1.6 }}>
-              O perfil é apagado e o acesso deixa de funcionar. As propostas já
-              enviadas continuam na sua lista.
-            </p>
-            <p className="dim" style={{ margin: '0 0 12px', fontSize: 11.5, lineHeight: 1.6 }}>
-              Com as Cloud Functions publicadas o login também é apagado e o
-              e-mail fica livre para novo cadastro. Sem elas, apagamos o perfil
-              e avisamos o que resta fazer no Console.
-            </p>
-            <div className="row" style={{ gap: 8 }}>
-              <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => setConfirmando(false)}>Cancelar</button>
-              <button className="btn btn-sm btn-danger" style={{ flex: 1 }} disabled={ocupado}
-                onClick={async () => { await excluir(); aoFechar?.() }}>
-                Excluir mesmo assim
-              </button>
-            </div>
-          </div>
+          <ExcluirCadastro tipo="usuario" id={cliente.id} aoCancelar={()=>setConfirmando(false)} aoExcluir={async()=>{await aoMudar?.();aoFechar?.()}}/>
         )}
       </div>
     </div>

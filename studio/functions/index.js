@@ -21,6 +21,7 @@ exports.administrarUsuarios = require('./admin').administrarUsuarios
 exports.gerenciarPropostasAdmin = require('./admin').gerenciarPropostasAdmin
 exports.listarPropostasGestao = require('./gestaoPropostas').listarPropostasGestao
 exports.confirmarQuantitativos = require('./gestaoPropostas').confirmarQuantitativos
+exports.excluirCadastroAdmin = require('./exclusoesCadastros').excluirCadastroAdmin
 exports.estadoPersonalizacao = onCall({region:'southamerica-east1'},async req=>{
   if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
   const db=getFirestore(),u=(await db.doc(`usuarios/${req.auth.uid}`).get()).data()
@@ -60,41 +61,7 @@ async function exigirAdmin(auth) {
  * Sem isto o login sobreviveria à exclusão do perfil e o e-mail ficaria preso,
  * impedindo cadastrar a mesma pessoa de novo.
  */
-exports.excluirExpositor = onCall({ region: REGIAO }, async (req) => {
-  await exigirAdmin(req.auth)
-
-  const uid = req.data?.uid
-  if (!uid)
-    throw new HttpsError('invalid-argument', 'Informe o uid do expositor.')
-  if (uid === req.auth.uid) {
-    throw new HttpsError(
-      'failed-precondition',
-      'Você não pode excluir a própria conta por aqui.',
-    )
-  }
-
-  const ref = getFirestore().doc(`usuarios/${uid}`)
-  const snap = await ref.get()
-  if (snap.exists && snap.data().papel !== 'expositor') {
-    throw new HttpsError(
-      'failed-precondition',
-      'Esta operação exclui somente contas de expositor.',
-    )
-  }
-
-  // O perfil sai primeiro: se a remoção do login falhar, o acesso já está
-  // bloqueado pelas regras, que exigem perfil existente.
-  if (snap.exists) await ref.delete()
-
-  try {
-    await getAuth().deleteUser(uid)
-  } catch (e) {
-    // conta já removida no Console é sucesso, não erro
-    if (e.code !== 'auth/user-not-found') throw e
-  }
-
-  return { ok: true }
-})
+exports.excluirExpositor = require('./exclusoesCadastros').excluirExpositor
 
 const { randomUUID } = require('node:crypto')
 const { FieldValue } = require('firebase-admin/firestore')
@@ -278,7 +245,6 @@ async function cadastrarConta(req, papel) {
       password: randomUUID() + randomUUID(),
     })
     const convite = await getAuth().generatePasswordResetLink(email)
-    const batch = db.batch()
     const perfil = {
       nome,
       email,
@@ -291,26 +257,24 @@ async function cadastrarConta(req, papel) {
     }
     if (papel === 'organizadora') {
       perfil.organizadoraId = conta.uid
-      batch.set(db.doc(`organizadoras/${conta.uid}`), {
-        nome,
-        email,
-        cobranca: d.cobranca,
-        ativo: true,
-        criadoEm: FieldValue.serverTimestamp(),
-      })
     }
-    batch.set(db.doc(`usuarios/${conta.uid}`), perfil)
-    batch.set(db.collection('emailsSaida').doc(), {
-      para: email,
-      destinatarioId: conta.uid,
-      tipo: 'convite',
-      status: 'pendente_integracao',
-      assunto: 'Seu acesso ao USET Studio',
-      texto: `Olá, ${nome}! Seu acesso ao USET Studio foi cadastrado. Defina sua senha pelo link: ${convite}\nAcesse https://personalizacao-stand.web.app/entrar. ${papel==='expositor'?'No primeiro acesso, complete seus dados de contato.':'Consulte os projetos, expositores e propostas vinculados à sua organizadora.'}`,
-      criadoEm: FieldValue.serverTimestamp(),
-      criadoPor: req.auth.uid,
+    // O vínculo é relido na mesma transação do cadastro: uma exclusão
+    // concorrente da feira/organizadora não pode deixar um novo perfil órfão.
+    await db.runTransaction(async tx => {
+      const autor = await tx.get(db.doc(`usuarios/${req.auth.uid}`))
+      if (autor.data()?.papel !== 'admin' || autor.data().ativo === false) throw new HttpsError('permission-denied', 'Acesso indisponível.')
+      if (papel === 'expositor') {
+        const feira = await tx.get(db.doc(`feiras/${vinculo.feiraId}`)), org = await tx.get(db.doc(`organizadoras/${vinculo.organizadoraId}`)), modelo = await tx.get(db.doc(`modelos/${vinculo.modeloId}`))
+        if (!feira.exists || feira.data().ativo === false || feira.data().excluidaEm || feira.data().organizadoraId !== vinculo.organizadoraId || !feira.data().modeloIds?.includes(vinculo.modeloId) || !org.exists || org.data().ativo === false || org.data().excluidaEm || !modelo.exists) throw new HttpsError('failed-precondition', 'O vínculo foi alterado ou excluído. Escolha a feira e o projeto novamente.')
+      }
+      if (papel === 'organizadora') tx.set(db.doc(`organizadoras/${conta.uid}`), { nome, email, cobranca: d.cobranca, ativo: true, criadoEm: FieldValue.serverTimestamp() })
+      tx.set(db.doc(`usuarios/${conta.uid}`), perfil)
+      tx.set(db.collection('emailsSaida').doc(), {
+        para: email, destinatarioId: conta.uid, tipo: 'convite', status: 'pendente_integracao', assunto: 'Seu acesso ao USET Studio',
+        texto: `Olá, ${nome}! Seu acesso ao USET Studio foi cadastrado. Defina sua senha pelo link: ${convite}\nAcesse https://personalizacao-stand.web.app/entrar. ${papel === 'expositor' ? 'No primeiro acesso, complete seus dados de contato.' : 'Consulte os projetos, expositores e propostas vinculados à sua organizadora.'}`,
+        criadoEm: FieldValue.serverTimestamp(), criadoPor: req.auth.uid,
+      })
     })
-    await batch.commit()
     return { uid: conta.uid, convite, emailPendente: true }
   } catch (e) {
     if (conta)
@@ -351,6 +315,9 @@ exports.salvarFeira = onCall({ region: REGIAO,timeoutSeconds:300 }, async (req) 
   await db.runTransaction(async (tx) => {
     const org = await tx.get(db.doc(`organizadoras/${organizadoraId}`))
     const antiga = await tx.get(feiraRef)
+    const autor = await tx.get(db.doc(`usuarios/${req.auth.uid}`))
+    if (autor.data()?.papel !== 'admin' || autor.data().ativo === false) throw new HttpsError('permission-denied', 'Acesso indisponível.')
+    if (antiga.data()?.excluidaEm) throw new HttpsError('failed-precondition', 'Esta feira foi excluída. Cadastre uma nova feira.')
     if (!org.exists || org.data().ativo === false)
       throw new HttpsError('failed-precondition', 'Organizadora indisponível.')
     if (antiga.exists && antiga.data().organizadoraId !== organizadoraId)
@@ -384,7 +351,7 @@ exports.salvarFeira = onCall({ region: REGIAO,timeoutSeconds:300 }, async (req) 
       const vinculado =
         ids.includes(m.id) ||
         todas.docs.some(
-          (f) => f.id !== feiraRef.id && f.data().modeloIds?.includes(m.id),
+          (f) => f.id !== feiraRef.id && !f.data().excluidaEm && f.data().ativo !== false && f.data().modeloIds?.includes(m.id),
         )
       const orgs = new Set(m.data().organizadoraIds || [])
       if (vinculado) orgs.add(organizadoraId)
@@ -420,13 +387,18 @@ exports.vincularExpositor = onCall({ region: REGIAO }, async (req) => {
     if (
       !cliente.exists ||
       cliente.data().papel !== 'expositor' ||
+      cliente.data().exclusaoPendente ||
       !feira.exists ||
+      feira.data().ativo === false ||
+      feira.data().excluidaEm ||
       !feira.data().modeloIds?.includes(modeloId)
     )
       throw new HttpsError(
         'failed-precondition',
         'Expositor, feira ou projeto inválido.',
       )
+    const org = await tx.get(db.doc(`organizadoras/${feira.data().organizadoraId}`)), autor = await tx.get(db.doc(`usuarios/${req.auth.uid}`))
+    if (autor.data()?.papel !== 'admin' || autor.data().ativo === false || !org.exists || org.data().ativo === false || org.data().excluidaEm) throw new HttpsError('failed-precondition', 'Organizadora ou acesso indisponível.')
     tx.update(cliente.ref, {
       feiraId,
       modeloId,

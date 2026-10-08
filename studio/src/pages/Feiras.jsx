@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../store/AuthContext.jsx'
 import { executarComercial, listarComercial } from '../lib/comercial.js'
+import ExcluirCadastro from '../components/ExcluirCadastro.jsx'
 export default function Feiras() {
   const { perfil, ehAdmin } = useAuth(),
     [feiras, setFeiras] = useState([]),
@@ -8,6 +9,7 @@ export default function Feiras() {
     [modelos, setModelos] = useState([]),
     [erro, setErro] = useState(''),
     [ocupado, setOcupado] = useState(false)
+  const [excluindo,setExcluindo] = useState(null), [aviso,setAviso] = useState('')
   const vazio = { nome: '', organizadoraId: '', modeloIds: [] },
     [f, setF] = useState(vazio)
   async function carregar() {
@@ -51,6 +53,8 @@ export default function Feiras() {
           ? 'Vincule os projetos às feiras. Esse vínculo libera a consulta para a organizadora.'
           : 'Consulte as feiras e os projetos vinculados à sua organizadora.'}
       </p>
+      {aviso && <p role="status">{aviso}</p>}
+      {ehAdmin && excluindo && <ExcluirCadastro tipo="feira" id={excluindo.id} aoCancelar={()=>setExcluindo(null)} aoExcluir={async()=>{if(f.id===excluindo.id)setF(vazio);setExcluindo(null);setAviso('Feira excluída dos cadastros disponíveis. Histórico preservado.');await carregar()}}/>}
       <div className="comercial-grid" style={ehAdmin?undefined:{gridTemplateColumns:'1fr'}}>
         <section className="col">
           {feiras.map((fe) => (
@@ -66,12 +70,13 @@ export default function Feiras() {
                 ))}
               </ul>
               {ehAdmin && (
-                <button
+                <div className="row"><button
                   className="btn"
+                  disabled={ocupado||!!excluindo}
                   onClick={() => setF({ ...fe, modeloIds: fe.modeloIds || [] })}
                 >
                   Editar vínculos
-                </button>
+                </button><button className="btn btn-danger" disabled={ocupado||!!excluindo} onClick={()=>{setExcluindo(fe);setAviso('');window.scrollTo({top:0,behavior:'smooth'})}}>Excluir feira</button></div>
               )}
             </article>
           ))}
@@ -134,7 +139,7 @@ export default function Feiras() {
                 </label>
               ))}
             </fieldset>
-            <button className="btn btn-primary" disabled={ocupado}>
+            <button className="btn btn-primary" disabled={ocupado||!!excluindo}>
               {ocupado ? 'Salvando…' : 'Salvar feira e vínculos'}
             </button>
             {f.id && (

@@ -80,8 +80,8 @@ service cloud.firestore {
     match /usuarios/{uid} {
       allow read: if autenticado() && request.auth.uid == uid || ehAdmin() || organizadoraDo(resource.data);
       allow create: if false; // Cadastro de contas somente nas Functions.
-      allow delete: if ehAdmin();
-      allow update: if ehAdmin()
+      allow delete: if false; // Functions removem o login e preservam o histórico.
+      allow update: if (ehAdmin() && !resource.data.get('exclusaoPendente', false))
         || (ativo() && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['precisaTrocarSenha'])
@@ -107,6 +107,10 @@ service cloud.firestore {
       allow write: if false;
     }
     match /auditoriaAdmin/{id} {
+      allow read: if ehAdmin();
+      allow write: if false;
+    }
+    match /usuariosExcluidos/{id} {
       allow read: if ehAdmin();
       allow write: if false;
     }

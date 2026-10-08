@@ -1,4 +1,5 @@
 .admin-nav{display:flex;gap:6px;padding:10px 28px;overflow-x:auto;border-bottom:1px solid var(--line);background:var(--surface);min-height:58px;box-sizing:border-box}
+.cadastro-exclusao{padding:20px;border:1px solid #cfa09b;border-radius:18px;background:var(--surface);margin:20px 0;overflow-wrap:anywhere}.cadastro-exclusao .row{gap:10px;flex-wrap:wrap;margin-top:16px}.cadastro-exclusao .col{gap:14px}.cadastro-exclusao li{margin:8px 0}.cadastro-exclusao p{line-height:1.6}.cadastro-exclusao input{width:100%;box-sizing:border-box}.cadastro-exclusao [role=alert]{color:#94342c}
 .admin-nav a{padding:8px 16px;border-radius:25px;white-space:nowrap;font-size:13px;font-weight:600}
 .admin-nav a[aria-current]{background:#193b33;color:#fffef9}
 .tema-admin .studio-workspace{height:calc(100dvh - 120px)}

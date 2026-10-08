@@ -24,19 +24,24 @@ exports.administrarUsuarios=onCall(opcoes, async req=>{
     const porId=new Map(contas.users.map(u=>[u.uid,u]))
     return {usuarios:perfis.docs.map(s=>{
       const p=s.data(),u=porId.get(s.id)
-      return {uid:s.id,nome:p.nome||'',empresa:p.empresa||'',email:u?.email||p.email||'',papel:p.papel||'',ativo:p.ativo!==false&&!u?.disabled,semLogin:!u,precisaTrocarSenha:p.precisaTrocarSenha===true,cadastroPendente:p.cadastroCompleto===false,organizadoraId:p.organizadoraId||null,feira:p.feira||'',feiraIds:p.feiraIds||[],telefone:p.telefone||'',ultimoAcesso:u?.metadata.lastSignInTime||null,emailVerificado:u?.emailVerified||false}
+      return {uid:s.id,nome:p.nome||'',empresa:p.empresa||'',email:u?.email||p.email||'',papel:p.papel||'',ativo:p.ativo!==false&&!u?.disabled,semLogin:!u,exclusaoPendente:p.exclusaoPendente===true,precisaTrocarSenha:p.precisaTrocarSenha===true,cadastroPendente:p.cadastroCompleto===false,organizadoraId:p.organizadoraId||null,feira:p.feira||'',feiraIds:p.feiraIds||[],telefone:p.telefone||'',ultimoAcesso:u?.metadata.lastSignInTime||null,emailVerificado:u?.emailVerified||false}
     }),cursor:perfis.size===100?perfis.docs.at(-1).id:null}
   }
   const uid=id(d.uid), ref=db.doc(`usuarios/${uid}`), s=await ref.get()
   if(!s.exists) throw new HttpsError('not-found','Perfil não encontrado.')
+  if(s.data().exclusaoPendente) throw new HttpsError('failed-precondition','Este usuário está em exclusão. Conclua a exclusão antes de realizar outra ação.')
   try { validarAlvo(req.auth.uid,uid,['redefinir','provisoria'].includes(d.acao)?'senha':d.acao) } catch(e) { throw new HttpsError('failed-precondition',e.message) }
   if(d.acao==='acesso') {
     if(typeof d.ativo!=='boolean') throw new HttpsError('invalid-argument','Informe se o acesso está liberado.')
     const gravar=()=>db.runTransaction(async tx=>{
       await admin(req,tx);const atual=await tx.get(ref)
       if(!atual.exists) throw new HttpsError('not-found','Perfil removido.')
+      if(atual.data().exclusaoPendente)throw new HttpsError('failed-precondition','Este usuário está em exclusão.')
+      const orgRef=atual.data().papel==='organizadora'?db.doc(`organizadoras/${atual.data().organizadoraId||uid}`):null
+      const org=orgRef?await tx.get(orgRef):null
+      if(org?.data()?.excluidaEm)throw new HttpsError('failed-precondition','Esta organizadora foi excluída.')
       tx.update(ref,{ativo:d.ativo,atualizadoEm:FieldValue.serverTimestamp()})
-      if(atual.data().papel==='organizadora')tx.set(db.doc(`organizadoras/${atual.data().organizadoraId||uid}`),{ativo:d.ativo},{merge:true})
+      if(org?.exists)tx.update(org.ref,{ativo:d.ativo})
       tx.create(db.collection('auditoriaAdmin').doc(),{autor:req.auth.uid,alvo:uid,acao:d.ativo?'liberar_acesso':'bloquear_acesso',em:FieldValue.serverTimestamp()})
     })
     // Ao bloquear, as regras devem impedir o acesso mesmo com token antigo.
@@ -72,8 +77,12 @@ exports.administrarUsuarios=onCall(opcoes, async req=>{
     await db.runTransaction(async tx=>{
       await admin(req,tx);const p=await tx.get(ref)
       if(!p.exists)throw new HttpsError('not-found','Perfil removido.')
+      if(p.data().exclusaoPendente)throw new HttpsError('failed-precondition','Este usuário está em exclusão.')
+      const orgRef=p.data().papel==='organizadora'?db.doc(`organizadoras/${p.data().organizadoraId||uid}`):null
+      const org=orgRef?await tx.get(orgRef):null
+      if(org?.data()?.excluidaEm)throw new HttpsError('failed-precondition','Esta organizadora foi excluída.')
       tx.update(ref,{nome,telefone,...(p.data().papel==='expositor'?{empresa:nome}:{}),atualizadoEm:FieldValue.serverTimestamp()})
-      if(p.data().papel==='organizadora')tx.set(db.doc(`organizadoras/${p.data().organizadoraId||uid}`),{nome},{merge:true})
+      if(org?.exists)tx.update(org.ref,{nome})
       tx.create(db.collection('auditoriaAdmin').doc(),{autor:req.auth.uid,alvo:uid,acao:'editar_usuario',em:FieldValue.serverTimestamp()})
     });return{ok:true}
   }
