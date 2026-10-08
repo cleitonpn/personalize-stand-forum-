@@ -19,6 +19,8 @@ exports.listarArtesEquipe = require('./listarArtesEquipe').listarArtesEquipe
 exports.decidirProposta = require('./aprovacaoComercial').decidirProposta
 exports.administrarUsuarios = require('./admin').administrarUsuarios
 exports.gerenciarPropostasAdmin = require('./admin').gerenciarPropostasAdmin
+exports.listarPropostasGestao = require('./gestaoPropostas').listarPropostasGestao
+exports.confirmarQuantitativos = require('./gestaoPropostas').confirmarQuantitativos
 exports.estadoPersonalizacao = onCall({region:'southamerica-east1'},async req=>{
   if(!req.auth)throw new HttpsError('unauthenticated','Faça login.')
   const db=getFirestore(),u=(await db.doc(`usuarios/${req.auth.uid}`).get()).data()
@@ -124,6 +126,7 @@ exports.salvarProjetoAdmin = onCall({region:REGIAO,timeoutSeconds:300},async req
     const v=atual.data().atualizadoEm
     if((v?.seconds||0)!==(versao?.seconds||0)||(v?.nanoseconds||0)!==(versao?.nanoseconds||0))throw new HttpsError('failed-precondition','Este projeto mudou em outra tela. Recarregue antes de salvar.')
     const dados={...atual.data(),...patch}
+    for(const [sid,q] of Object.entries(dados.quantitativos||{}))if(!dados.superficies?.some(s=>s.id===sid)||!q||!(q.areaM2===null||Number.isFinite(q.areaM2)&&q.areaM2>=0&&q.areaM2<=100000)||['categoria','material','cor','codigo'].some(k=>typeof q[k]!=='string'||q[k].length>180))throw new HttpsError('invalid-argument','Confira as quantidades e referências dos materiais.')
     try{const {validarFranquia}=await import('./franquia.mjs');validarFranquia(dados.precos?.arteInclusa,dados.superficies,dados.precos)}catch(e){throw new HttpsError('invalid-argument',e.message)}
     for(const a of dados.artesMedidas||[]){if(a.confirmada&&!a.semGabarito&&(![a.larguraCm,a.alturaCm].every(v=>Number.isFinite(v)&&v>0&&v<=10000)||![a.sangriaMm??3,a.margemMm??10].every(v=>Number.isFinite(v)&&v>=0&&v<=500)||(a.margemMm??10)*2>=Math.min(a.larguraCm,a.alturaCm)*10))throw new HttpsError('invalid-argument',`Confira as medidas e margem segura de ${a.nome}.`)}
     tx.update(ref,{...patch,atualizadoEm:agora})

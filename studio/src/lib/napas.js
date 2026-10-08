@@ -12,7 +12,7 @@ export function napasDisponiveis(catalogo,tipo,superficies=[]) {
     && superficies.every(s=>!Array.isArray(s.acabamentosPermitidos)||s.acabamentosPermitidos.includes(n.id)))
 }
 export function acabamentoNapa(n) {
-  return {cor:n.cor,corId:n.id,materialId:n.id,materialNome:n.nome,materialCodigo:n.codigo||null,
+  return {cor:n.cor,corId:n.id,corNome:n.nome,materialId:n.id,materialNome:n.nome,materialCodigo:n.codigo||null,
     materialFornecedor:n.fornecedor||null,textura:n.textura||null,escalaTextura:n.escala||.25,brilho:n.brilho??.15}
 }
 export function validarNapa(n) {

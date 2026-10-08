@@ -90,7 +90,7 @@ export default function PainelExpositor({ analise, superficies, acabamentos, set
               <small className="dim">Adicional pela troca de cor: {fmtBRL(estimar(cores,{cor:'#ffffff',materialId:null}))}</small><div className="cartela-cores">{CORES.map(c => {
                 const marcado = cores.every(id => acabamentos[id]?.corId === c.id)
                 return <button key={c.id} className={`amostra ${marcado ? 'ativa' : ''}`} aria-pressed={marcado}
-                  aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id,materialId:null,materialNome:null,materialCodigo:null,materialFornecedor:null,textura:null,escalaTextura:null,brilho:null })}>
+                  aria-label={c.nome} title={c.nome} onClick={() => aplicar(cores, { cor: c.hex, corId: c.id,corNome:c.nome,materialId:null,materialNome:null,materialCodigo:null,materialFornecedor:null,textura:null,escalaTextura:null,brilho:null })}>
                   <span style={{ background: c.hex }} /><small>{c.nome}</small></button>
               })}</div></div>}
             {!removido && artes.length > 0 && <div className="col" style={{ gap: 8 }}><div className="label">{(atual.superficies[0]?.arteFrontal ?? ehBalcao(atual)) ? 'Sua arte — somente na frente' : 'Sua arte'}</div>

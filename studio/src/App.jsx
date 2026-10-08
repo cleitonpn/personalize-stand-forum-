@@ -10,6 +10,7 @@ import Clientes from './pages/Clientes.jsx'
 import TrocarSenha from './pages/TrocarSenha.jsx'
 import Expositor from './pages/Expositor.jsx'
 import Propostas from './pages/Propostas.jsx'
+import Relatorios from './pages/Relatorios.jsx'
 import Conta from './pages/Conta.jsx'
 import Acabamentos from './pages/Acabamentos.jsx'
 import { NapasProvider } from './store/NapasContext.jsx'
@@ -55,7 +56,7 @@ function Topbar() {
     </header>
     {perfil?.papel==='analista_cv'&&<nav className="admin-nav" aria-label="Comunicação visual"><Link to="/artes">Artes e aprovação</Link></nav>}
     {perfil?.papel==='expositor'&&<nav className="cliente-nav" aria-label="Seu projeto"><Link to="/meu-estande" aria-current={pathname==='/meu-estande'?'page':undefined}>Personalizar estande</Link><Link to="/artes" aria-current={pathname.startsWith('/artes')?'page':undefined}>Artes e aprovação</Link><ChatAtalho/></nav>}
-    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/usuarios','Usuários e acessos'],['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
+    {['admin','organizadora'].includes(perfil?.papel)&&<nav className="admin-nav" aria-label="Administração">{(perfil.papel==='admin'?[['/usuarios','Usuários e acessos'],['/modelos','Projetos'],['/organizadoras','Organizadoras'],['/feiras','Feiras'],['/precos','Preços'],['/mobiliario','Mobiliário'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/relatorios','Relatórios'],['/acabamentos','Acabamentos'],['/analise','Análise de uso']]:[['/modelos','Projetos'],['/feiras','Feiras'],['/expositores','Expositores'],['/propostas','Propostas'],['/artes','Artes'],['/atendimento','Atendimento'],['/metricas','Métricas'],['/relatorios','Relatórios']]).map(([url,nome])=><Link key={url} to={url} aria-current={pathname.startsWith(url)?'page':undefined}>{nome}</Link>)}</nav>}</>
   )
 }
 
@@ -124,6 +125,7 @@ function Rotas() {
           <Route path="/modelos" element={<Protegida equipe><Modelos /></Protegida>} />
           <Route path="/modelos/:id" element={<Protegida equipe>{ehAdmin?<Editor />:<ProjetoConsulta />}</Protegida>} />
           <Route path="/expositores" element={<Protegida equipe><Clientes /></Protegida>} />
+          <Route path="/relatorios" element={<Protegida equipe><Relatorios /></Protegida>} />
           <Route path="/propostas" element={<Protegida equipe><Propostas /></Protegida>} />
           <Route path="/artes" element={<Protegida artes><Artes /></Protegida>} />
           <Route path="/artes/:id" element={<Protegida artes><Artes /></Protegida>} />

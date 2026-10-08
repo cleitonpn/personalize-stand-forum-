@@ -3,7 +3,8 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import { executarComercial } from '../lib/comercial.js'
 import { fmtBRL } from '../lib/glb/precos.js'
-export default function PagamentoProposta({ proposta, ehAdmin }) {
+import {ROTULOS_STATUS} from '../../functions/relatorios.mjs'
+export default function PagamentoProposta({ proposta, ehAdmin, aoAtualizar }) {
   const [org, setOrg] = useState(null),
     [pagamento, setPagamento] = useState(null),
     [valor, setValor] = useState(String(proposta.total || 0)),
@@ -34,6 +35,7 @@ export default function PagamentoProposta({ proposta, ehAdmin }) {
         valorCentavos: Math.round(Number(valor) * 100),
       })
       await carregar()
+      await aoAtualizar?.()
     } catch (ex) {
       setErro(ex.message)
     } finally {
@@ -47,10 +49,10 @@ export default function PagamentoProposta({ proposta, ehAdmin }) {
           <h4>Pagamento à montadora</h4>
           <p>
             {pagamento
-              ? `Valor aprovado: ${fmtBRL(pagamento.valorCentavos / 100)} · ${['cancelada','cancelado'].includes(pagamento.status)?'cobrança cancelada; requer nova liberação pelo admin.':'aguardando integração do provedor.'}`
+              ? `Valor registrado: ${fmtBRL(pagamento.valorCentavos / 100)} · ${ROTULOS_STATUS['pagamento_'+pagamento.status]||pagamento.status}`
               : 'Valor aguardando aprovação da USET.'}
           </p>
-          {ehAdmin && (
+          {ehAdmin && (!pagamento||['aguardando_integracao','cancelada','cancelado'].includes(pagamento.status)) && (
             <form
               onSubmit={salvar}
               className="row"
@@ -74,9 +76,9 @@ export default function PagamentoProposta({ proposta, ehAdmin }) {
               </button>
             </form>
           )}
-          <p className="muted">
+          {(!pagamento||pagamento.status==='aguardando_integracao')&&<p className="muted">
             Nenhuma cobrança será emitida até a integração do provedor.
-          </p>
+          </p>}
         </>
       ) : (
         org && (

@@ -86,6 +86,7 @@ export function coletarPecas(root) {
       chave: chaveDaPeca(materialNome, centro.toArray()),
       nome: o.name || '',
       materialNome,
+      materialCor: mat?.color ? `#${mat.color.getHexString()}` : '',
       materialUuid: mat?.uuid || 'none',
       tris,
       dimensoesLocais, normalPlano,

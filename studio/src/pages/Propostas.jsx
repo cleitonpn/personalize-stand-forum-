@@ -1,143 +1,32 @@
+import {useEffect,useState} from 'react'
+import {Link} from 'react-router-dom'
 import LiberarProposta from '../components/LiberarProposta.jsx'
 import DecisaoProposta from '../components/DecisaoProposta.jsx'
 import LixeiraPropostas from '../components/LixeiraPropostas.jsx'
-import { useEffect, useState } from 'react'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
-import { db } from '../lib/firebase.js'
-import { fmtBRL, fmtM2 } from '../lib/glb/precos.js'
-import { gerarPropostaHTML } from '../lib/proposta.js'
-import { posicaoPonto,pontosEletricos } from '../lib/eletrica.js'
-import Proposta3D from '../components/Proposta3D.jsx'
-import { useAuth } from '../store/AuthContext.jsx'
-import { listarComercial, executarComercial } from '../lib/comercial.js'
 import PagamentoProposta from '../components/PagamentoProposta.jsx'
-import {Link} from 'react-router-dom'
+import Proposta3D from '../components/Proposta3D.jsx'
+import FiltrosPropostas,{filtrosConsulta} from '../components/FiltrosPropostas.jsx'
+import {useAuth} from '../store/AuthContext.jsx'
+import {listarPropostasGestao,executarComercial} from '../lib/comercial.js'
+import {fmtBRL,fmtM2} from '../lib/glb/precos.js'
+import {gerarPropostaHTML} from '../lib/proposta.js'
+import {estadosProposta,ROTULOS_STATUS,ESTADOS_ARTE,filtrarPropostas,momento} from '../../functions/relatorios.mjs'
+const data=ts=>momento(ts)?new Date(momento(ts)).toLocaleString('pt-BR'):'—'
 
-const data = (ts) => ts?.toDate?.().toLocaleString('pt-BR', {
-  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-}) || '—'
-
-export default function Propostas() {
-  const {perfil,ehAdmin}=useAuth()
-  const [lista, setLista] = useState(null)
-  const [erro, setErro] = useState(null)
-  const [aberta, setAberta] = useState(null)
-  const [excluindo,setExcluindo]=useState(null)
-  const [versaoLixeira,setVersaoLixeira]=useState(0)
-  const carregar=async()=>setLista(await listarComercial('propostas',perfil))
-  async function excluir(p) {
-    if(!window.confirm(`Excluir a proposta de ${p.clienteNome}? Ela irá para a lixeira e o acesso da produção será suspenso. Você poderá restaurar o envio depois.`))return
-    setExcluindo(p.id);setErro(null)
-    try{await executarComercial('gerenciarPropostasAdmin',{acao:'excluir',propostaId:p.id});setLista(l=>l.filter(x=>x.id!==p.id));setAberta(null);setVersaoLixeira(v=>v+1)}catch(e){setErro(e.message)}finally{setExcluindo(null)}
-  }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        setLista(await listarComercial('propostas',perfil))
-      } catch (ex) {
-        setErro(ex.code === 'permission-denied'
-          ? 'Sem permissão para ler propostas. Publique as regras do Firestore atualizadas.'
-          : ex.message)
-        setLista([])
-      }
-    })()
-  }, [])
-
-  const abrirPDF = (p) => {
-    const html = gerarPropostaHTML({
-      cliente: p.clienteNome, email: p.clienteEmail, feira: p.feira,
-      modelo: p.modeloNome, itens: p.itens, total: p.total,franquia:p.franquia, imagem: null, complementos: p.complementos, pendenciasArte:p.pendenciasArte,eletrica:p.eletrica,
-    })
-    const w = window.open('', '_blank')
-    if (w) { w.document.write(html); w.document.close() }
-  }
-
-  return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '32px 24px 64px' }}>
-      <div className="fade-up" style={{ marginBottom: 26 }}>
-        <h1 style={{ fontSize: 27, marginBottom: 6 }}>
-          <span className="grad-text">Propostas</span> recebidas
-        </h1>
-        <p className="muted" style={{ margin: 0 }}>
-          O que cada expositor personalizou e gravou.
-        </p>
-      </div>
-
-      {lista === null && (
-        <div className="card card-pad row"><span className="spinner" /><span className="muted">Carregando…</span></div>
-      )}
-
-      {erro && (
-        <div className="card card-pad" style={{ borderColor: 'rgba(244,63,94,.35)' }}>
-          <div style={{ color: '#fda4af', fontWeight: 600, marginBottom: 4 }}>Não foi possível carregar</div>
-          <div className="muted" style={{ fontSize: 13 }}>{erro}</div>
-        </div>
-      )}
-
-      {lista?.length === 0 && !erro && (
-        <div className="card card-pad" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ fontSize: 34, marginBottom: 10, opacity: .5 }}>📄</div>
-          <h3 style={{ fontSize: 16, marginBottom: 6 }}>Nenhuma proposta ainda</h3>
-          <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>
-            Assim que um expositor gravar a personalização, ela aparece aqui.
-          </p>
-        </div>
-      )}
-
-      {ehAdmin&&<LixeiraPropostas key={versaoLixeira} aoAtualizar={carregar}/>}
-      <div className="col" style={{ gap: 12 }}>
-        {lista?.map((p, i) => {
-          const open = aberta === p.id
-          return (
-            <div key={p.id} className="card card-pad fade-up" style={{ animationDelay: `${i * 40}ms` }}>
-              <div className="row" style={{ justifyContent: 'space-between', gap: 14, cursor: 'pointer' }}
-                onClick={() => setAberta(open ? null : p.id)}>
-                <div className="col" style={{ gap: 4, minWidth: 0 }}>
-                  <h3 style={{ fontSize: 15 }}>{p.clienteNome}</h3>
-                  <div className="dim" style={{ fontSize: 12.5 }}>
-                    {p.feira ? `${p.feira} · ` : ''}{p.modeloNome} · {data(p.criadoEm)}
-                  </div>
-                </div>
-                <div className="row" style={{ gap: 10, flex: 'none' }}>
-                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--brand-green)' }}>
-                    {fmtBRL(p.total)}
-                  </span>
-                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); abrirPDF(p) }}>PDF</button>
-                  {ehAdmin&&<button className="btn btn-sm btn-danger" disabled={excluindo!==null} onClick={e=>{e.stopPropagation();excluir(p)}}>{excluindo===p.id?'Excluindo…':'Excluir'}</button>}
-                </div>
-              </div>
-
-              {open && (
-                <>
-                  <div className="hr" />
-                  <Link className="btn btn-primary" to={`/artes/${p.id}`}>Gabaritos, artes finais e aprovação</Link>
-                  {p.arquivoPersonalizado?.url ? <Proposta3D arquivo={p.arquivoPersonalizado}/> : <p className="orientacao">Esta proposta foi enviada antes do registro em GLB. O arquivo 3D personalizado não está disponível para este envio.</p>}
-                  <div className="col" style={{ gap: 6 }}>
-                    {(p.itens || []).map((it) => (
-                      <div key={it.id} className="row" style={{ justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
-                        <span className="muted">
-                          {it.nome} <span className="dim">· {it.unidade === 'm2' ? fmtM2(it.quantidade) : `${it.quantidade??1} un.`}</span>
-                        </span>
-                        <span className="mono">{fmtBRL(it.total)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="dim" style={{ fontSize: 11.5, marginTop: 10 }}>{p.clienteEmail}</div>
-                  {p.franquia?.ativo&&<p>Arte incluída: {fmtM2(p.franquia.utilizadaM2)} de {fmtM2(p.franquia.limiteM2)} · extras: {fmtM2(p.franquia.extraM2)}</p>}
-                  <p>{p.contatoNome}{p.telefone?` · ${p.telefone}`:''} · {p.localizacao||'Localização do estande pendente'}</p>
-                  <a className="btn" href={`mailto:${p.clienteEmail}`}>Entrar em contato com o expositor</a>
-                  <p>{p.cobranca==='montadora'?'Pagamento direto à montadora após aprovação do valor.':'Proposta para contato e negociação com o expositor.'}</p>
-                  <LiberarProposta proposta={p} ehAdmin={ehAdmin}/>
-                  {ehAdmin&&<DecisaoProposta proposta={p} aoAtualizar={async()=>setLista(await listarComercial('propostas',perfil))}/>}
-                  {p.organizadoraId&&<PagamentoProposta proposta={p} ehAdmin={ehAdmin}/>}
-                  {pontosEletricos({_eletrica:p.eletrica?.pontos}).length>0&&<section><h4>Pontos elétricos adicionais</h4><ol>{p.eletrica.pontos.map(pt=><li key={pt.id}>{pt.uso||'Uso a informar'} · {pt.tensao||'A confirmar'} · {posicaoPonto(pt,p.eletrica.limites)}</li>)}</ol></section>}
-                </>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
+export default function Propostas(){
+  const {ehAdmin}=useAuth(),[lista,setLista]=useState(null),[erro,setErro]=useState(''),[aberta,setAberta]=useState(null),[filtros,setFiltros]=useState({}),[ocupado,setOcupado]=useState(false),[versaoLixeira,setVersaoLixeira]=useState(0),[retirada,setRetirada]=useState(null),[motivo,setMotivo]=useState(''),[confirmarFinanceiro,setConfirmarFinanceiro]=useState(false)
+  async function carregar(){setOcupado(true);setErro('');try{setLista(await listarPropostasGestao())}catch(e){setErro(e.message)}finally{setOcupado(false)}}
+  useEffect(()=>{carregar()},[])
+  async function excluir(e){e.preventDefault();setOcupado(true);setErro('');try{await executarComercial('gerenciarPropostasAdmin',{acao:'excluir',propostaId:retirada.id,motivo,confirmarPendenciaFinanceira:confirmarFinanceiro});setRetirada(null);setAberta(null);setVersaoLixeira(v=>v+1);await carregar()}catch(ex){setErro(ex.message)}finally{setOcupado(false)}}
+  function abrirPDF(p){const w=window.open('','_blank');if(w){w.document.write(gerarPropostaHTML({cliente:p.clienteNome,email:p.clienteEmail,feira:p.feira,modelo:p.modeloNome,itens:p.itens,total:p.total,franquia:p.franquia,imagem:null,complementos:p.complementos,pendenciasArte:p.pendenciasArte,eletrica:p.eletrica}));w.document.close()}}
+  const visiveis=filtrarPropostas(lista||[],filtrosConsulta(filtros)),contagem=s=>(lista||[]).filter(p=>estadosProposta(p).includes(s)).length
+  return <div className="admin-pagina propostas-pagina"><header className="admin-cabecalho"><span className="admin-eyebrow">ACOMPANHAMENTO COMERCIAL</span><h1>Propostas</h1><p>Veja a análise comercial, o andamento das artes e os estandes liberados para produção.</p><div className="row"><button className="btn" disabled={ocupado} onClick={carregar}>Atualizar propostas</button><Link className="btn" to="/relatorios">Relatórios financeiros e materiais</Link></div></header>
+    <div className="propostas-resumo">{[['pendente','Aguardando análise'],['liberada','Produção liberada'],['arte_aguardando','Faltando arte'],['todas_artes_aprovadas','Artes aprovadas']].map(([s,n])=><button className="card card-pad" key={s} onClick={()=>setFiltros({[s.startsWith('arte_')||s.startsWith('todas_')?'arte':'comercial']:s})}><strong>{contagem(s)}</strong><span>{n}</span></button>)}</div>
+    <FiltrosPropostas lista={lista||[]} filtros={filtros} aoMudar={setFiltros}/>{erro&&<p className="erro-inline" role="alert">{erro}</p>}{lista===null&&!erro&&<p role="status">Carregando propostas e status…</p>}{lista&&<p aria-live="polite">{visiveis.length} de {lista.length} proposta(s)</p>}
+    {ehAdmin&&<LixeiraPropostas key={versaoLixeira} aoAtualizar={carregar}/>}
+    {retirada&&<form className="card card-pad retirada-proposta" onSubmit={excluir} aria-label="Excluir proposta"><h2>Retirar proposta de {retirada.clienteNome}</h2><p>A proposta irá para a lixeira, a produção será suspensa e o cliente será desbloqueado. Arquivos e histórico ficam preservados para restauração.</p><label>Motivo da retirada<textarea className="input" required maxLength={500} value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Ex.: cliente desistiu da feira"/></label>{retirada.pagamento&&!['aguardando_integracao','cancelada','cancelado'].includes(retirada.pagamento.status)&&<label className="aprovacao-check"><input type="checkbox" required checked={confirmarFinanceiro} onChange={e=>setConfirmarFinanceiro(e.target.checked)}/>Entendo que há cobrança emitida ou recebida. A retirada não estorna pagamentos; a pendência financeira será registrada para conciliação.</label>}<div className="row"><button className="btn btn-danger" disabled={ocupado}>Excluir e suspender produção</button><button className="btn" type="button" disabled={ocupado} onClick={()=>setRetirada(null)}>Cancelar</button></div></form>}
+    {!visiveis.length&&lista&&<p className="card card-pad">Nenhuma proposta corresponde a esses filtros.</p>}
+    <div className="col">{visiveis.map(p=>{const open=aberta===p.id,estado=estadosProposta(p)[0];return <article key={p.id} className="card card-pad proposta-cartao"><div className="proposta-cabecalho"><button className="proposta-abrir" aria-expanded={open} onClick={()=>setAberta(open?null:p.id)}><h2>{p.clienteNome}</h2><span>{p.feira||'Feira não informada'} · {p.organizadoraNome}</span><span>{p.modeloNome} · {data(p.criadoEm)} · {p.localizacao||'Localização pendente'}</span><strong className={`proposta-status status-${estado}`}>{ROTULOS_STATUS[estado]}</strong><span className="proposta-artes">{!p.resumoArtes.total?'Sem arte solicitada':Object.entries(p.resumoArtes.contagens).filter(([,n])=>n>0).map(([s,n])=>`${n} ${ESTADOS_ARTE[s]||s}`).join(' · ')}</span><span>{p.liberadaEm?'Proposta enviada/liberada ao cliente':'Liberação ao cliente pendente'}{p.pagamento?` · ${ROTULOS_STATUS['pagamento_'+p.pagamento.status]||p.pagamento.status}`:''}</span>{p.pagamento?.pendenciaCancelamento&&<span className="erro-inline">Pendência financeira de retirada</span>}</button><div className="proposta-acoes"><strong>{fmtBRL(p.total)}</strong><button className="btn btn-sm" onClick={()=>abrirPDF(p)}>PDF</button><button className="btn btn-sm" aria-expanded={open} onClick={()=>setAberta(open?null:p.id)}>{open?'Recolher':'Abrir proposta'}</button>{ehAdmin&&<button className="btn btn-sm btn-danger" disabled={ocupado} onClick={()=>{setRetirada(p);setMotivo('');setConfirmarFinanceiro(false);window.scrollTo({top:0,behavior:'smooth'})}}>Excluir</button>}</div></div>
+    {open&&<div className="proposta-detalhes"><Link className="btn btn-primary" to={`/artes/${p.id}`}>Gabaritos, artes finais e aprovação</Link>{p.arquivoPersonalizado?.url?<Proposta3D arquivo={p.arquivoPersonalizado} eletrica={p.eletrica||p.manifestoProducao?.eletrica} cliente={p.clienteNome}/>:<p className="orientacao">Esta proposta antiga não possui o registro GLB enviado. A planta não está disponível.</p>}<h3>Valores das personalizações</h3>{(p.itens||[]).map(it=><div key={it.id} className="proposta-linha"><span>{it.nome} · {it.unidade==='m2'?fmtM2(it.quantidade):`${it.quantidade??1} un.`}</span><strong>{fmtBRL(it.total)}</strong></div>)}{p.franquia?.ativo&&<p>Arte incluída: {fmtM2(p.franquia.utilizadaM2)} de {fmtM2(p.franquia.limiteM2)} · extras: {fmtM2(p.franquia.extraM2)}</p>}<p>{p.contatoNome} · {p.clienteEmail}{p.telefone?` · ${p.telefone}`:''}</p><p>{p.cobranca==='montadora'?'Pagamento direto à montadora.':'Negociação e pagamento pela organizadora.'}</p><LiberarProposta proposta={p} ehAdmin={ehAdmin} aoAtualizar={carregar}/>{ehAdmin&&<DecisaoProposta proposta={p} aoAtualizar={carregar}/>} {p.organizadoraId&&<PagamentoProposta proposta={p} ehAdmin={ehAdmin} aoAtualizar={carregar}/>}</div>}</article>})}</div>
+  </div>
 }

@@ -98,17 +98,20 @@ exports.gerenciarPropostasAdmin=onCall(opcoes,async req=>{
     if(d.acao==='restaurar') {
       if(p.exists)throw new HttpsError('already-exists','Esta proposta já está na lista.')
       if(!a.exists)throw new HttpsError('not-found','Proposta não encontrada na lixeira.')
-      const {excluidaEm,excluidaPor,excluidaMotivo,decisaoEm,decisaoPor,decisaoMotivo,ordemProducaoId,...original}=a.data()
+      const {excluidaEm,excluidaPor,excluidaMotivo,decisaoEm,decisaoPor,decisaoMotivo,ordemProducaoId,liberadaEm,liberadaPor,...original}=a.data()
       tx.create(ref,{...original,decisaoComercial:'pendente',restauradaEm:agora,restauradaPor:req.auth.uid})
+      tx.set(db.doc(`acessosProducao/${propostaId}`),{estado:'suspensa'},{merge:true})
       tx.delete(lixeira)
     } else {
       if(!p.exists){if(a.exists)return;throw new HttpsError('not-found','Proposta não encontrada.')}
-      if(!podeExcluirPagamento(pagamento.data()))throw new HttpsError('failed-precondition','Resolva a cobrança emitida ou recebida antes de excluir esta proposta.')
+      if(!podeExcluirPagamento(pagamento.data())&&d.confirmarPendenciaFinanceira!==true)throw new HttpsError('failed-precondition','Há cobrança emitida ou recebida. Confirme a pendência financeira para retirar a proposta; o pagamento será preservado para conciliação.')
+      const usuario=await tx.get(db.doc(`usuarios/${p.data().cliente}`))
       tx.set(lixeira,{...p.data(),excluidaEm:agora,excluidaPor:req.auth.uid,excluidaMotivo:texto(d.motivo,500)})
       tx.delete(ref)
       tx.set(db.doc(`acessosProducao/${propostaId}`),{estado:'excluida'},{merge:true})
       for(const o of ordens.docs){tx.update(o.ref,{estado:'suspensa',atualizadoEm:agora});tx.create(o.ref.collection('eventos').doc(),{acao:'proposta_excluida',autor:req.auth.uid,revisao:o.data().revisao,em:agora})}
-      if(pagamento.exists)tx.update(pagamento.ref,{status:'cancelada',atualizadoEm:agora})
+      if(usuario.data()?.personalizacaoBloqueada?.propostaId===propostaId)tx.update(usuario.ref,{personalizacaoBloqueada:null})
+      if(pagamento.exists)tx.update(pagamento.ref,podeExcluirPagamento(pagamento.data())?{status:'cancelada',atualizadoEm:agora}:{pendenciaCancelamento:true,propostaRetiradaEm:agora,atualizadoEm:agora})
     }
     tx.create(db.collection('auditoriaAdmin').doc(),{autor:req.auth.uid,alvo:propostaId,acao:`${d.acao}_proposta`,em:agora})
   })

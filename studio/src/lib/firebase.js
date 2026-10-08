@@ -25,8 +25,8 @@ export const db = getFirestore(app)
 export const storage = getStorage(app)
 export const functions = getFunctions(app, 'southamerica-east1')
 if(emuladores){
-  connectAuthEmulator(auth,'http://127.0.0.1:9198',{disableWarnings:true})
-  connectFirestoreEmulator(db,'127.0.0.1',8185)
-  connectStorageEmulator(storage,'127.0.0.1',9298)
-  connectFunctionsEmulator(functions,'127.0.0.1',5001)
+  connectAuthEmulator(auth,`http://127.0.0.1:${import.meta.env.VITE_AUTH_PORT||9198}`,{disableWarnings:true})
+  connectFirestoreEmulator(db,'127.0.0.1',Number(import.meta.env.VITE_FIRESTORE_PORT||8185))
+  connectStorageEmulator(storage,'127.0.0.1',Number(import.meta.env.VITE_STORAGE_PORT||9298))
+  connectFunctionsEmulator(functions,'127.0.0.1',Number(import.meta.env.VITE_FUNCTIONS_PORT||5001))
 }

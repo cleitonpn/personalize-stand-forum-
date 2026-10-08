@@ -40,6 +40,7 @@ async function conferirArquivo(c,req,reservaId,tipo){
 exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},async req=>{
   const c=await contexto(req),d=req.data,acao=d.acao
   if(acao==='iniciar'){
+    const {resumoArtes}=await import('./relatorios.mjs')
     await c.db.runTransaction(async tx=>{
       await validarContexto(tx,c,req);const existente=await tx.get(c.ref)
       if(existente.exists)return
@@ -51,7 +52,7 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
       })
       if(!areas.length)for(const [i,nome] of (p.pendenciasArte||[]).entries())areas.push({id:`legado-${i}`,nome:limpo(nome,180),larguraCm:0,alturaCm:0,perfilId:'lona-parede'})
       if(areas.length>80)throw new HttpsError('failed-precondition','Divida as áreas de arte em até 80 itens.')
-      tx.create(c.ref,{propostaId:c.propostaId,cliente:p.cliente,clienteNome:limpo(p.clienteNome,180)||'Expositor',organizadoraId:p.organizadoraId||null,feiraId:p.feiraId||null,criadoEm:FieldValue.serverTimestamp(),prazo:null})
+      tx.create(c.ref,{propostaId:c.propostaId,cliente:p.cliente,clienteNome:limpo(p.clienteNome,180)||'Expositor',organizadoraId:p.organizadoraId||null,feiraId:p.feiraId||null,criadoEm:FieldValue.serverTimestamp(),prazo:null,resumoArtes:resumoArtes(areas.map(a=>({...a,status:'aguardando'})))})
       for(const a of areas)tx.create(c.ref.collection('areas').doc(id(a.id)),{...a,confirmada:!!a.confirmada,revisao:0,versao:0,status:'aguardando',arquivo:null,prova:null})
     });return{ok:true}
   }
@@ -82,8 +83,10 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
   const descricao=tipos[acao],eventoId=randomUUID()
   const evento=descricao?await prepararEvento({id:eventoId,alvo:['enviar','responder'].includes(acao)?'equipe':'cliente',autor:req.auth.uid,cliente:c.p.data().cliente,organizadoraId:c.p.data().organizadoraId,propostaId:c.propostaId,tipo:descricao[0],titulo:descricao[1],corpo:descricao[2],url:`/artes/${c.propostaId}`}):null
   let avisos=[]
+  const {resumoArtes}=await import('./relatorios.mjs')
   await c.db.runTransaction(async tx=>{
     const perfil=await validarContexto(tx,c,req),s=await tx.get(areaRef),workspace=await tx.get(c.ref),a=s.data()
+    const todasAreas=await tx.get(c.ref.collection('areas'))
     if(!a)throw new HttpsError('not-found','Área não encontrada.')
     if(acao==='impressao'){
       const acesso=await tx.get(c.db.doc(`acessosProducao/${c.propostaId}`))
@@ -112,6 +115,7 @@ exports.artesProposta=onCall({region:REGIAO,timeoutSeconds:300,memory:'1GiB'},as
     }
     if(envio)tx.update(envio.reservaRef,{usado:true})
     tx.update(areaRef,{...patch,atualizadoEm:FieldValue.serverTimestamp()})
+    tx.update(c.ref,{resumoArtes:resumoArtes(todasAreas.docs.map(x=>x.id===areaId?{...x.data(),...patch}:x.data()))})
     tx.create(areaRef.collection('eventos').doc(),{acao,autor:req.auth.uid,papel:perfil.papel,versao:patch.versao??a.versao,revisao:patch.revisao??a.revisao,prova:prova||null,motivo:limpo(d.motivo),aprovou:d.aprovar===true,em:FieldValue.serverTimestamp()})
     if(evento)avisos=gravarEvento(tx,evento)
   });await entregarEventos(avisos);return{ok:true}

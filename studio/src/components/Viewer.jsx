@@ -1,5 +1,6 @@
 import { exportarGLB } from '../lib/exportarGLB.js'
 import { FocarElemento, NumerosElementos, CapturasCliente } from './VistasCliente.jsx'
+import {CapturaPlanta} from './PlantaProposta.jsx'
 import PecaAdicionada from './PecaAdicionada.jsx'
 import PontosEletricos from './PontosEletricos.jsx'
 import { projetarFrente } from '../lib/glb/frente.js'
@@ -715,7 +716,7 @@ export default function Viewer({
   indice, acabamentos, supFoco, objetos: objetosConfigurados, objFoco, vista, aoAplicarVista, mostrarRecorte = false,
   extras, escondidos, aoTransformarExtra, compararOriginal=false, focoCamera, marcadores=[], objSel, aoTransformarObjeto, limitesGizmo, realceSuave = false,
   aoSelecionar, somentePersonalizaveis = false, mostrarGrade = false, partesFoco, complementos = [], aoPosicionar,
-  pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,exportadorRef,capturasRef,capturasProducao=false,
+  pontosEletricos=[],limitesEletrica,alturaEletrica,modoEletrica,aoMarcarEletrica,exportadorRef,capturasRef,capturasProducao=false,plantaRef,
 }) {
   const analiseMovimento = useMemo(() => {
     if (!cena) return null
@@ -855,6 +856,7 @@ export default function Viewer({
       <FocarElemento cena={cena} pedido={focoCamera} recorte={recorte}/>
       {!compararOriginal&&<NumerosElementos cena={cena} marcadores={marcadores}/>}
       <CapturasCliente cena={cena} recorte={recorte} capturasRef={capturasRef} producao={capturasProducao}/>
+      <CapturaPlanta cena={cena} plantaRef={plantaRef}/>
       {!compararOriginal&&<PontosEletricos pontos={pontosEletricos} limites={limitesEletrica} altura={alturaEletrica} modo={modoEletrica} aoMarcar={aoMarcarEletrica}/>}
       <Exposicao valor={exposicao} />
       <OrbitControls makeDefault enableDamping dampingFactor={0.08} maxPolarAngle={Math.PI / 2.02} />

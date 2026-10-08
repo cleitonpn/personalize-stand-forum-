@@ -16,8 +16,12 @@ export function ehArquivoFirebase(url) {
   }
 }
 export async function blobProtegido(url) {
-  if (ehArquivoFirebase(url))
-    return getBlob(ref(storage, url), 200 * 1024 * 1024)
+  if (ehArquivoFirebase(url)) {
+    // O SDK conectado ao emulador não reconhece URLs com host de produção.
+    // gs:// preserva bucket/caminho e continua usando sessão e regras do SDK.
+    const u=new URL(url),m=u.pathname.match(/^\/v0\/b\/([^/]+)\/o\/(.+)$/)
+    return getBlob(ref(storage,m?`gs://${decodeURIComponent(m[1])}/${decodeURIComponent(m[2])}`:url),200*1024*1024)
+  }
   const resposta = await fetch(url)
   if (!resposta.ok) throw Error('Não foi possível baixar o arquivo.')
   return resposta.blob()

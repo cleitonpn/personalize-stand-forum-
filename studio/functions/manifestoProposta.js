@@ -32,7 +32,7 @@ function manifesto(modelo, proposta) {
   const materiais = superficies.map(s=>{
     const a = acabamentos[s.id] || {}
     return {id:s.id,elementoId:s.elementoId||s.id,nome:texto(s.nome),tipo:s.tipoElemento||s.papel||'elemento',papel:s.papel||'',origem:retirada(s),materialOriginal:texto(s.origem || s.nome),
-      acabamento:{nome:texto(a.materialNome),codigo:texto(a.materialCodigo),fornecedor:texto(a.materialFornecedor),cor:texto(a.cor),textura:!!a.textura,alterado:!!(a.cor||a.materialId)},arte:!!(a.arte||a.artePendente),artePendente:!!a.artePendente}
+      quantitativo:modelo.quantitativos?.[s.id]||null,acabamento:{nome:texto(a.materialNome),materialId:texto(a.materialId),corNome:texto(a.corNome),codigo:texto(a.materialCodigo),fornecedor:texto(a.materialFornecedor),cor:texto(a.cor),textura:!!a.textura,alterado:!!(a.cor||a.materialId)},arte:!!(a.arte||a.artePendente),artePendente:!!a.artePendente}
   })
   const moveis = objetos.map(o=>{
     const relacionadas = superficies.filter(s=>(s.pecas||[]).some(k=>(o.pecas||[]).includes(k)))

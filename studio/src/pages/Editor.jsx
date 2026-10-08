@@ -1,4 +1,5 @@
 import { transformarMovelAdicionado } from '../lib/glb/mobiliario.js'
+import {levantarQuantidades} from '../lib/quantitativos.js'
 import { completarPartesMoveis } from '../lib/glb/partesMoveis.js'
 import { useNapas } from '../store/NapasContext.jsx'
 import { pontosEletricos } from '../lib/eletrica.js'
@@ -324,6 +325,7 @@ export default function Editor() {
       const atualizado = await salvarModelo(modelo, {
         papeis, recorte,
         superficies: superficies || [],
+        quantitativos: levantarQuantidades(superficies,analise,recorte,modelo.quantitativos,objetos),
         artesMedidas: medirAreas(superficies,analise,cena,objetos,recorte),
         objetos: objetos || [],
         complementos: grupos || [],
