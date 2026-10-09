@@ -222,6 +222,82 @@ service cloud.firestore {
       allow read: if ativo() && resource.data.destinatario == request.auth.uid;
       allow write: if false;
     }
+    // BEGIN USET OPERACAO
+    // Aplicativo irmão. Nenhuma regra abaixo concede acesso aos dados do Studio.
+    function opsSession() { return get(/databases/$(database)/documents/ops_sessions/$(request.auth.uid)).data; }
+    function opsActive() {
+      let s = opsSession();
+      return request.auth != null && request.auth.token.get('ops',false) == true
+        && s.expiresAt > request.time.toMillis()
+        && (s.get('userPath','') == '' || (exists(/databases/$(database)/documents/$(s.userCollection)/$(s.userId))
+          && get(/databases/$(database)/documents/$(s.userCollection)/$(s.userId)).data.get('active',true) == true
+          && get(/databases/$(database)/documents/$(s.userCollection)/$(s.userId)).data.get('version',0) == s.get('userVersion',0)))
+        && (!s.get('sourceAdmin',false) || (get(/databases/$(database)/documents/usuarios/$(s.sourceUid)).data.papel == 'admin'
+          && get(/databases/$(database)/documents/usuarios/$(s.sourceUid)).data.get('ativo',true) == true));
+    }
+    function opsRole(roles) { return request.auth != null && opsActive() && opsSession().role in roles; }
+    function opsStaff() { return opsRole(['admin','manager','analyst','producer','leader','consultant','mobiliario','logistica']); }
+    function opsManager() { return opsRole(['admin','manager','analyst']); }
+    function opsOrganizerFair(fairId) { return opsRole(['organizer']) && fairId in opsSession().get('fairIds',[]); }
+    function opsOwnPending(data) { return opsRole(['stand']) && data.clientId == opsSession().clientId; }
+    function opsOrganizerPending(data) { return opsRole(['organizer']) && data.get('fairId',-1) in opsSession().get('fairIds',[]); }
+    function opsApproved(data) {
+      let c=get(/databases/$(database)/documents/ops_fair_clients/$(data.orderId)).data;
+      return data.get('orderId','') != '' && c.productionActive == true && c.row_id == data.clientId && c.fair_id == data.fairId
+        && get(/databases/$(database)/documents/ops_orders/$(data.orderId)).data.active == true;
+    }
+    function opsAutoApprove(data) { return get(/databases/$(database)/documents/ops_fairs/$(data.fairId)).data.get('autoApprove',false) == true; }
+    function opsAutoValidate(data) { return get(/databases/$(database)/documents/ops_fairs/$(data.fairId)).data.get('autoValidate',false) == true; }
+    match /ops_sessions/{uid} { allow get: if request.auth != null && request.auth.uid == uid; allow list,write: if false; }
+    match /ops_fairs/{id} {
+      allow read: if opsStaff() || opsOrganizerFair(resource.data.id);
+      allow create, update, delete: if opsRole(['admin']);
+    }
+    match /ops_orders/{id} { allow read: if opsStaff(); allow write: if false; }
+    match /ops_fair_clients/{id} {
+      allow read: if opsStaff() || opsOrganizerFair(resource.data.fair_id) || (opsRole(['stand']) && resource.data.row_id == opsSession().clientId);
+      allow write: if false;
+    }
+    match /ops_cv_status/{id} { allow read: if opsStaff(); allow write: if false; }
+    match /ops_blocks/{id} { allow read: if opsManager(); allow write: if false; }
+    match /ops_pending_items/{id} {
+      allow read: if opsStaff() || opsOwnPending(resource.data) || opsOrganizerPending(resource.data);
+      allow create: if (opsStaff() || opsOwnPending(request.resource.data) || opsOrganizerPending(request.resource.data)) && opsApproved(request.resource.data)
+        && request.resource.data.isResolved == false && request.resource.data.awaitingValidation == false
+        && (opsStaff() || (request.resource.data.origem in ['cliente','organizadora']
+          && (request.resource.data.approvalStatus == 'pendente' || (opsAutoApprove(request.resource.data) && request.resource.data.approvalStatus == 'aprovada'))));
+      allow update: if (opsRole(['admin','manager','consultant','analyst'])
+          && request.resource.data.clientId == resource.data.clientId && request.resource.data.orderId == resource.data.orderId && request.resource.data.fairId == resource.data.fairId)
+        || (opsRole(['producer','leader','mobiliario']) && opsApproved(resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description','photoUrls','resolutionNote','resolutionPhotoUrls','awaitingValidation',
+          'executedBy','executedAt','inProgress','inProgressBy','lastActionBy','lastActionRole','lastActionAt','team','responsible'])
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['executedBy']) || request.resource.data.executedBy == opsSession().name))
+        || (opsRole(['producer','leader','mobiliario']) && opsApproved(resource.data) && opsAutoValidate(resource.data)
+          && request.resource.data.isResolved == true && request.resource.data.get('executedBy','') == opsSession().name
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isResolved','resolvedAt','resolvedBy','resolutionNote','resolutionPhotoUrls','executedBy','executedAt','lastActionBy','lastActionRole','lastActionAt']))
+        || (opsOwnPending(resource.data) && opsApproved(resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description','photoUrls']));
+      allow delete: if opsRole(['admin']);
+    }
+    match /ops_pending_history/{id} { allow read: if opsStaff(); allow write: if false; }
+    match /ops_analyst_notes/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','analyst']); }
+    match /ops_client_owner/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer']); }
+    match /ops_client_status/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer','analyst']); }
+    match /ops_client_specs/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','consultant']); }
+    match /ops_spec_edit_requests/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','consultant']); }
+    match /ops_spec_change_events/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','consultant']); }
+    match /ops_montage_updates/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer','analyst']); }
+    match /ops_furniture_kinds/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','mobiliario']); }
+    match /ops_freight_requests/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer','consultant','logistica']); }
+    match /ops_avisos/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','analyst','consultant']); }
+    match /ops_meetings/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','analyst','consultant']); }
+    match /ops_presence/{id} { allow read,write: if opsStaff(); }
+    match /ops_ignored_fairs/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin']); }
+    match /ops_new_client_broadcasts/{id} { allow read: if opsStaff(); allow write: if opsManager(); }
+    match /ops_sync_events/{id} { allow read: if opsStaff(); allow write: if opsManager(); }
+    match /ops_app_config/{id} { allow read: if request.auth != null; allow write: if false; }
+    // PINs e sessões administrativas: somente as Functions verificadas.
+
+    // END USET OPERACAO
     match /{document=**} {
       allow read, write: if false;
     }

@@ -99,6 +99,36 @@ service firebase.storage {
       allow read: if ehAdmin();
       allow write: if false;
     }
+    // BEGIN USET OPERACAO
+    function opsStorageSession() { return firestore.get(/databases/(default)/documents/ops_sessions/$(request.auth.uid)).data; }
+    function opsStorageActive() {
+      let s=opsStorageSession();
+      return request.auth != null && request.auth.token.get('ops',false) == true && s.expiresAt > request.time.toMillis()
+        && (s.get('userPath','') == '' || (firestore.exists(/databases/(default)/documents/$(s.userCollection)/$(s.userId))
+          && firestore.get(/databases/(default)/documents/$(s.userCollection)/$(s.userId)).data.get('active',true) == true
+          && firestore.get(/databases/(default)/documents/$(s.userCollection)/$(s.userId)).data.get('version',0) == s.get('userVersion',0)))
+        && (!s.get('sourceAdmin',false) || (firestore.get(/databases/(default)/documents/usuarios/$(s.sourceUid)).data.papel == 'admin'
+          && firestore.get(/databases/(default)/documents/usuarios/$(s.sourceUid)).data.get('ativo',true) == true));
+    }
+    match /operacao/pending_photos/{fairId}/{file} {
+      allow read: if opsStorageActive();
+      allow create: if opsStorageActive() && request.resource.size < 15*1024*1024 && request.resource.contentType.matches('image/.*');
+      allow update,delete: if false;
+    }
+    match /operacao/freight_receipts/{file} {
+      allow read: if opsStorageActive();
+      allow create,update: if opsStorageActive() && opsStorageSession().role in ['admin','logistica']
+        && request.resource.size < 15*1024*1024 && request.resource.contentType.matches('image/.*');
+      allow delete: if false;
+    }
+    match /operacao/blocks/{blockId}/{file} {
+      allow read: if opsStorageActive();
+      allow create: if opsStorageActive() && opsStorageSession().role in ['admin','manager','analyst']
+        && request.resource.size < 25*1024*1024 && (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
+      allow update,delete: if false;
+    }
+
+    // END USET OPERACAO
     match /{allPaths=**} {
       allow read, write: if false;
     }
