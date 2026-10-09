@@ -279,13 +279,13 @@ service cloud.firestore {
       allow delete: if opsRole(['admin']);
     }
     match /ops_pending_history/{id} { allow read: if opsStaff(); allow write: if false; }
-    match /ops_analyst_notes/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','analyst']); }
+    match /ops_analyst_notes/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','analyst','mobiliario']); }
     match /ops_client_owner/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer']); }
     match /ops_client_status/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer','analyst']); }
     match /ops_client_specs/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','consultant']); }
     match /ops_spec_edit_requests/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','consultant']); }
     match /ops_spec_change_events/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','consultant']); }
-    match /ops_montage_updates/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer','analyst']); }
+    match /ops_montage_updates/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer','leader','analyst']); }
     match /ops_furniture_kinds/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','mobiliario']); }
     match /ops_freight_requests/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','producer','consultant','logistica']); }
     match /ops_avisos/{id} { allow read: if opsStaff(); allow write: if opsRole(['admin','manager','analyst','consultant']); }
