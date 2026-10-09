@@ -83,14 +83,29 @@ export function uvPlanar(geo, matrizMundo) {
   return geo.userData._uvPlanar
 }
 
-/** Uma única imagem cobre os painéis coplanares do mesmo elemento. */
-export function uvDoElemento(malhas) {
+/** Uma imagem cobre os painéis: paredes pelo interior, testeiras pelo exterior. */
+export function uvDoElemento(malhas, centroDoEstande = null) {
   if (!malhas.length) return new Map()
   const primeira = malhas[0]
+  if (!primeira.geometry.boundingBox) primeira.geometry.computeBoundingBox()
   const tam = primeira.geometry.boundingBox.getSize(new THREE.Vector3()).toArray()
   const eixo = tam.indexOf(Math.min(...tam))
   const normal = new THREE.Vector3(eixo === 0 ? 1 : 0, eixo === 1 ? 1 : 0, eixo === 2 ? 1 : 0)
-    .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(primeira.matrixWorld))
+    .applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(primeira.userData._matrizArteBase || primeira.matrixWorld))
+  // O sinal do eixo local depende do exportador, não do lado usado pelo cliente.
+  // Sem esta referência, a mesma parede fica legível por fora e espelhada por dentro.
+  if (centroDoEstande && Math.abs(normal.y) < 0.5) {
+    const caixa = new THREE.Box3()
+    for (const m of malhas) {
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox()
+      caixa.union(m.geometry.boundingBox.clone().applyMatrix4(m.userData._matrizArteBase || m.matrixWorld))
+    }
+    // O mesmo critério geométrico identifica testeiras na lista de elementos.
+    const testeira = caixa.min.y > 2.2 && caixa.max.y - caixa.min.y < 1.5
+    const sentido = testeira ? -1 : 1
+    const ladoDeLeitura = sentido * centroDoEstande.clone().sub(caixa.getCenter(new THREE.Vector3())).dot(normal)
+    if (ladoDeLeitura < -1e-6 || (Math.abs(ladoDeLeitura) <= 1e-6 && normal.z < 0)) normal.negate()
+  }
   const v = Math.abs(normal.y) < 0.5 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, -1)
   const u = v.clone().cross(normal).normalize()
   v.copy(normal).cross(u).normalize()
@@ -100,7 +115,7 @@ export function uvDoElemento(malhas) {
     const pos = m.geometry.getAttribute('position')
     const pontos = new Float32Array(pos.count * 2)
     for (let i = 0; i < pos.count; i++) {
-      ponto.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld)
+      ponto.fromBufferAttribute(pos, i).applyMatrix4(m.userData._matrizArteBase || m.matrixWorld)
       const x = ponto.dot(u), y = ponto.dot(v)
       pontos[2 * i] = x; pontos[2 * i + 1] = y
       limites[0] = Math.min(limites[0], x); limites[1] = Math.min(limites[1], y)

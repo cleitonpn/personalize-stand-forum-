@@ -371,6 +371,7 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
     cena.updateWorldMatrix(true, true)
     const gruposArte = new Map()
     const gruposFrente = new Map()
+    const caixaStand = new THREE.Box3()
     cena.traverse(o => {
       if (!o.isMesh || !o.geometry?.attributes.position) return
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox()
@@ -381,6 +382,12 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       }
       if (!o.userData._matrizArteBase) o.userData._matrizArteBase = o.matrixWorld.clone()
       const sup = indice?.get(o.userData._chave)
+      const mat = o.userData._matOrig || o.material
+      const nomeMat = (Array.isArray(mat) ? mat[0] : mat)?.name || '(sem material)'
+      const papel = sup?.papel || papeis?.[nomeMat]
+      if (papel !== 'ignorar' && o.userData._visOrig !== false) {
+        caixaStand.union(o.geometry.boundingBox.clone().applyMatrix4(o.userData._matrizArteBase))
+      }
       const obj = (objetos || []).find(x => x.pecas.includes(o.userData._chave))
       const frontal = sup?.arteFrontal ?? /balc[ãa]o|counter|reception/i.test(`${obj?.nome || ''} ${sup?.nome || ''}`)
       if (frontal && sup) {
@@ -391,12 +398,17 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
       const arte = sup && acabamentos?.[sup.id]?.arte
       if (!arte || !sup.elementoId || !['parede', 'piso'].includes(sup.tipoElemento)) return
       const k = `${sup.elementoId}:${arte}`
-      if (!gruposArte.has(k)) gruposArte.set(k, [])
-      gruposArte.get(k).push(o)
+      if (!gruposArte.has(k)) gruposArte.set(k, { malhas: [], parede: sup.tipoElemento === 'parede' })
+      gruposArte.get(k).malhas.push(o)
     })
+    const centroStand = caixaStand.isEmpty() ? null : caixaStand.getCenter(new THREE.Vector3())
+    if (centroStand && recorte) {
+      centroStand.x = (recorte.x0 + recorte.x1) / 2
+      centroStand.z = (recorte.z0 + recorte.z1) / 2
+    }
     const malhasFrontais = new Set([...gruposFrente.values()].flatMap(g=>g.malhas))
     const frentes = new Map([...gruposFrente.values()].flatMap(g => [...projetarFrente(g.malhas, g.angulo)]))
-    const planos = new Map([...gruposArte.values()].flatMap(ms => [...uvDoElemento(ms)]))
+    const planos = new Map([...gruposArte.values()].flatMap(g => [...uvDoElemento(g.malhas, g.parede ? centroStand : null)]))
 
     cena.traverse((o) => {
       if (!o.isMesh) return
@@ -476,7 +488,11 @@ function useRealce(cena, { materialFoco, papeis, modo, mostrarIgnorados, indice,
           // ter UVs diferentes conforme sua posição dentro da parede.
           originais.set(o, o.geometry)
           o.geometry = o.geometry.clone()
-          const plano = frentes.get(o) || planos.get(o) || uvPlanar(o.geometry, o.matrixWorld)
+          const plano = frentes.get(o) || planos.get(o) || (
+            sup.tipoElemento === 'parede'
+              ? uvDoElemento([o], centroStand).get(o)
+              : uvPlanar(o.geometry, o.userData._matrizArteBase || o.matrixWorld)
+          )
           if (plano) o.geometry.setAttribute('uv', plano.attr)
           const key = `${acab.arte}|${plano?.proporcao || 1}|${acab.cor || '#f2f2ee'}|${JSON.stringify(acab.enquadramento || {})}`
           let tex = cacheTexturas.get(key)
